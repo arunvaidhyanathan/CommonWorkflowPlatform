@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Doc: Onboarding Experience (CWP)</title>
+    <style>
+        :root {
+            --citi-blue-dark: #003B70;
+            --citi-blue: #0066B2;
+            --citi-blue-light: #56A0D3;
+            --bg-primary: #FFFFFF;
+            --bg-panel: #EAF3FB;
+            --bg-panel-deep: #D6E7F5;
+            --code-bg: #F4F8FC;
+            --text-primary: #16212E;
+            --text-secondary: #44566B;
+            --border-color: #C2D8EC;
+            --accent-green: #1E7E34;
+            --accent-amber: #A85E00;
+            --accent-red: #C4262E;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { border-bottom: 4px solid var(--citi-blue); padding-bottom: 2rem; margin-bottom: 2.5rem; }
+        h1 { font-size: 2.25rem; color: var(--citi-blue-dark); margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1.1rem; color: var(--text-secondary); }
+        .meta-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-top: 1.5rem; background: var(--bg-panel);
+            padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .meta-item strong { color: var(--citi-blue); display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        section { margin-bottom: 3rem; }
+        h2 { font-size: 1.5rem; color: var(--citi-blue-dark); border-bottom: 2px solid var(--bg-panel-deep); padding-bottom: 0.5rem; margin-bottom: 1.25rem; }
+        h3 { font-size: 1.15rem; color: var(--citi-blue); margin: 1.5rem 0 0.75rem 0; }
+        h4 { font-size: 1rem; color: var(--citi-blue-dark); margin: 1.25rem 0 0.5rem 0; }
+        p { color: var(--text-secondary); margin-bottom: 1rem; }
+        ul, ol { color: var(--text-secondary); margin-left: 1.5rem; margin-bottom: 1rem; }
+        li { margin-bottom: 0.35rem; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background-color: var(--bg-panel); color: var(--citi-blue-dark);
+            padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.875rem;
+        }
+        pre {
+            background-color: var(--code-bg); border: 1px solid var(--border-color);
+            border-left: 4px solid var(--citi-blue); border-radius: 8px;
+            padding: 1.25rem; overflow-x: auto; margin: 1rem 0 1.5rem 0;
+        }
+        pre code { background-color: transparent; color: var(--text-primary); padding: 0; font-size: 0.85rem; line-height: 1.5; }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background-color: var(--bg-primary); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { background-color: var(--citi-blue-dark); color: #FFFFFF; font-weight: 600; }
+        td { color: var(--text-secondary); }
+        tr:nth-child(even) td { background-color: var(--bg-panel); }
+        tr:last-child td { border-bottom: none; }
+        .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .callout { background-color: var(--bg-panel); border-left: 4px solid var(--citi-blue); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; margin: 1.5rem 0; }
+        .callout-title { font-weight: 600; color: var(--citi-blue-dark); margin-bottom: 0.25rem; }
+        .callout-risk { border-left-color: var(--accent-red); }
+        .callout-risk .callout-title { color: var(--accent-red); }
+        .decision { background-color: var(--bg-panel-deep); border: 1px solid var(--citi-blue-light); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+        .decision-title { font-weight: 700; color: var(--citi-blue-dark); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        h2, h3 { scroll-margin-top: 1.5rem; }
+        .toc { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem 1.75rem; margin-bottom: 3rem; }
+        .toc-title { font-size: 1.1rem; font-weight: 700; color: var(--citi-blue-dark); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .toc ol { list-style: none; margin-left: 0; columns: 2; column-gap: 2.5rem; }
+        .toc > ol > li { break-inside: avoid; margin-bottom: 0.4rem; }
+        .toc ol ol { margin: 0.25rem 0 0.5rem 1.25rem; columns: 1; }
+        .toc a { color: var(--citi-blue-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+        .toc ol ol a { color: var(--text-secondary); font-weight: 400; font-size: 0.85rem; }
+        .toc a:hover { color: var(--citi-blue); text-decoration: underline; }
+        .back-to-top { display: inline-block; margin-top: 0.5rem; font-size: 0.75rem; color: var(--citi-blue); text-decoration: none; }
+        .back-to-top:hover { text-decoration: underline; }
+        .stack-table td:first-child { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+        .doc-nav { font-size: 0.85rem; margin-bottom: 1rem; }
+        .doc-nav a { color: var(--citi-blue); text-decoration: none; font-weight: 600; }
+        .doc-nav a:hover { text-decoration: underline; }
+        .mock {
+            border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-panel);
+            padding: 1.25rem; margin: 1rem 0; font-size: 0.85rem; color: var(--text-secondary);
+        }
+        .mock-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--citi-blue); margin-bottom: 0.5rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="doc-nav">&larr; <a href="CWP.html">Common Workflow Platform (CWP) index</a></div>
+    <header>
+        <h1>Onboarding Experience</h1>
+        <div class="subtitle">Component design doc within the Common Workflow Platform (CWP)</div>
+        <div class="meta-grid">
+            <div class="meta-item"><strong>Status</strong>Phases 1&ndash;2 built August 3, 2026 (see Section 6 and Designer.html Section 22.2). Phase 3 still deliberately deferred</div>
+            <div class="meta-item"><strong>Today's Reality</strong>Invite-into-existing-tenant is the supported path in; self-serve new tenant creation is not yet built</div>
+            <div class="meta-item"><strong>Document Version</strong>1.1.0 (Phases 1&ndash;2 implemented)</div>
+            <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
+            <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
+        </div>
+    </header>
+
+    <nav class="toc" id="top">
+        <div class="toc-title">Contents</div>
+        <ol>
+            <li><a href="#sec-0">0. Decision Summary</a></li>
+            <li><a href="#sec-1">1. Problem Statement</a></li>
+            <li><a href="#sec-2">2. The Four Onboarding Flows</a>
+                <ol>
+                    <li><a href="#sec-2-1">2.1 New Tenant Creation</a></li>
+                    <li><a href="#sec-2-2">2.2 Invite Into An Existing Tenant</a></li>
+                    <li><a href="#sec-2-3">2.3 First-Login Guided Tour</a></li>
+                    <li><a href="#sec-2-4">2.4 Empty-State Onboarding</a></li>
+                </ol>
+            </li>
+            <li><a href="#sec-3">3. UI/UX Design Ideas</a></li>
+            <li><a href="#sec-4">4. Data Model Implications</a></li>
+            <li><a href="#sec-5">5. Open Questions &amp; Risks</a></li>
+            <li><a href="#sec-6">6. Phased Approach</a></li>
+            <li><a href="#sec-7">7. Flowable Integration Roadmap (Proposed)</a>
+                <ol>
+                    <li><a href="#sec-7-1">7.1 Tenant-Aware Default App Bundles</a></li>
+                    <li><a href="#sec-7-2">7.2 Tenant-Isolated User &amp; Group Provisioning</a></li>
+                </ol>
+            </li>
+        </ol>
+    </nav>
+
+    <section>
+        <h2 id="sec-0">0. Decision Summary</h2>
+        <p>There is no onboarding today. Every tenant and every user in this project so far has been provisioned by direct SQL against Supabase, run manually. That's fine for a two-person build session; it's a dead end for anyone else who tries to sign up. This document brainstorms what a real onboarding experience should look like, split into four distinct flows that get conflated if treated as one problem.</p>
+        <div class="decision">
+            <div class="decision-title">Framing</div>
+            <p>"Onboarding" isn't one screen, it's four different moments: creating a brand-new tenant, joining an existing one, a new user's first few minutes inside the app, and what an experienced user sees when they hit an empty list. Each needs its own design, even though they'll likely share components.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2 id="sec-1">1. Problem Statement</h2>
+        <p>Today, a brand-new Supabase Auth user who signs up hits <code>DesignerPage</code>'s "Workspace Not Provisioned" screen and stops there -- correct behavior given no self-serve path exists, but a genuine dead end from the user's perspective. There's no way for them to create a tenant, no way for them to ask to join one, and no way for an existing admin to bring them in without someone running SQL by hand. This is the single biggest gap between "this works for us building it" and "this works for anyone we'd hand it to."</p>
+    </section>
+
+    <section>
+        <h2 id="sec-2">2. The Four Onboarding Flows</h2>
+
+        <h3 id="sec-2-1">2.1 New Tenant Creation</h3>
+        <p>The very first user of a brand-new organization. They have no tenant, no invite, nothing to join. Proposed flow: a short form (organization name, slug) submitted through a dedicated, unauthenticated-friendly signup path; on submit, a tenant row is created and the submitting user is automatically assigned <code>tenant_admin</code> (per Governance.html's proposed role) for that new tenant -- they're the first person in, so they have to start as the admin. This is the one flow that unavoidably needs a privileged write (creating a tenant and setting the first user's role), so like <code>admin-set-role</code>, it has to be an edge function, not a direct client write.</p>
+
+        <h3 id="sec-2-2">2.2 Invite Into An Existing Tenant</h3>
+        <p>The far more common case day-to-day: a <code>tenant_admin</code> invites a colleague. Proposed flow, shared design with Governance.html Section 8: admin enters an email and picks a role in Administration, which creates a row in a new <code>invites</code> table and triggers an edge function that calls <code>supabase.auth.admin.inviteUserByEmail</code>. The invited person gets a real email, clicks through, sets a password, and lands already provisioned -- no manual SQL, no waiting on someone else to run a query.</p>
+
+        <h3 id="sec-2-3">2.3 First-Login Guided Tour</h3>
+        <p>For a freshly provisioned user (from either flow above), the first few minutes inside the app matter more than any other session they'll have. Proposed: a lightweight, dismissible tour -- not a blocking modal wizard, which people click through without reading, but a small persistent "Getting Started" panel (see 3.2) that points at real UI (the nav sidebar, the New Workflow button) rather than describing it in the abstract.</p>
+
+        <h3 id="sec-2-4">2.4 Empty-State Onboarding</h3>
+        <p>Every empty list in the app is a missed onboarding opportunity today. The Designer workflow list already has a plain "No workflows yet" message -- that's the right instinct, underused. Proposed: turn every empty state into an action, not just a statement, and specifically use the sample files already sitting in <code>Designer/samples/</code> (the Ethics Investigation case, the Investigation Decisions DMN) as one-click starter imports -- "Don't know where to start? Import a sample case" is a much lower-friction first action than "click New Workflow and figure out BPMN from scratch."</p>
+    </section>
+
+    <section>
+        <h2 id="sec-3">3. UI/UX Design Ideas</h2>
+
+        <h3>3.1 Tenant Creation: Wizard vs. Single Form</h3>
+        <p>Recommend a single short form over a multi-step wizard for 2.1 -- organization name and slug is genuinely all that's required to unblock the first user, and a wizard for a two-field form would be friction for its own sake. Save the multi-step treatment for something that actually has multiple decisions to make (there isn't one here yet).</p>
+
+        <h3>3.2 The "Getting Started" Panel</h3>
+        <div class="mock">
+            <div class="mock-title">Sketch -- shown above the Workflows list until dismissed or all items checked</div>
+            <p>&#9744; Create your first workflow, or import a sample<br>
+            &#9744; Invite a teammate<br>
+            &#9744; Review the Designer basics (links to a short help doc)</p>
+        </div>
+        <p>Each checklist item links directly to the real action (opens the New Workflow dialog pre-filled, opens Administration's invite form, etc.) rather than to a separate help page. Dismissible per-user via a simple <code>profiles</code> flag or local component state; reappears for each new user in a tenant even after the tenant's first user has dismissed it, since it's about the individual's first-run state, not the tenant's.</p>
+
+        <h3>3.3 Role Selection During Invite</h3>
+        <p>The invite form shouldn't just show a bare dropdown of role names -- someone deciding "should this person be a designer or a viewer" benefits from a one-line explanation inline, e.g. next to each option in the picker: "Designer -- can create and edit workflows. Viewer -- can see workflows but not change them. Approver -- can approve or reject submitted changes." Small thing, meaningfully reduces mis-assigned roles.</p>
+
+        <h3>3.4 Empty States As Actions, Everywhere</h3>
+        <p>Beyond the Workflows list: Approvals' "Nothing pending approval right now" and Administration's "No tenant members found" are both currently just text. Approvals' empty state could point back at Designer ("Nothing to review -- see what's in Draft"); Administration's could point at the invite flow once it exists.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-4">4. Data Model Implications</h2>
+        <p>Brainstorm only, no schema decided yet -- flagging what each flow would need so Governance.html and this document stay consistent with each other (Section 8 there covers the same invite need from the administration side):</p>
+        <table class="stack-table">
+            <thead><tr><th>Flow</th><th>New Data Needed</th></tr></thead>
+            <tbody>
+                <tr><td>2.1 New tenant</td><td>No new table -- reuses <code>tenants</code> + <code>profiles</code>, just needs an edge function to do the privileged first-write instead of direct SQL</td></tr>
+                <tr><td>2.2 Invite</td><td><code>invites</code> table (email, tenant_id, role, invited_by, status, token, expires_at) + an edge function using <code>auth.admin.inviteUserByEmail</code></td></tr>
+                <tr><td>2.3 Guided tour</td><td>A per-user "onboarding dismissed" flag -- could live on <code>profiles</code> as a boolean, or purely client-side (localStorage) if it doesn't need to persist across devices</td></tr>
+                <tr><td>2.4 Empty states</td><td>No new data -- purely a UI change referencing the existing sample files</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2 id="sec-5">5. Open Questions &amp; Risks</h2>
+        <ul>
+            <li><strong>Self-serve tenant creation vs. admin-provisioned only?</strong> Letting anyone create a tenant is the friendliest option but means anyone can spin up an org with no gatekeeping -- worth deciding deliberately rather than defaulting into it.</li>
+            <li><strong>Domain-based auto-join?</strong> Common pattern (anyone signing up with an <code>@company.com</code> email auto-joins that company's tenant) -- convenient, but a real security decision, not a default to make lightly.</li>
+            <li><strong>Email deliverability.</strong> The invite flow depends entirely on Supabase Auth's transactional email actually landing, which needs a configured email provider in production, not just the default Supabase sender.</li>
+            <li><strong>Guided tour fatigue.</strong> If it's ever made a blocking modal instead of a dismissible panel, it will get clicked through unread within a week of anyone using the product regularly -- worth resisting that direction even if it seems more "complete."</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2 id="sec-6">6. Phased Approach</h2>
+        <table class="stack-table">
+            <thead><tr><th>Phase</th><th>Scope</th><th>Status</th></tr></thead>
+            <tbody>
+                <tr><td>1</td><td>Invite-into-existing-tenant flow (2.2) + the Getting Started checklist (3.2) -- covers the day-to-day growth case for a tenant that already exists, which is most of what'll actually happen once there's more than one tenant</td><td><span class="badge" style="background:#DDF0E2;color:#1E7E34;">Built</span> &mdash; <code>invite-user</code> edge function, <code>invites</code> table, <code>GettingStartedPanel.tsx</code>. Designer.html Section 22.2</td></tr>
+                <tr><td>2</td><td>Empty-state sample imports (2.4) -- cheap, no new data model, immediately makes the product feel less blank on day one</td><td><span class="badge" style="background:#DDF0E2;color:#1E7E34;">Built</span> &mdash; one-click import buttons in <code>DesignerPage.tsx</code>'s empty state</td></tr>
+                <tr><td>3</td><td>Self-serve new tenant creation (2.1) -- once there's an actual need for multiple independent organizations rather than the single bootstrapped tenant this project has today</td><td><span class="badge" style="background:#F5E4E4;color:#C4262E;">Deferred</span> &mdash; deliberately not built; still one bootstrapped tenant</td></tr>
+            </tbody>
+        </table>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-7">7. Flowable Integration Roadmap (Proposed)</h2>
+        <p>Proposed August 3, 2026. Both items are Phase 6 in <a href="WorkflowWrapper.html">WorkflowWrapper.html</a> Section 9 -- buildable against the invite flow and tenant model already built (Section 2.2, live), without needing a real Flowable engine, since they're about what gets provisioned alongside a new tenant/user, not about runtime execution itself.</p>
+
+        <h3 id="sec-7-1">7.1 Tenant-Aware Default App Bundles</h3>
+        <p>Today, a brand-new tenant starts with an empty <code>workflows</code> list -- Onboarding.html Section 2.4's sample imports (built) address this one user at a time, by hand. Proposed: when a new tenant is provisioned (whether via the still-deferred self-serve tenant creation, Section 2.1/Phase 3, or the existing manual-bootstrap path), automatically deploy a standard set of starter templates -- Document Approval, Incident Management, a common Decision Matrix -- into that tenant's namespace via the Runtime Gateway, once app packaging (Designer.html Section 23.1) exists to define what a "template" actually is.</p>
+
+        <h3 id="sec-7-2">7.2 Tenant-Isolated User &amp; Group Provisioning</h3>
+        <p>The <code>invite-user</code> edge function (Section 2.2, built) already sets <code>app_metadata.tenant_id</code>/<code>role</code> on invite. Proposed extension once the Runtime Gateway exists: mirror that same tenant-scoped identity into the gateway's authorization model with tenant-prefixed keys (e.g. <code>tenantA:designer</code>), matching Flowable's own multi-tenancy convention of prefixing group IDs with a tenant key to keep identity globally unique while staying tenant-isolated. This is additive to the invite flow, not a replacement -- Supabase stays the single identity provider (CWP.html Section 2); the Runtime Gateway just needs its own tenant-safe representation of "who is this" for the runtime-shaped endpoints in WorkflowWrapper.html Section 8.</p>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dmn:definitions xmlns:dmn="https://www.omg.org/spec/DMN/20191111/MODEL/" id="Definitions_InvestigationDecisions" name="Investigation Case Decisions" namespace="http://waas.citi.com/dmn/investigation">
+  <dmn:decision id="Decision_RiskScoreAggregation" name="Risk Score Aggregation">
+    <dmn:decisionTable id="DecisionTable_Risk" hitPolicy="COLLECT" aggregation="SUM">
+      <dmn:input id="Input_1" label="Department">
+        <dmn:inputExpression id="IE_1" typeRef="string">
+          <dmn:text>department</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="Input_2" label="Prior Incident Count">
+        <dmn:inputExpression id="IE_2" typeRef="number">
+          <dmn:text>priorIncidentCount</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="Output_1" name="riskPoints" typeRef="number" />
+      <dmn:rule id="Rule_1">
+        <dmn:inputEntry id="IE1_1">
+          <dmn:text>"Trading"</dmn:text>
+        </dmn:inputEntry>
+        <dmn:inputEntry id="IE1_2">
+          <dmn:text>&gt;= 3</dmn:text>
+        </dmn:inputEntry>
+        <dmn:outputEntry id="OE1_1">
+          <dmn:text>25</dmn:text>
+        </dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="Rule_2">
+        <dmn:inputEntry id="IE2_1">
+          <dmn:text>"Trading"</dmn:text>
+        </dmn:inputEntry>
+        <dmn:inputEntry id="IE2_2">
+          <dmn:text>&lt; 3</dmn:text>
+        </dmn:inputEntry>
+        <dmn:outputEntry id="OE2_1">
+          <dmn:text>10</dmn:text>
+        </dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="Rule_3">
+        <dmn:inputEntry id="IE3_1">
+          <dmn:text>"Compliance"</dmn:text>
+        </dmn:inputEntry>
+        <dmn:inputEntry id="IE3_2">
+          <dmn:text>-</dmn:text>
+        </dmn:inputEntry>
+        <dmn:outputEntry id="OE3_1">
+          <dmn:text>15</dmn:text>
+        </dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="Rule_4">
+        <dmn:inputEntry id="IE4_1">
+          <dmn:text>-</dmn:text>
+        </dmn:inputEntry>
+        <dmn:inputEntry id="IE4_2">
+          <dmn:text>&gt;= 5</dmn:text>
+        </dmn:inputEntry>
+        <dmn:outputEntry id="OE4_1">
+          <dmn:text>20</dmn:text>
+        </dmn:outputEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+  <dmn:decision id="Decision_SanctionSeverity" name="Sanction Severity">
+    <dmn:informationRequirement id="IR_1">
+      <dmn:requiredDecision href="#Decision_RiskScoreAggregation" />
+    </dmn:informationRequirement>
+    <dmn:decisionTable id="DecisionTable_Sanction" hitPolicy="PRIORITY">
+      <dmn:input id="Input_3" label="Violation Type">
+        <dmn:inputExpression id="IE_3" typeRef="string">
+          <dmn:text>violationType</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="Input_4" label="Risk Score">
+        <dmn:inputExpression id="IE_4" typeRef="number">
+          <dmn:text>riskScore</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="Output_2" name="severity" typeRef="string">
+        <dmn:outputValues id="OV_2">
+          <dmn:text>"critical","high","medium","low"</dmn:text>
+        </dmn:outputValues>
+      </dmn:output>
+      <dmn:output id="Output_3" name="requiresBoardApproval" typeRef="boolean" />
+      <dmn:rule id="Rule_5">
+        <dmn:inputEntry id="IE5_1">
+          <dmn:text>"fraud","embezzlement"</dmn:text>
+        </dmn:inputEntry>
+        <dmn:inputEntry id="IE5_2">
+          <dmn:text>&gt;= 20</dmn:text>
+        </dmn:inputEntry>
+        <dmn:outputEntry id="OE5_1">
+          <dmn:text>"critical"</dmn:text>
+        </dmn:outputEntry>
+        <dmn:outputEntry id="OE5_2">
+          <dmn:text>true</dmn:text>
+        </dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="Rule_6">
+        <dmn:inputEntry id="IE6_1">
+          <dmn:text>"fraud","embezzlement"</dmn:text>
+        </dmn:inputEntry>
+        <dmn:inputEntry id="IE6_2">
+          <dmn:text>&lt; 20</dmn:text>
+        </dmn:inputEntry>
+        <dmn:outputEntry id="OE6_1">
+          <dmn:text>"high"</dmn:text>
+        </dmn:outputEntry>
+        <dmn:outputEntry id="OE6_2">
+          <dmn:text>true</dmn:text>
+        </dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="Rule_7">
+        <dmn:inputEntry id="IE7_1">
+          <dmn:text>"policy_violation"</dmn:text>
+        </dmn:inputEntry>
+        <dmn:inputEntry id="IE7_2">
+          <dmn:text>&gt;= 15</dmn:text>
+        </dmn:inputEntry>
+        <dmn:outputEntry id="OE7_1">
+          <dmn:text>"medium"</dmn:text>
+        </dmn:outputEntry>
+        <dmn:outputEntry id="OE7_2">
+          <dmn:text>false</dmn:text>
+        </dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="Rule_8">
+        <dmn:inputEntry id="IE8_1">
+          <dmn:text>-</dmn:text>
+        </dmn:inputEntry>
+        <dmn:inputEntry id="IE8_2">
+          <dmn:text>-</dmn:text>
+        </dmn:inputEntry>
+        <dmn:outputEntry id="OE8_1">
+          <dmn:text>"low"</dmn:text>
+        </dmn:outputEntry>
+        <dmn:outputEntry id="OE8_2">
+          <dmn:text>false</dmn:text>
+        </dmn:outputEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+  <dmn:decision id="Decision_EscalationPath" name="Escalation Path">
+    <dmn:informationRequirement id="IR_2">
+      <dmn:requiredDecision href="#Decision_SanctionSeverity" />
+    </dmn:informationRequirement>
+    <dmn:decisionTable id="DecisionTable_Escalation">
+      <dmn:input id="Input_5" label="Severity">
+        <dmn:inputExpression id="IE_5" typeRef="string">
+          <dmn:text>severity</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="Input_6" label="Requires Board Approval">
+        <dmn:inputExpression id="IE_6" typeRef="boolean">
+          <dmn:text>requiresBoardApproval</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="Output_4" name="escalationOwner" typeRef="string" />
+      <dmn:output id="Output_5" name="slaDays" typeRef="number" />
+      <dmn:rule id="Rule_9">
+        <dmn:inputEntry id="IE9_1">
+          <dmn:text>"critical"</dmn:text>
+        </dmn:inputEntry>
+        <dmn:inputEntry id="IE9_2">
+          <dmn:text>true</dmn:text>
+        </dmn:inputEntry>
+        <dmn:outputEntry id="OE9_1">
+          <dmn:text>"Board Ethics Committee"</dmn:text>
+        </dmn:outputEntry>
+        <dmn:outputEntry id="OE9_2">
+          <dmn:text>2</dmn:text>
+        </dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="Rule_10">
+        <dmn:inputEntry id="IE10_1">
+          <dmn:text>"high"</dmn:text>
+        </dmn:inputEntry>
+        <dmn:inputEntry id="IE10_2">
+          <dmn:text>true</dmn:text>
+        </dmn:inputEntry>
+        <dmn:outputEntry id="OE10_1">
+          <dmn:text>"Chief Compliance Officer"</dmn:text>
+        </dmn:outputEntry>
+        <dmn:outputEntry id="OE10_2">
+          <dmn:text>5</dmn:text>
+        </dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="Rule_11">
+        <dmn:inputEntry id="IE11_1">
+          <dmn:text>"medium"</dmn:text>
+        </dmn:inputEntry>
+        <dmn:inputEntry id="IE11_2">
+          <dmn:text>false</dmn:text>
+        </dmn:inputEntry>
+        <dmn:outputEntry id="OE11_1">
+          <dmn:text>"Regional Compliance Manager"</dmn:text>
+        </dmn:outputEntry>
+        <dmn:outputEntry id="OE11_2">
+          <dmn:text>10</dmn:text>
+        </dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="Rule_12">
+        <dmn:inputEntry id="IE12_1">
+          <dmn:text>"low"</dmn:text>
+        </dmn:inputEntry>
+        <dmn:inputEntry id="IE12_2">
+          <dmn:text>false</dmn:text>
+        </dmn:inputEntry>
+        <dmn:outputEntry id="OE12_1">
+          <dmn:text>"Case Analyst"</dmn:text>
+        </dmn:outputEntry>
+        <dmn:outputEntry id="OE12_2">
+          <dmn:text>20</dmn:text>
+        </dmn:outputEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+</dmn:definitions>

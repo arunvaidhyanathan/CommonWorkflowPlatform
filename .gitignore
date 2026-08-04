@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# Node (Designer)
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Java (Workflow-Wrapper) -- uncompiled in this environment, but ignore
+# build output for whenever it is compiled elsewhere
+target/
+*.class
+*.jar
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.sw?
+
+# Logs
+*.log
+npm-debug.log*

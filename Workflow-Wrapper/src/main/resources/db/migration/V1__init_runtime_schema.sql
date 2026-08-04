@@ -1,0 +1,7 @@
+-- SUPERSEDED: this project uses Liquibase, not Flyway (changed mid-scaffold
+-- per direct instruction). The real, active changelog lives at
+-- src/main/resources/db/changelog/. This file is intentionally inert --
+-- Flyway is no longer a dependency (see pom.xml), so nothing reads this
+-- directory anymore. Left in place with this notice rather than deleted,
+-- since file deletion in the mounted workspace needs separate confirmation.
+-- Safe to delete by hand.

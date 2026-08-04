@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Runtime Gateway -- CWP's Workflow Wrapper service.
+
+  See /Users/arunvaidhyanathan/Developer/WaaS/Documents/WorkflowWrapper.html
+  for the full architecture decision. Short version: this embeds a real
+  Flowable 8.0.0 engine (Process/CMMN/DMN/IDM) directly in-process via
+  flowable-spring-boot-starter. An earlier version of this project believed
+  Flowable didn't run on Spring Boot 4 and built a thin, engine-less stub
+  layer instead -- that was true when first checked, but Flowable 8.0.0
+  shipped official Spring Boot 4 support in February 2026 and this wasn't
+  rechecked until well after Phase 1 was built (see WorkflowWrapper.html
+  Section 4's correction). Deployments, case-instance queries, and history
+  queries now hit the real embedded engine. Form-definition rendering is
+  still a stub: Flowable's standalone Form Engine is deprecated as of 7.0.1
+  and has no direct replacement with the same shape -- that needs its own
+  design pass, not just wiring (see WorkflowWrapper.html Section 10).
+
+  NOT YET COMPILED: this project was written in a sandbox with only JDK 11,
+  no Maven, and no network access to resolve dependencies. It has been
+  reviewed carefully by hand but needs `mvn clean verify` on a machine with
+  JDK 21 and network access before it can be trusted the way normally
+  CI-verified code would be. See README.md.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.0</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.waas</groupId>
+    <artifactId>runtime-gateway</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <name>runtime-gateway</name>
+    <description>CWP Workflow Wrapper: Runtime Gateway microservice (thin API layer, Phase 1)</description>
+
+    <!-- Java 21, not 25: Spring Boot 4.0 supports 17 through 25, but
+         Flowable's own official system-requirements table only lists 17
+         or 21 as supported for its current product line -- Java 25 only
+         appears in an example log in Flowable's docs, not in that support
+         matrix. 21 is the one version both projects formally commit to.
+         See WorkflowWrapper.html Section 3. -->
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Flowable 8.0.0: officially supports Spring Boot 4 / Spring
+             Framework 7 (confirmed via flowable.com/open-source/docs and
+             Maven Central -- see WorkflowWrapper.html Section 4's
+             correction). Bundles the Process (BPMN), CMMN, DMN, and IDM
+             engines, embedded in-process. Deliberately NOT
+             flowable-spring-boot-starter-rest: that would also expose
+             Flowable's own REST API (separately secured, IDM/Basic-Auth
+             oriented), which would conflict with this service's single
+             Supabase-JWT security model (WorkflowWrapper.html Section 5/7).
+             Version pinned explicitly since Spring Boot's own BOM does not
+             manage Flowable's version. -->
+        <dependency>
+            <groupId>org.flowable</groupId>
+            <artifactId>flowable-spring-boot-starter</artifactId>
+            <version>8.0.0</version>
+        </dependency>
+
+        <!-- Liquibase: schema migrations for the `runtime` schema (Spring
+             Boot autoconfigures this once liquibase-core is on the
+             classpath and a changelog exists at the default location, or
+             the location configured in application.yml). Version managed
+             by the Spring Boot parent BOM. -->
+        <dependency>
+            <groupId>org.liquibase</groupId>
+            <artifactId>liquibase-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

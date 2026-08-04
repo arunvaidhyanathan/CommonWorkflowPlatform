@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Common Workflow Platform (CWP) -- Platform Index</title>
+    <style>
+        :root {
+            --citi-blue-dark: #003B70;
+            --citi-blue: #0066B2;
+            --citi-blue-light: #56A0D3;
+            --bg-primary: #FFFFFF;
+            --bg-panel: #EAF3FB;
+            --bg-panel-deep: #D6E7F5;
+            --code-bg: #F4F8FC;
+            --text-primary: #16212E;
+            --text-secondary: #44566B;
+            --border-color: #C2D8EC;
+            --accent-green: #1E7E34;
+            --accent-amber: #A85E00;
+            --accent-red: #C4262E;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { border-bottom: 4px solid var(--citi-blue); padding-bottom: 2rem; margin-bottom: 2.5rem; }
+        h1 { font-size: 2.25rem; color: var(--citi-blue-dark); margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1.1rem; color: var(--text-secondary); }
+        .meta-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-top: 1.5rem; background: var(--bg-panel);
+            padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .meta-item strong { color: var(--citi-blue); display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        section { margin-bottom: 3rem; }
+        h2 { font-size: 1.5rem; color: var(--citi-blue-dark); border-bottom: 2px solid var(--bg-panel-deep); padding-bottom: 0.5rem; margin-bottom: 1.25rem; }
+        h3 { font-size: 1.15rem; color: var(--citi-blue); margin: 1.5rem 0 0.75rem 0; }
+        p { color: var(--text-secondary); margin-bottom: 1rem; }
+        ul, ol { color: var(--text-secondary); margin-left: 1.5rem; margin-bottom: 1rem; }
+        li { margin-bottom: 0.35rem; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background-color: var(--bg-panel); color: var(--citi-blue-dark);
+            padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.875rem;
+        }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background-color: var(--bg-primary); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { background-color: var(--citi-blue-dark); color: #FFFFFF; font-weight: 600; }
+        td { color: var(--text-secondary); }
+        tr:nth-child(even) td { background-color: var(--bg-panel); }
+        tr:last-child td { border-bottom: none; }
+        td a { color: var(--citi-blue); font-weight: 600; text-decoration: none; }
+        td a:hover { text-decoration: underline; }
+        .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .badge-built { background-color: #DDF0E2; color: var(--accent-green); }
+        .badge-design { background-color: var(--bg-panel-deep); color: var(--citi-blue-dark); }
+        .badge-future { background-color: #F5E4E4; color: var(--accent-red); }
+        .callout { background-color: var(--bg-panel); border-left: 4px solid var(--citi-blue); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; margin: 1.5rem 0; }
+        .callout-title { font-weight: 600; color: var(--citi-blue-dark); margin-bottom: 0.25rem; }
+        .decision { background-color: var(--bg-panel-deep); border: 1px solid var(--citi-blue-light); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+        .decision-title { font-weight: 700; color: var(--citi-blue-dark); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        h2, h3 { scroll-margin-top: 1.5rem; }
+        .toc { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem 1.75rem; margin-bottom: 3rem; }
+        .toc-title { font-size: 1.1rem; font-weight: 700; color: var(--citi-blue-dark); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .toc ol { list-style: none; margin-left: 0; }
+        .toc > ol > li { margin-bottom: 0.4rem; }
+        .toc a { color: var(--citi-blue-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+        .toc a:hover { color: var(--citi-blue); text-decoration: underline; }
+        .back-to-top { display: inline-block; margin-top: 0.5rem; font-size: 0.75rem; color: var(--citi-blue); text-decoration: none; }
+        .back-to-top:hover { text-decoration: underline; }
+        .doc-card {
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem;
+            margin-bottom: 1rem; background: var(--bg-primary);
+        }
+        .doc-card h3 { margin-top: 0; }
+        .doc-card a.doc-link { font-size: 0.85rem; font-weight: 600; color: var(--citi-blue); text-decoration: none; }
+        .doc-card a.doc-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Common Workflow Platform (CWP)</h1>
+        <div class="subtitle">Platform-level index. This document is the map; each component has its own design doc.</div>
+        <div class="meta-grid">
+            <div class="meta-item"><strong>Scope</strong>Multi-component workflow authoring, operations, and governance platform</div>
+            <div class="meta-item"><strong>Foundation</strong>Supabase (Postgres + Auth + RLS), single project, multi-tenant</div>
+            <div class="meta-item"><strong>Document Version</strong>1.0.0 (Platform Baseline)</div>
+            <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
+            <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
+        </div>
+    </header>
+
+    <nav class="toc" id="top">
+        <div class="toc-title">Contents</div>
+        <ol>
+            <li><a href="#sec-0">0. Why This Document Exists</a></li>
+            <li><a href="#sec-1">1. Component Map</a></li>
+            <li><a href="#sec-2">2. Cross-Cutting Architecture</a></li>
+            <li><a href="#sec-3">3. Out Of Scope (For Now)</a></li>
+            <li><a href="#sec-4">4. Document Map</a></li>
+            <li><a href="#sec-5">5. New Session Kickoff Brief</a></li>
+        </ol>
+    </nav>
+
+    <section>
+        <h2 id="sec-0">0. Why This Document Exists</h2>
+        <p><code>Designer.html</code> was the right source of truth while the Designer sub-app was the only thing being built. It no longer is. The platform now spans an app shell, a Designer (built), an Onboarding flow (design phase), a Workbench (design phase), and a Governance model (built, with real gaps identified for a next iteration) -- plus two explicitly deferred components. Calling the whole thing "Designer" stopped being accurate. <strong>Common Workflow Platform (CWP)</strong> is the umbrella name for everything; this document is the map, not a replacement for the detailed component docs it links to.</p>
+        <div class="decision">
+            <div class="decision-title">Document Set Rationale</div>
+            <p>One file per component instead of one ever-growing file, specifically so a new session only has to load the doc relevant to what it's working on, rather than the entire platform's history. This index is what makes that navigable rather than fragmented.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2 id="sec-1">1. Component Map</h2>
+        <table class="stack-table">
+            <thead><tr><th>Component</th><th>Status</th><th>Purpose</th><th>Design Doc</th></tr></thead>
+            <tbody>
+                <tr><td>App Shell</td><td><span class="badge badge-built">Built</span></td><td>Header + sidebar navigation wrapping every route; session/role display; sign out</td><td>Designer.html Section 21.2</td></tr>
+                <tr><td>Designer</td><td><span class="badge badge-built">Built</span></td><td>BPMN / CMMN / DMN authoring canvas, import/export, save-versioning. Two data-integrity fixes landed August 3: stale <code>approved</code> status now auto-resets to <code>draft</code> on re-save, and team member email now mirrors <code>auth.users</code>. Also August 3: a one-click <strong>Publish</strong> button (Runtime Gateway Phase 2) for <code>tenant_admin</code> accounts once a version is <code>approved</code></td><td><a href="Designer.html">Designer.html</a> Section 22.4&ndash;22.5, 23.3</td></tr>
+                <tr><td>Onboarding</td><td><span class="badge badge-built">Built (Phases 1&ndash;2)</span></td><td>Invite-into-existing-tenant flow, Getting Started checklist, empty-state sample imports. Self-serve new tenant creation (Phase 3) still deliberately deferred</td><td><a href="Onboarding.html">Onboarding.html</a></td></tr>
+                <tr><td>Workbench</td><td><span class="badge badge-built">Built (Phases 1&ndash;3)</span></td><td>My Work dashboard, quick actions, global search, nav badge counts. Full activity feed (Phase 4) not yet built</td><td><a href="Workbench.html">Workbench.html</a></td></tr>
+                <tr><td>Governance (Administration + Approvals)</td><td><span class="badge badge-built">Built (Phases 1&ndash;4)</span></td><td>tenant_admin/approver role split, self-approval block, audit log, invite/deactivate. Delegation and platform_superadmin (Phases 5&ndash;6) not yet built</td><td><a href="Governance.html">Governance.html</a> (roadmap); Designer.html Section 22.1 (as-built)</td></tr>
+                <tr><td>Workflow Wrapper</td><td><span class="badge badge-built">Phases 1, 2, 7 &amp; 8 (partial) built</span></td><td>Java 21 / Spring Boot 4 Runtime Gateway service at <code>WaaS/Workflow-Wrapper</code> (Java target corrected from 25 to 21 -- Flowable's official system requirements only list 17/21, not 25; WorkflowWrapper.html Section 3), now embedding a real Flowable 8.0.0 engine (Process/CMMN/DMN) -- Flowable's Spring Boot 4 support shipped February 2026 and was missed until caught mid-session (Section 4). JWT-secured <code>/runtime/deployments</code> API (real <code>manifest</code> payload) deploys for real via Flowable's <code>RepositoryService</code>/<code>CmmnRepositoryService</code>/<code>DmnRepositoryService</code>, gated by a <code>tenant_admin</code>-only deploy-authority check; case-instances and history now query the real engine too. Form-definitions remains a stub -- Flowable's standalone Form Engine is deprecated, needs a redesign, not just wiring. Designer's one-click <strong>Publish</strong> button (Phase 2) calls all of this end to end. A new operator page, <code>WorkflowWrapperPage.tsx</code> at the <code>/workflow-wrapper</code> route, gives read visibility into deployments, live CMMN case instances, and BPMN task history (Workbench.html Section 7.1, Phase 8 partial) -- execution diagram overlays and dynamic form rendering are explicitly flagged as not built. Java side uncompiled/unverified (no JDK/Maven/network in the build environment); frontend side verified via <code>tsc -b</code></td><td><a href="WorkflowWrapper.html">WorkflowWrapper.html</a></td></tr>
+                <tr><td>Agentic Designer</td><td><span class="badge badge-future">Out of scope</span></td><td>Agent-assisted authoring mode</td><td>Not started</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2 id="sec-2">2. Cross-Cutting Architecture</h2>
+        <p>What every component shares, so this doesn't need re-explaining in each component doc:</p>
+        <ul>
+            <li><strong>Single Supabase project</strong> (<code>nrhsoabqeskybrznxfyi</code>) with row-level security as the tenant isolation boundary -- every table is scoped by <code>tenant_id</code>, checked against <code>current_tenant_id()</code>, which reads the caller's JWT <code>app_metadata.tenant_id</code> claim.</li>
+            <li><strong>One Vite + React 19 + TypeScript SPA</strong> at <code>WaaS/Designer</code> -- despite the folder name, this is now the CWP application shell; component screens are routes within it, not separate apps. (Renaming the folder is a future housekeeping item, not urgent.)</li>
+            <li><strong>Shared role claim</strong>, <code>app_metadata.role</code>, read via <code>current_role_claim()</code> in every RLS policy. Governance.html proposes evolving this from three flat values to a richer model; whatever that becomes, it stays the single mechanism every component's authorization checks against.</li>
+            <li><strong>Privileged writes go through edge functions</strong>, never a direct client write with elevated permission -- established with <code>admin-set-role</code>, and the pattern every future privileged operation (tenant creation, invites) should follow.</li>
+            <li><strong>Shared visual theme</strong> -- the Citi light-blue design tokens (<code>--citi-blue-dark</code>, <code>--citi-blue</code>, etc.) are currently duplicated as inline Tailwind/CSS across the app and across each of these HTML docs. Worth extracting into one shared source eventually; not urgent while the component count is still small.</li>
+            <li><strong>Two backends, not one, as of August 3, 2026</strong> -- Supabase remains the single source of truth for identity, tenancy, RLS, and all design-time data (unchanged). A second, additive backend, the Java 21 / Spring Boot 4 <strong>Runtime Gateway</strong> (<a href="WorkflowWrapper.html">WorkflowWrapper.html</a>), owns everything workflow-<em>runtime</em>-shaped (deployments, historic instances, CMMN plan-item state). It connects to the same Postgres project via a new <code>runtime</code> schema over direct JDBC, not through PostgREST/RLS -- it's a privileged component like an edge function, not a browser client, and is responsible for its own tenant scoping in application code. A real Flowable 8.0.0 engine is embedded in-process (Process/CMMN/DMN) -- an earlier version of this document believed Flowable didn't run on Spring Boot 4, which was true when first checked but was five months stale by the time it mattered; see WorkflowWrapper.html Section 4 for the correction. Form rendering is the one piece still unbuilt: Flowable's standalone Form Engine is deprecated, and the replacement needs its own design pass.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2 id="sec-3">3. Out Of Scope (For Now)</h2>
+        <p>Explicitly deferred per direct instruction, not forgotten:</p>
+        <ul>
+            <li><strong>Agentic Designer</strong> -- an agent-assisted authoring mode, planned to eventually use Python. Nothing to design yet; naturally depends on Designer's editors being mature first.</li>
+        </ul>
+        <p>Workflow Wrapper moved out of this list on August 3, 2026 -- see the Component Map above and <a href="WorkflowWrapper.html">WorkflowWrapper.html</a>. It has real routes and placeholder screens in the app shell already (Designer.html Section 21.2); Agentic Designer does too, so the navigation stays honest about what exists even though that one feature doesn't yet.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-4">4. Document Map</h2>
+        <div class="doc-card">
+            <h3>Designer.html <a class="doc-link" href="Designer.html">Open &rarr;</a></h3>
+            <p>The original technical design document, now scoped to the Designer component specifically: BPMN/CMMN/DMN adapters, the canvas/store architecture, the app shell/export/Administration/Approvals screens (Section 21, August 1 build), and the Governance rebuild + Onboarding/Workbench build-out + two data-integrity fixes (Section 22, August 3 build). Sections 0&ndash;22.</p>
+        </div>
+        <div class="doc-card">
+            <h3>Onboarding.html <a class="doc-link" href="Onboarding.html">Open &rarr;</a></h3>
+            <p>The four onboarding flows (new tenant, invite, first-login tour, empty states), UI ideas, and a phased approach. Phases 1&ndash;2 (invite flow, Getting Started, sample imports) built; Phase 3 (self-serve tenant creation) deliberately deferred.</p>
+        </div>
+        <div class="doc-card">
+            <h3>Workbench.html <a class="doc-link" href="Workbench.html">Open &rarr;</a></h3>
+            <p>The day-to-day operator dashboard: My Work cards, activity feed, global search, notifications, and the open question of whether Workbench should become the post-login landing page. Phases 1&ndash;3 (My Work dashboard, search/quick actions, nav badges) built; Phase 4 (full activity feed) and Phase 5 (landing-page decision) not yet.</p>
+        </div>
+        <div class="doc-card">
+            <h3>Governance.html <a class="doc-link" href="Governance.html">Open &rarr;</a></h3>
+            <p>Critique of the original flat 3-role model and a proposed platform-vs-tenant role tiering, a dedicated approver role, segregation of duties, audit logging, invite/deactivate, delegation, and cross-tenant oversight. Phases 1&ndash;4 (approver role, self-approval block, audit log, invite/deactivate) built; Phases 5&ndash;6 (delegation, <code>platform_superadmin</code>) not yet. Section 11 (new) proposes Flowable-driven extensions: deployment target mapping, engine history linkage, and a deploy-authority SoD enforcer.</p>
+        </div>
+        <div class="doc-card">
+            <h3>WorkflowWrapper.html <a class="doc-link" href="WorkflowWrapper.html">Open &rarr;</a></h3>
+            <p>The Runtime Gateway architecture: Java 21 / Spring Boot 4 microservice design (corrected from Java 25 -- Flowable's official system requirements list 17/21, not 25), why it's additive rather than a pivot from an existing Node backend, the Flowable/Spring Boot 4 compatibility question (initially misjudged, later corrected -- Section 4), service boundaries versus Supabase, and the full phased roadmap covering every Flowable-integration item across all four other component docs. Updated August 3, 2026: Phases 1, 2, and 7 (gateway scaffold, Designer Publish, and real Flowable 8.0.0 engine embedding) are now real code at <code>WaaS/Workflow-Wrapper</code>, plus Governance's Phase 4 SoD check -- uncompiled/unverified pending a real JDK 21/Maven/network build environment. Phase 8 is now partially built too: a read-only operator page (<code>WorkflowWrapperPage.tsx</code>) surfaces deployments, live case instances, and task history, verified via <code>tsc -b</code>. Phases 3, 5, 6, 9, and the rest of 8 (form rendering, diagram overlays) remain design-only.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2 id="sec-5">5. New Session Kickoff Brief</h2>
+        <p>Paste this into a new conversation to re-establish context without re-deriving it:</p>
+        <div class="callout">
+            <div class="callout-title">Kickoff Prompt</div>
+            <p>Continuing work on the Common Workflow Platform (CWP). Start by reading <code>/Users/arunvaidhyanathan/Developer/WaaS/Documents/CWP.html</code> -- it's the platform-level index and links out to the five component docs (Designer, Onboarding, Workbench, Governance, WorkflowWrapper) in the same folder. The app itself is a working Vite + React 19 + TypeScript SPA at <code>/Users/arunvaidhyanathan/Developer/WaaS/Designer</code>, backed by Supabase (project <code>nrhsoabqeskybrznxfyi</code>) with RLS. As of this writing (August 3, 2026): the app shell, Designer (BPMN/CMMN/DMN authoring), Export, Administration (Team &amp; Roles / Invites / Workflow Governance / Audit Log tabs), Approvals, Onboarding (invite flow, Getting Started checklist, sample imports), and Workbench (My Work dashboard, search, quick actions, nav badges) are all built and working. The role model is <code>designer</code> / <code>tenant_admin</code> / <code>approver</code> / <code>viewer</code> -- only <code>approver</code> can decide approvals, never its own submission, enforced at the RLS layer. A generic <code>audit_logs</code> table logs role/status changes, workflow deletes/archives, approval decisions, and automatic stale-status resets. Team member email mirrors <code>auth.users</code> via a sync trigger.</p>
+            <p style="margin-top:0.75rem;">A Flowable-capability brief prompted moving Workflow Wrapper out of "out of scope" into an additive, new Java 21 / Spring Boot 4 <strong>Runtime Gateway</strong> microservice, connecting to the same Postgres project via a new <code>runtime</code> schema (there is no existing Node backend anywhere in this platform, so this is not a migration). It embeds a real Flowable 8.0.0 engine (Process/CMMN/DMN) in-process -- WorkflowWrapper.html originally believed Flowable didn't run on Spring Boot 4 (true when first checked against Flowable 7.x), but Flowable 8.0.0 shipped official Spring Boot 4 support in February 2026 and this wasn't rechecked until well into the build; see WorkflowWrapper.html Section 4 for the full correction. Java target was also corrected from 25 to 21, since Flowable's official system requirements list 17/21 as supported, not 25.</p>
+            <p style="margin-top:0.75rem;">As of August 3, 2026: Phase 1 (gateway scaffold), Phase 2 (Designer's one-click Publish), Phase 7 (real Flowable engine embedding), and Governance's Phase 4 (deploy-authority SoD check) have all been built as real code. The Runtime Gateway lives at <code>/Users/arunvaidhyanathan/Developer/WaaS/Workflow-Wrapper</code> -- JWT auth against Supabase JWKS, a <code>/runtime/deployments</code> API that deploys real manifest artifacts to Flowable's <code>RepositoryService</code>/<code>CmmnRepositoryService</code>/<code>DmnRepositoryService</code> gated to <code>tenant_admin</code>, real <code>/runtime/case-instances</code> and <code>/runtime/history/task-instances</code> reading from the embedded engine, and Liquibase-managed <code>runtime</code> schema migrations already applied to the live Supabase project (<code>nrhsoabqeskybrznxfyi</code>). <code>/runtime/form-definitions/{id}</code> is still a stub -- Flowable's standalone Form Engine is deprecated and needs a redesign, not just wiring. <strong>The Java side has not been compiled or run</strong> -- written in a sandbox with only JDK 11, no Maven, and no network access, so <code>mvn clean verify</code> on a real JDK 21/Maven/network environment is the next required step, and is a bigger risk now than before given how much more surface area the engine embedding added; see that project's <code>README.md</code>. The Designer side (a <strong>Publish</strong> button in <code>DesignerPage.tsx</code>, plus <code>lib/runtimeGatewayClient.ts</code> and <code>data/deployments.ts</code>) <strong>was verified</strong> with <code>tsc -b</code> (zero type errors); a full <code>vite build</code>/<code>oxlint</code> pass could not complete in this session's sandbox due to missing native bindings for its CPU architecture (unrelated to the change). Phase 8 (Workbench.html Section 7) is now partially built too: <code>WorkflowWrapperPage.tsx</code> at the pre-existing <code>/workflow-wrapper</code> route (not inside <code>WorkbenchPage.tsx</code> -- see Workbench.html Section 7.1 for why) gives read-only visibility into deployments, live CMMN case instances, and BPMN task history, also verified via <code>tsc -b</code>. Execution diagram overlays and dynamic form rendering are explicitly flagged as not built, not silently skipped. Phases 3, 5, 6, and 9 remain design-only. Ask what to work on next before assuming.</p>
+        </div>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+</div>
+
+</body>
+</html>

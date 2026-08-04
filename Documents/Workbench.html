@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Doc: Workbench Experience (CWP)</title>
+    <style>
+        :root {
+            --citi-blue-dark: #003B70;
+            --citi-blue: #0066B2;
+            --citi-blue-light: #56A0D3;
+            --bg-primary: #FFFFFF;
+            --bg-panel: #EAF3FB;
+            --bg-panel-deep: #D6E7F5;
+            --code-bg: #F4F8FC;
+            --text-primary: #16212E;
+            --text-secondary: #44566B;
+            --border-color: #C2D8EC;
+            --accent-green: #1E7E34;
+            --accent-amber: #A85E00;
+            --accent-red: #C4262E;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { border-bottom: 4px solid var(--citi-blue); padding-bottom: 2rem; margin-bottom: 2.5rem; }
+        h1 { font-size: 2.25rem; color: var(--citi-blue-dark); margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1.1rem; color: var(--text-secondary); }
+        .meta-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-top: 1.5rem; background: var(--bg-panel);
+            padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .meta-item strong { color: var(--citi-blue); display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        section { margin-bottom: 3rem; }
+        h2 { font-size: 1.5rem; color: var(--citi-blue-dark); border-bottom: 2px solid var(--bg-panel-deep); padding-bottom: 0.5rem; margin-bottom: 1.25rem; }
+        h3 { font-size: 1.15rem; color: var(--citi-blue); margin: 1.5rem 0 0.75rem 0; }
+        h4 { font-size: 1rem; color: var(--citi-blue-dark); margin: 1.25rem 0 0.5rem 0; }
+        p { color: var(--text-secondary); margin-bottom: 1rem; }
+        ul, ol { color: var(--text-secondary); margin-left: 1.5rem; margin-bottom: 1rem; }
+        li { margin-bottom: 0.35rem; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background-color: var(--bg-panel); color: var(--citi-blue-dark);
+            padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.875rem;
+        }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background-color: var(--bg-primary); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { background-color: var(--citi-blue-dark); color: #FFFFFF; font-weight: 600; }
+        td { color: var(--text-secondary); }
+        tr:nth-child(even) td { background-color: var(--bg-panel); }
+        tr:last-child td { border-bottom: none; }
+        .callout { background-color: var(--bg-panel); border-left: 4px solid var(--citi-blue); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; margin: 1.5rem 0; }
+        .callout-title { font-weight: 600; color: var(--citi-blue-dark); margin-bottom: 0.25rem; }
+        .callout-risk { border-left-color: var(--accent-red); }
+        .callout-risk .callout-title { color: var(--accent-red); }
+        .decision { background-color: var(--bg-panel-deep); border: 1px solid var(--citi-blue-light); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+        .decision-title { font-weight: 700; color: var(--citi-blue-dark); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        h2, h3 { scroll-margin-top: 1.5rem; }
+        .toc { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem 1.75rem; margin-bottom: 3rem; }
+        .toc-title { font-size: 1.1rem; font-weight: 700; color: var(--citi-blue-dark); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .toc ol { list-style: none; margin-left: 0; columns: 2; column-gap: 2.5rem; }
+        .toc > ol > li { break-inside: avoid; margin-bottom: 0.4rem; }
+        .toc ol ol { margin: 0.25rem 0 0.5rem 1.25rem; columns: 1; }
+        .toc a { color: var(--citi-blue-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+        .toc ol ol a { color: var(--text-secondary); font-weight: 400; font-size: 0.85rem; }
+        .toc a:hover { color: var(--citi-blue); text-decoration: underline; }
+        .back-to-top { display: inline-block; margin-top: 0.5rem; font-size: 0.75rem; color: var(--citi-blue); text-decoration: none; }
+        .back-to-top:hover { text-decoration: underline; }
+        .stack-table td:first-child { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+        .doc-nav { font-size: 0.85rem; margin-bottom: 1rem; }
+        .doc-nav a { color: var(--citi-blue); text-decoration: none; font-weight: 600; }
+        .doc-nav a:hover { text-decoration: underline; }
+        .mock {
+            border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-panel);
+            padding: 1.25rem; margin: 1rem 0; font-size: 0.85rem; color: var(--text-secondary);
+        }
+        .mock-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--citi-blue); margin-bottom: 0.5rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="doc-nav">&larr; <a href="CWP.html">Common Workflow Platform (CWP) index</a></div>
+    <header>
+        <h1>Workbench Experience</h1>
+        <div class="subtitle">Component design doc within the Common Workflow Platform (CWP)</div>
+        <div class="meta-grid">
+            <div class="meta-item"><strong>Status</strong>Phases 1&ndash;3 built August 3, 2026 (see Section 6 and Designer.html Section 22.3). Phases 4&ndash;5 not yet built</div>
+            <div class="meta-item"><strong>Distinction</strong>Designer = build-time authoring. Workbench = day-to-day operating.</div>
+            <div class="meta-item"><strong>Document Version</strong>1.1.0 (Phases 1&ndash;3 implemented)</div>
+            <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
+            <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
+        </div>
+    </header>
+
+    <nav class="toc" id="top">
+        <div class="toc-title">Contents</div>
+        <ol>
+            <li><a href="#sec-0">0. Decision Summary</a></li>
+            <li><a href="#sec-1">1. What Workbench Is Not</a></li>
+            <li><a href="#sec-2">2. Core Workbench Experience</a>
+                <ol>
+                    <li><a href="#sec-2-1">2.1 My Work Dashboard</a></li>
+                    <li><a href="#sec-2-2">2.2 Tenant Activity Feed</a></li>
+                    <li><a href="#sec-2-3">2.3 Global Search &amp; Filter</a></li>
+                    <li><a href="#sec-2-4">2.4 Notifications</a></li>
+                    <li><a href="#sec-2-5">2.5 Quick Actions</a></li>
+                </ol>
+            </li>
+            <li><a href="#sec-3">3. The Landing-Page Question</a></li>
+            <li><a href="#sec-4">4. Layout Sketch</a></li>
+            <li><a href="#sec-5">5. Data Needs</a></li>
+            <li><a href="#sec-6">6. Phased Approach</a></li>
+            <li><a href="#sec-7">7. Flowable Integration Roadmap (Proposed)</a>
+                <ol>
+                    <li><a href="#sec-7-1">7.1 CMMN Dynamic Plan Item &amp; Case Task Management</a></li>
+                    <li><a href="#sec-7-2">7.2 Dynamic Flowable Form Rendering Engine</a></li>
+                    <li><a href="#sec-7-3">7.3 Real-Time Process/Case Execution Diagrams</a></li>
+                </ol>
+            </li>
+        </ol>
+    </nav>
+
+    <section>
+        <h2 id="sec-0">0. Decision Summary</h2>
+        <p>Workbench exists as a nav entry and a placeholder route today, nothing more. This document brainstorms what should actually live there, and argues for a specific distinction that keeps it from turning into a second, redundant copy of either Designer or Administration.</p>
+        <div class="decision">
+            <div class="decision-title">Framing</div>
+            <p>Designer is where you build a workflow. Administration is where you configure who can do what. Workbench is where you start your day -- what's waiting on you, what changed recently, and a fast path into whichever of the other two screens you actually need.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2 id="sec-1">1. What Workbench Is Not</h2>
+        <p>Worth naming explicitly, since without a clear boundary this screen tends to accumulate scope from both directions:</p>
+        <ul>
+            <li><strong>Not a second Designer.</strong> No canvas, no palette, no editing. Workbench surfaces work; Designer does the work.</li>
+            <li><strong>Not Administration.</strong> No role management, no tenant settings, no delete/archive controls. Those stay governance-scoped and admin-gated.</li>
+            <li><strong>Not a duplicate of Approvals.</strong> Workbench can surface "you have approvals waiting" as a summary card, but the actual approve/reject UI stays on the dedicated Approvals screen -- one canonical place to do that action, not two.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2 id="sec-2">2. Core Workbench Experience</h2>
+
+        <h3 id="sec-2-1">2.1 "My Work" Dashboard</h3>
+        <p>The centerpiece. A small set of cards, each answering one question at a glance:</p>
+        <ul>
+            <li><strong>My drafts</strong> -- workflows this user authored that are still in <code>draft</code>, with a direct link into the editor.</li>
+            <li><strong>Waiting on me</strong> -- if this user holds approval authority (see Governance.html's proposed <code>approver</code> role), a count and list of pending requests, linking to Approvals.</li>
+            <li><strong>Recently edited</strong> -- the last handful of workflows this user touched, regardless of status, for quick re-entry without hunting through the full list.</li>
+            <li><strong>My submissions</strong> -- workflows this user submitted that are still <code>pending_approval</code>, so they can see what they're waiting on without pestering the approver.</li>
+        </ul>
+
+        <h3 id="sec-2-2">2.2 Tenant Activity Feed</h3>
+        <p>A lightweight, reverse-chronological feed of what's happened across the tenant recently -- saves, imports, submissions, approval decisions. Directly benefits from the audit log proposed in Governance.html Section 7 once it exists; until then, could be approximated from <code>workflows.updated_at</code> and <code>approval_requests</code> alone, just with less detail (no role-change or delete events visible without the real audit table).</p>
+
+        <h3 id="sec-2-3">2.3 Global Search &amp; Filter</h3>
+        <p>A single search bar across all workflows in the tenant -- by name, definition key, spec type, status, or owner -- so finding a specific workflow doesn't require scrolling the flat Designer list. This is arguably the single highest-value addition once a tenant has more than a handful of workflows; the current Designer list has no search at all.</p>
+
+        <h3 id="sec-2-4">2.4 Notifications</h3>
+        <p>Start small: a badge count on the Approvals nav item (already has the data via <code>listPendingApprovals</code>), and a badge on Workbench itself once "waiting on me" exists. Full notification infrastructure (in-app notification center, email digests) is a much bigger feature and shouldn't be the first thing built here -- badge counts on existing screens get most of the value for a fraction of the effort.</p>
+
+        <h3 id="sec-2-5">2.5 Quick Actions</h3>
+        <p>New Workflow and Import shortcuts surfaced directly on Workbench, not buried behind a click into Designer's list view first -- if Workbench becomes the landing page (see Section 3), it needs to offer the two most common actions immediately, not just a read-only dashboard.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-3">3. The Landing-Page Question</h2>
+        <p>The most consequential decision in this document, worth flagging distinctly rather than burying in the feature list: should Workbench <em>replace</em> Designer's current "Workflows" list view as the screen a user lands on after login, with Designer becoming purely the canvas/editor reached from Workbench?</p>
+        <div class="callout">
+            <div class="callout-title">Argument For</div>
+            <p>Today, logging in drops a user straight into a flat, unfiltered list of every workflow in the tenant, with no sense of what's relevant to them specifically. That's a reasonable default when there are three sample workflows in the whole tenant; it stops being reasonable once there are a hundred. "What should I look at first" is exactly the question Workbench is designed to answer.</p>
+        </div>
+        <div class="callout">
+            <div class="callout-title">Argument Against</div>
+            <p>It's a bigger structural change than it sounds -- <code>DesignerPage.tsx</code>'s list view currently does double duty as both the workflow browser and the entry point for New/Import. Splitting that out means Workbench needs to either duplicate that browsing UI or Designer's list view needs to be demoted to something reached via a "Browse All Workflows" link from Workbench, which is more restructuring than a first pass probably needs.</p>
+        </div>
+        <p>Leaning toward: keep Designer's list view as-is for now, and let Workbench be an additional, complementary landing option (perhaps even the actual <code>/</code> redirect target instead of <code>/designer</code>) rather than replacing anything on day one. Revisit full consolidation once Workbench's dashboard has proven itself useful.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-4">4. Layout Sketch</h2>
+        <div class="mock">
+            <div class="mock-title">Rough composition, top to bottom</div>
+            <p>
+            Quick actions bar (New Workflow / Import) &mdash; full width, top<br>
+            Card grid (2&ndash;3 columns): My Drafts | Waiting On Me | My Submissions | Recently Edited<br>
+            Search bar, full width, above a filterable table (same row shape as Administration's workflow governance table)<br>
+            Activity feed &mdash; right-hand sidebar or below the fold, lower priority than the cards
+            </p>
+        </div>
+        <p>Reuses existing visual language rather than inventing new components: the card style already exists in the "Getting Started" panel sketched in Onboarding.html, and the filterable table can reuse the same row shape as Administration's workflow governance table.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-5">5. Data Needs</h2>
+        <table class="stack-table">
+            <thead><tr><th>Feature</th><th>Data Source</th></tr></thead>
+            <tbody>
+                <tr><td>My Drafts / My Submissions</td><td>Existing <code>workflows</code> table, filtered by <code>created_by</code> and <code>status</code> -- no new schema</td></tr>
+                <tr><td>Waiting On Me</td><td>Existing <code>approval_requests</code>, filtered to pending -- no new schema (though "waiting on me specifically" needs the <code>approver</code> role from Governance.html to mean anything more precise than "waiting on any admin")</td></tr>
+                <tr><td>Recently Edited</td><td>Existing <code>workflows.updated_at</code>, sorted -- no new schema</td></tr>
+                <tr><td>Global Search</td><td>Existing <code>workflows</code> table -- a client-side filter is enough at current scale; a real search index is a much later concern</td></tr>
+                <tr><td>Activity Feed (full detail)</td><td>Depends on Governance.html Section 7's audit log for anything beyond workflow saves and approval decisions</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2 id="sec-6">6. Phased Approach</h2>
+        <table class="stack-table">
+            <thead><tr><th>Phase</th><th>Scope</th><th>Status</th></tr></thead>
+            <tbody>
+                <tr><td>1</td><td>My Work dashboard (2.1) using only data that already exists today -- no schema changes required</td><td><span class="badge" style="background:#DDF0E2;color:#1E7E34;">Built</span> &mdash; <code>WorkbenchPage.tsx</code> / <code>data/workbench.ts</code></td></tr>
+                <tr><td>2</td><td>Global search/filter (2.3) and quick actions (2.5) -- both cheap, both immediately useful as the workflow count grows</td><td><span class="badge" style="background:#DDF0E2;color:#1E7E34;">Built</span></td></tr>
+                <tr><td>3</td><td>Notification badges (2.4) on Approvals and Workbench nav items</td><td><span class="badge" style="background:#DDF0E2;color:#1E7E34;">Built</span> &mdash; <code>AppShell.tsx</code></td></tr>
+                <tr><td>4</td><td>Full activity feed (2.2) once the Governance.html audit log exists to feed it</td><td><span class="badge" style="background:#D6E7F5;color:#003B70;">Unblocked, not built</span> &mdash; <code>audit_logs</code> now exists (Governance.html Section 7, built); the feed UI itself isn't</td></tr>
+                <tr><td>5</td><td>Revisit the landing-page question (Section 3) once Phase 1&ndash;2 have real usage to learn from</td><td><span class="badge" style="background:#F5E4E4;color:#C4262E;">Not started</span> &mdash; Designer's list view is still the default landing target</td></tr>
+            </tbody>
+        </table>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-7">7. Flowable Integration Roadmap (Proposed)</h2>
+        <p>Proposed August 3, 2026. All three items here are Phase 8 in <a href="WorkflowWrapper.html">WorkflowWrapper.html</a> Section 9 -- originally deliberately last, since all three need a real Flowable engine to show real data, not the thin-layer placeholder the Runtime Gateway started as. Explicitly not what Section 1 warns against: none of this makes Workbench a second Designer (still no editing) or a second Approvals (still no decide UI) -- it's read/act-on-running-work visibility, consistent with this document's own framing.</p>
+        <div class="callout">
+            <div class="callout-title">Update, August 3, 2026: 7.1 Built (Elsewhere), 7.3 Unblocked, 7.2 Is Not</div>
+            <p>The "needs a real engine" precondition above is now true for 7.1 and 7.3 -- WorkflowWrapper.html Phase 7 embedded Flowable 8.0.0 for real, and <code>/runtime/case-instances</code> now queries its actual <code>CmmnRuntimeService</code>. 7.1's view is now built, but it lives at the <code>/workflow-wrapper</code> route (<code>WorkflowWrapperPage.tsx</code>), not inside <code>WorkbenchPage.tsx</code> as this section originally sketched -- see the note below for why. 7.3 is unblocked (real engine exists) but still not built -- it needs a diagram-state endpoint the Runtime Gateway doesn't have yet. 7.2 is a different story: the standalone Flowable Form Engine this section assumed doesn't exist anymore (deprecated as of Flowable 7.0.1, see WorkflowWrapper.html Section 4) -- getting a real engine wasn't the blocker for 7.2, a wrong assumption about which API to build against was. See the note on 7.2 below.</p>
+        </div>
+
+        <h3 id="sec-7-1">7.1 CMMN Dynamic Plan Item &amp; Case Task Management</h3>
+        <p>Today, Workbench has no case-execution concept at all -- "My Work" (Section 2.1) is entirely a design-time view over <code>workflows</code>/<code>approval_requests</code>. Once a CMMN case is actually running (WorkflowWrapper.html Phase 7, now built), case workers need visibility into which plan items are <code>Active</code>, <code>Available</code>, <code>Enabled</code>, or <code>Discretionary</code>, and a way to trigger optional/ad-hoc tasks and stage transitions. Proposed: a Case Instance View reading the Runtime Gateway's <code>/runtime/case-instances</code> (WorkflowWrapper.html Section 8), which itself mirrors Flowable's <code>/cmmn-runtime/case-instances</code> and is now backed by a real, tenant-scoped engine query.</p>
+        <p><strong>Built, August 3, 2026 -- at a different location than sketched above.</strong> The read-only view (case instances, plus deployments and BPMN task history alongside it) landed in <code>WorkflowWrapperPage.tsx</code> at the pre-existing <code>/workflow-wrapper</code> route, not inside <code>WorkbenchPage.tsx</code>. That route already existed in the app shell as the reserved home for "the Runtime Gateway's operator-facing surface" (Designer.html Section 21.2); adding a second place to look for the same data would have worked against this document's own goal of consolidating scattered visibility into fewer, not more, screens. Trigger actions on plan items/stages (the "way to trigger optional/ad-hoc tasks" half of this section) are still not built -- the Runtime Gateway has no write endpoints for case execution yet, only the read-side queries described in WorkflowWrapper.html Section 8.</p>
+
+        <h3 id="sec-7-2">7.2 Dynamic Flowable Form Rendering Engine</h3>
+        <p>Task completion in Flowable means submitting a payload matching the form definition attached to the task's node -- originally scoped to be exactly what Designer.html Section 23.2's Form Builder would produce, read back via a Flowable Form Engine <code>FormRepositoryService</code>. That target no longer exists: Flowable's standalone Form Engine was deprecated as of 7.0.1, and Flowable 8's own form handling lives in the Process/CMMN engine's built-in <code>FormService</code>, tied to a specific process/case definition's embedded form key rather than an independently browsable, versioned repository. This section needs a real redesign against that actual API -- not a "swap the backing" change like 7.1/7.3 got -- before it's buildable. Flagged, not silently carried forward as if nothing changed.</p>
+
+        <h3 id="sec-7-3">7.3 Real-Time Process/Case Execution Diagrams</h3>
+        <p>Flowable can overlay active/completed/pending execution state directly onto the original diagram. Proposed: render the existing <code>@xyflow/react</code> canvas (the same one Designer already uses to author) in a read-only mode inside Workbench, with node highlighting driven by a diagram-state endpoint on the Runtime Gateway. Reuses Designer's canvas component rather than building a second rendering path -- the canvas already knows how to lay out and draw BPMN/CMMN graphs; this just adds an overlay layer and turns off editing.</p>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+</div>
+
+</body>
+</html>

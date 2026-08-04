@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/changes/001-init-runtime-schema.sql
+      relativeToChangelogFile: false
+  - include:
+      file: db/changelog/changes/002-add-deployment-manifest.sql
+      relativeToChangelogFile: false
+  - include:
+      file: db/changelog/changes/003-add-deployment-engine-ids.sql
+      relativeToChangelogFile: false

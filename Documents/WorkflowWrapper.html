@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Doc: Workflow Wrapper -- Runtime Gateway Architecture (CWP)</title>
+    <style>
+        :root {
+            --citi-blue-dark: #003B70;
+            --citi-blue: #0066B2;
+            --citi-blue-light: #56A0D3;
+            --bg-primary: #FFFFFF;
+            --bg-panel: #EAF3FB;
+            --bg-panel-deep: #D6E7F5;
+            --code-bg: #F4F8FC;
+            --text-primary: #16212E;
+            --text-secondary: #44566B;
+            --border-color: #C2D8EC;
+            --accent-green: #1E7E34;
+            --accent-amber: #A85E00;
+            --accent-red: #C4262E;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { border-bottom: 4px solid var(--citi-blue); padding-bottom: 2rem; margin-bottom: 2.5rem; }
+        h1 { font-size: 2.25rem; color: var(--citi-blue-dark); margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1.1rem; color: var(--text-secondary); }
+        .meta-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-top: 1.5rem; background: var(--bg-panel);
+            padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .meta-item strong { color: var(--citi-blue); display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        section { margin-bottom: 3rem; }
+        h2 { font-size: 1.5rem; color: var(--citi-blue-dark); border-bottom: 2px solid var(--bg-panel-deep); padding-bottom: 0.5rem; margin-bottom: 1.25rem; }
+        h3 { font-size: 1.15rem; color: var(--citi-blue); margin: 1.5rem 0 0.75rem 0; }
+        h4 { font-size: 1rem; color: var(--citi-blue-dark); margin: 1.25rem 0 0.5rem 0; }
+        p { color: var(--text-secondary); margin-bottom: 1rem; }
+        ul, ol { color: var(--text-secondary); margin-left: 1.5rem; margin-bottom: 1rem; }
+        li { margin-bottom: 0.35rem; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background-color: var(--bg-panel); color: var(--citi-blue-dark);
+            padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.875rem;
+        }
+        pre {
+            background-color: var(--code-bg); border: 1px solid var(--border-color);
+            border-left: 4px solid var(--citi-blue); border-radius: 8px;
+            padding: 1.25rem; overflow-x: auto; margin: 1rem 0 1.5rem 0;
+        }
+        pre code { background-color: transparent; color: var(--text-primary); padding: 0; font-size: 0.85rem; line-height: 1.5; }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background-color: var(--bg-primary); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { background-color: var(--citi-blue-dark); color: #FFFFFF; font-weight: 600; }
+        td { color: var(--text-secondary); }
+        tr:nth-child(even) td { background-color: var(--bg-panel); }
+        tr:last-child td { border-bottom: none; }
+        .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .badge-design { background-color: var(--bg-panel-deep); color: var(--citi-blue-dark); }
+        .badge-future { background-color: #F5E4E4; color: var(--accent-red); }
+        .badge-built { background-color: #DDF0E2; color: var(--accent-green); }
+        .callout { background-color: var(--bg-panel); border-left: 4px solid var(--citi-blue); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; margin: 1.5rem 0; }
+        .callout-title { font-weight: 600; color: var(--citi-blue-dark); margin-bottom: 0.25rem; }
+        .callout-risk { border-left-color: var(--accent-red); }
+        .callout-risk .callout-title { color: var(--accent-red); }
+        .decision { background-color: var(--bg-panel-deep); border: 1px solid var(--citi-blue-light); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+        .decision-title { font-weight: 700; color: var(--citi-blue-dark); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        h2, h3 { scroll-margin-top: 1.5rem; }
+        .toc { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem 1.75rem; margin-bottom: 3rem; }
+        .toc-title { font-size: 1.1rem; font-weight: 700; color: var(--citi-blue-dark); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .toc ol { list-style: none; margin-left: 0; columns: 2; column-gap: 2.5rem; }
+        .toc > ol > li { break-inside: avoid; margin-bottom: 0.4rem; }
+        .toc ol ol { margin: 0.25rem 0 0.5rem 1.25rem; columns: 1; }
+        .toc a { color: var(--citi-blue-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+        .toc ol ol a { color: var(--text-secondary); font-weight: 400; font-size: 0.85rem; }
+        .toc a:hover { color: var(--citi-blue); text-decoration: underline; }
+        .back-to-top { display: inline-block; margin-top: 0.5rem; font-size: 0.75rem; color: var(--citi-blue); text-decoration: none; }
+        .back-to-top:hover { text-decoration: underline; }
+        .stack-table td:first-child { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+        .doc-nav { font-size: 0.85rem; margin-bottom: 1rem; }
+        .doc-nav a { color: var(--citi-blue); text-decoration: none; font-weight: 600; }
+        .doc-nav a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="doc-nav">&larr; <a href="CWP.html">Common Workflow Platform (CWP) index</a></div>
+    <header>
+        <h1>Workflow Wrapper: Runtime Gateway Architecture</h1>
+        <div class="subtitle">Component design doc within the Common Workflow Platform (CWP)</div>
+        <div class="meta-grid">
+            <div class="meta-item"><strong>Status</strong>Phases 1, 2, and 7 built on August 3, 2026 -- Flowable 8.0.0 is now embedded for real (Section 5), targeting Java 21 (corrected from 25, Section 3). Code exists at <code>WaaS/Workflow-Wrapper</code>, but is <strong>uncompiled/unverified</strong> (written in an environment with no JDK 21, no Maven, no network). Needs <code>mvn clean verify</code> on a real machine before trusting it further.</div>
+            <div class="meta-item"><strong>Trigger</strong>A Flowable-capability brief covering Designer/Workbench/Onboarding/Governance improvements, all of which need a real backend service to land</div>
+            <div class="meta-item"><strong>Document Version</strong>1.2.0 (Flowable 8 Embedded -- Compatibility Correction)</div>
+            <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
+            <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
+        </div>
+    </header>
+
+    <nav class="toc" id="top">
+        <div class="toc-title">Contents</div>
+        <ol>
+            <li><a href="#sec-0">0. Decision Summary</a></li>
+            <li><a href="#sec-1">1. Why This Component Exists Now</a></li>
+            <li><a href="#sec-2">2. Node vs. Java: What's Actually There Today</a></li>
+            <li><a href="#sec-3">3. Tech Stack Decision</a></li>
+            <li><a href="#sec-4">4. The Flowable / Spring Boot 4 Compatibility Risk (Resolved)</a></li>
+            <li><a href="#sec-5">5. Architecture: Runtime Gateway Embedding a Real Flowable Engine</a></li>
+            <li><a href="#sec-6">6. Service Boundaries</a></li>
+            <li><a href="#sec-7">7. Data &amp; Auth Model</a></li>
+            <li><a href="#sec-8">8. API Contract Sketch (Provisional)</a></li>
+            <li><a href="#sec-9">9. Full Phased Roadmap</a></li>
+            <li><a href="#sec-10">10. Risks &amp; Open Questions</a></li>
+        </ol>
+    </nav>
+
+    <section>
+        <h2 id="sec-0">0. Decision Summary</h2>
+        <p>CWP.html has listed Workflow Wrapper as explicitly out of scope since the platform index was written: "nothing to design yet; revisit once the design-time components are stable." A detailed brief of Flowable-engine-driven improvements across all four other components made clear that revisit point has arrived -- app packaging, one-click deploy, dynamic form rendering, CMMN plan-item visibility, tenant-aware seed bundles, and engine-native audit history all require an actual backend service talking to a workflow engine, which today does not exist anywhere in this platform.</p>
+        <div class="decision">
+            <div class="decision-title">What's Decided Here</div>
+            <p>A new Java / Spring Boot microservice -- the <strong>Runtime Gateway</strong> -- is the architectural answer, built first as a thin API layer with no live Flowable engine behind it (Section 5), because Flowable's current stable line does not yet run on Spring Boot 4 (Section 4). This document is the map for that build; it does not implement anything -- see Section 9 for what's actually scheduled and in what order.</p>
+        </div>
+        <div class="callout">
+            <div class="callout-title">Update, August 3, 2026: Phase 1 Scaffolded</div>
+            <p>Phase 1 and Governance's Phase 4 deploy-authority check (Section 9) have been scaffolded at <code>WaaS/Workflow-Wrapper</code>: the Maven project, JWT-to-Spring-Security wiring against Supabase's JWKS (Section 7), Liquibase migrations for the <code>runtime</code> schema (already applied to the live Supabase project), a working <code>/runtime/deployments</code> API gated by a <code>tenant_admin</code>-only deploy-authority check, and stub controllers for the three not-yet-real endpoints in Section 8. See that project's <code>README.md</code> for exact status, configuration, and the one thing this update cannot claim: the code has not been compiled or run anywhere, since this was written in a sandbox without a JDK/Maven/network environment to verify it in.</p>
+        </div>
+        <div class="callout">
+            <div class="callout-title">Update, same day: Phase 2 (Designer Publish) Also Built</div>
+            <p>The Runtime Gateway's deployment contract was extended with a real <code>manifest</code> field (Section 8), and Designer.html now has a working <strong>Publish</strong> button (Section 23.3) calling it end to end, gated to <code>tenant_admin</code> accounts. Unlike the Java service, this frontend change runs in a normal Node/Vite environment and <strong>was verified with <code>tsc -b</code> (zero type errors)</strong> -- a real build/lint pass (<code>vite build</code>, <code>oxlint</code>) could not complete in this session's sandbox due to missing native bindings for its CPU architecture, unrelated to the change itself. The Java side of this update (the new <code>manifest</code>/<code>manifest_json</code> column and <code>ManifestArtifact</code> DTO) carries the same uncompiled/unverified caveat as the rest of the Runtime Gateway above.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2 id="sec-1">1. Why This Component Exists Now</h2>
+        <p>Every improvement in the originating brief shares the same blocker: they all assume a running Flowable engine (or something that behaves like one) sitting behind the app, reachable over REST. <code>.bar</code> app packaging, one-click deploy, historic task/activity queries, CMMN plan-item state, and dynamic form rendering are all Flowable engine capabilities -- none of them can be built as another Supabase edge function or another React component alone. That's the entire reason Workflow Wrapper stayed unstarted this long: there was nothing concrete to design against until a specific set of engine-dependent features was on the table.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-2">2. Node vs. Java: What's Actually There Today</h2>
+        <p>Directly answering the question that prompted this document: there is no Node.js backend anywhere in CWP to pivot away from. What exists today, per CWP.html Section 2 and Designer.html:</p>
+        <table class="stack-table">
+            <thead><tr><th>Layer</th><th>What It Actually Is</th></tr></thead>
+            <tbody>
+                <tr><td>Frontend</td><td>Vite + React 19 + TypeScript SPA at <code>WaaS/Designer</code> -- a browser application, not a server</td></tr>
+                <tr><td>"Backend" today</td><td>Supabase: Postgres + RLS + Supabase Auth, plus two Deno-runtime Edge Functions (<code>admin-set-role</code>, <code>invite-user</code>). Deno is not Node, and edge functions are request-scoped, not a persistent server process</td></tr>
+                <tr><td>Runtime engine</td><td>None. No Flowable, no BPMN/CMMN execution of any kind exists yet -- every workflow built in Designer today is design-time only, never actually run</td></tr>
+            </tbody>
+        </table>
+        <p>So: yes, introducing a Java/Spring Boot service is unambiguously additive, not a migration. Nothing needs to be rewritten or decommissioned to make room for it.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-3">3. Tech Stack Decision</h2>
+        <table class="stack-table">
+            <thead><tr><th>Layer</th><th>Choice</th><th>Why</th></tr></thead>
+            <tbody>
+                <tr><td>Language / runtime</td><td>Java 21 (originally specified as 25 -- corrected August 3, 2026)</td><td>Spring Boot 4.0 supports Java 17 through 25, but Flowable's own official system-requirements table only lists Java 17 or 21 as supported for its current product line -- 25 only appears in an example log in Flowable's own docs, not in that support matrix. 21 is the one version both projects formally commit to, so the project was switched from 25 to 21</td></tr>
+                <tr><td>Framework</td><td>Spring Boot 4.0 (Spring Framework 7, Jakarta EE 11)</td><td>As specified. Confirmed released (November 20, 2025); Flowable 8.0.0 also confirmed compatible (Section 4)</td></tr>
+                <tr><td>Database</td><td>The same Supabase Postgres project (<code>nrhsoabqeskybrznxfyi</code>), new <code>runtime</code> schema</td><td>Keeps CWP.html's "single Supabase project" principle intact rather than fragmenting state across two databases; the Java service connects via a direct JDBC/service connection string (Supabase exposes a standard Postgres connection alongside its REST API), not through PostgREST</td></tr>
+                <tr><td>Frontend</td><td>React 19 (unchanged)</td><td>Already the stack; the Runtime Gateway is consumed the same way the app already consumes Supabase and edge functions -- another REST base URL, gated by the same JWT</td></tr>
+                <tr><td>AI (future)</td><td>Python</td><td>Reserved for Agentic Designer, which remains explicitly out of scope per CWP.html Section 3. Noted here for completeness, not scheduled -- see Section 9</td></tr>
+            </tbody>
+        </table>
+        <div class="callout">
+            <div class="callout-title">Why A New Schema, Not A New Database</div>
+            <p>A second, fully separate database would mean a second source of truth for tenant identity, and every runtime-shaped query (e.g., "show me this tenant's process instances") would need to re-derive or re-fetch tenant context that Supabase already owns. A dedicated <code>runtime</code> schema in the same Postgres instance keeps one tenant registry (<code>public.tenants</code>) while giving the Java service full ownership -- its own migrations, its own tables, no RLS dependency -- over the shape workflow-runtime data actually needs, which is very different from the design-time shape <code>public.workflows</code> already has.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2 id="sec-4">4. The Flowable / Spring Boot 4 Compatibility Risk (Resolved)</h2>
+        <div class="callout">
+            <div class="callout-title">Correction, August 3, 2026: This Was Checked Late, But It's Resolved</div>
+            <p>This section originally said Flowable's stable line (7.x) didn't run on Spring Boot 4 and that Flowable 8 had "no confirmed date." That was true when first written, but <strong>Flowable Open Source 8.0.0 shipped February 26-27, 2026</strong> -- five months before this correction -- with official Spring Boot 4 / Spring Framework 7 support (Jakarta EE 11), dropping Spring Boot 3 support entirely. <code>org.flowable:flowable-spring-boot-starter:8.0.0</code> is a real, published Maven Central artifact. The original research (a forum thread about Flowable 7.2.0 failing on Spring Boot 4) was accurate for its moment but was never rechecked against a newer release before the "thin API layer, no live engine" decision below was made and built. It should have been rechecked before Phase 1 was scaffolded, not five weeks into building on top of that assumption. See Section 9 for what changed once this was caught.</p>
+        </div>
+        <p><em>Original text, kept for the record:</em> Flowable's then-current stable engine line (7.x) targeted Spring Boot 3 / Spring 6 / Jakarta EE 9-10. Spring Boot 4.0 requires a Jakarta EE 11-compliant stack. A live Flowable community forum thread reported Flowable 7.2.0 does not work with Spring Boot 4, with full Spring Boot 4 support planned for a future Flowable 8 release that had no confirmed date at the time.</p>
+        <div class="callout">
+            <div class="callout-title">What's Actually True Now</div>
+            <p>Flowable 8.0.0's <code>flowable-spring-boot-starter</code> bundles the Process (BPMN), CMMN, DMN, and IDM engines and is fully compatible with this project's Spring Boot 4.0 / Java 21 stack -- no separate sidecar process, no dependency conflicts (Java 21, not 25 -- see Section 3's correction). One real gap remains, found while re-researching this: <strong>the standalone Flowable Form Engine (a separate deployable form-definition repository with its own <code>FormRepositoryService</code>) was deprecated as of Flowable 7.0.1</strong> and is not part of this starter. Forms are now handled through the Process/CMMN engine's own built-in <code>FormService</code> (task/start forms tied to a process or case definition, not an independently versioned resource) -- a materially different shape than what Section 8's original API sketch and the originating brief's <code>GET /form-repository/form-definitions/{id}</code> assumed. That gap is real and unresolved -- see Section 9 Phase 3 and Section 10.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2 id="sec-5">5. Architecture: Runtime Gateway Embedding a Real Flowable Engine</h2>
+        <div class="callout">
+            <div class="callout-title">Update, August 3, 2026</div>
+            <p>This section originally described a "thin API layer" with application logic mimicking Flowable, because Section 4's compatibility risk (now resolved) ruled out embedding the real engine. That's no longer the plan: Flowable 8.0.0's <code>flowable-spring-boot-starter</code> runs embedded, in-process, inside the Runtime Gateway itself -- same JVM, same Spring context, no sidecar. The diagram and description below describe the corrected, current architecture.</p>
+        </div>
+        <p>The Runtime Gateway is the single Java service every runtime-shaped feature in Sections 6-9 talks to. It embeds Flowable's Process (BPMN), CMMN, DMN, and IDM engines directly (<code>flowable-spring-boot-starter</code>) and exposes its own <code>/runtime/*</code> REST contract on top -- deliberately <em>not</em> Flowable's own bundled REST API (<code>flowable-spring-boot-starter-rest</code>), which would introduce a second, differently-secured API surface (Flowable's REST modules assume IDM/Basic-Auth-style security) alongside our Supabase-JWT-secured one. Keeping our own controller layer as the only public surface preserves the "Single Token, Two Planes" model in Section 7 and lets deploy-authority (Governance Section 11.3) stay enforced in one place.</p>
+        <pre><code>React SPA (existing)
+   |
+   |-- Supabase (existing): auth, tenants, profiles, workflows (design-time), RLS
+   |
+   `-- Runtime Gateway (Java 21 / Spring Boot 4)
+          |
+          |-- /runtime/* controllers (this service's own contract, Section 8)
+          |
+          |-- runtime schema (same Postgres project): deployments bookkeeping,
+          |   traceability rows linking back to Flowable's own deployment IDs
+          |
+          `-- Embedded Flowable 8.0.0 engines (Process/CMMN/DMN/IDM), in-process
+                 |-- own Liquibase-managed schema (ACT_*-prefixed tables,
+                 |   same Postgres connection/schema as `runtime`, distinct
+                 |   table names so nothing collides)
+                 `-- RepositoryService / CmmnRepositoryService / DmnRepositoryService,
+                     RuntimeService / CmmnRuntimeService, HistoryService</code></pre>
+        <p>Concretely: a deploy request now calls Flowable's real <code>RepositoryService</code>/<code>CmmnRepositoryService</code>/<code>DmnRepositoryService</code> to deploy the manifest's actual BPMN/CMMN/DMN XML, tagged with the caller's <code>tenant_id</code> via Flowable's own native multi-tenancy (<code>tenantId</code> on the deployment builder) -- not a synthetic ID. The <code>runtime.deployments</code> row still exists, but now as a tenant-scoped audit/traceability record pointing at the real Flowable deployment ID(s), consistent with the "why a new schema" reasoning in Section 3. Case-instance and history queries now read from Flowable's own <code>CmmnRuntimeService</code>/<code>HistoryService</code>, not application-level bookkeeping. The one thing still not real: form rendering, because the standalone Form Engine those endpoints were modeled on no longer exists (Section 4) -- Section 9 Phase 3 needs its own redesign before that stub becomes real.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-6">6. Service Boundaries</h2>
+        <p>What stays where, so a future session doesn't have to re-derive this:</p>
+        <table class="stack-table">
+            <thead><tr><th>Concern</th><th>Owner</th><th>Why</th></tr></thead>
+            <tbody>
+                <tr><td>Identity, tenancy, roles, RLS</td><td>Supabase (unchanged)</td><td>Already proven, already the single source of truth for <code>tenant_id</code>/role claims every other layer reads</td></tr>
+                <tr><td>Design-time workflow CRUD (<code>workflows</code>, <code>workflow_versions</code>, approvals, audit log)</td><td>Supabase (unchanged)</td><td>Nothing about these features needs a running engine -- they're pure data, already working end to end</td></tr>
+                <tr><td>Deployment / packaging (<code>.bar</code>), historic instances, CMMN plan-item state</td><td>Runtime Gateway (embeds Flowable 8)</td><td>These are workflow-<em>runtime</em>-shaped concerns, now backed by the real embedded engine (Section 5)</td></tr>
+                <tr><td>Actual process/case execution</td><td>Flowable 8.0.0, embedded in the Runtime Gateway</td><td>No longer deferred -- Section 4's compatibility blocker is resolved</td></tr>
+                <tr><td>Dynamic form rendering contracts</td><td>Unresolved -- needs its own design pass</td><td>Flowable's standalone Form Engine is deprecated (Section 4); the Process/CMMN engine's own <code>FormService</code> has a different shape than what was originally scoped</td></tr>
+                <tr><td>Agent-assisted authoring</td><td>Python service, future, Agentic Designer</td><td>Out of scope per CWP.html Section 3; unaffected by this document</td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2 id="sec-7">7. Data &amp; Auth Model</h2>
+        <p>Mirrors the "Single Token, Two Planes" pattern Designer.html Section 2.2 already anticipated for exactly this component (its enforcement-points table already had a "Spring Boot Wrapper" row, unbuilt until now): the same Supabase-issued JWT that authorizes Postgres RLS also authorizes calls to the Runtime Gateway. The gateway validates the JWT against Supabase's JWKS endpoint (no shared secret, no second credential), extracts <code>tenant_id</code>/<code>role</code> from <code>app_metadata</code> the same way <code>current_role_claim()</code>/<code>current_tenant_id()</code> do in Postgres, and scopes every query in the <code>runtime</code> schema by tenant accordingly -- application-level tenant isolation, since the Java service isn't subject to Postgres RLS the way the anon-key client is.</p>
+        <div class="callout">
+            <div class="callout-title">A New Trust Boundary To Get Right</div>
+            <p>Because the Runtime Gateway connects to Postgres directly (not through the anon-key/RLS path), it is a privileged component by construction -- more like the service-role side of an edge function than like the browser client. Every handler must explicitly filter by the caller's <code>tenant_id</code>; there is no database-enforced backstop the way RLS provides for the SPA. This is the same category of risk CWP.html's "privileged writes go through edge functions" principle was written to manage, just for a new kind of privileged component.</p>
+        </div>
+        <div class="callout">
+            <div class="callout-title"><code>public.deployments</code> vs. <code>runtime.deployments</code> -- Not The Same Table</div>
+            <p>The original CWP schema already has an (unused, zero-row) <code>public.deployments</code> table, described in Designer.html as a traceability bridge between Supabase workflow versions and eventual Flowable deployments. The Runtime Gateway's Phase 1 scaffold deliberately does <strong>not</strong> reuse it -- it owns a separate <code>runtime.deployments</code> table in the new schema instead, with no foreign key or sync between the two. This avoids taking a cross-schema dependency on a Supabase/RLS-owned table from application code that has no RLS backstop of its own. If <code>public.deployments</code> is ever activated for its originally-intended purpose, reconcile the two explicitly rather than letting them silently drift -- this has not been decided yet and is flagged here so it isn't forgotten.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2 id="sec-8">8. API Contract Sketch (Provisional)</h2>
+        <p>Shaped after the real Flowable REST endpoints the brief referenced, so the eventual swap-in is contract-compatible rather than a redesign:</p>
+        <table class="stack-table">
+            <thead><tr><th>Endpoint (provisional)</th><th>Mirrors Flowable</th><th>Backing Today</th></tr></thead>
+            <tbody>
+                <tr><td><code>POST /runtime/deployments</code></td><td><code>POST /repository/deployments</code></td><td>Writes a <code>runtime.deployments</code> row, including a real <code>manifest</code> array (<code>definitionKey</code>/<code>name</code>/<code>specType</code>/<code>xml</code> per packaged artifact, added Phase 2 -- see Section 9). Still no actual executable artifact produced from it</td></tr>
+                <tr><td><code>GET /runtime/deployments/{id}</code></td><td><code>GET /repository/deployments/{id}</code></td><td>Reads the row back</td></tr>
+                <tr><td><code>GET /runtime/case-instances</code></td><td><code>GET /cmmn-runtime/case-instances</code></td><td>Queries the embedded <code>CmmnRuntimeService</code> directly, tenant-scoped -- real, once Phase 2.5's engine embedding lands (Section 9)</td></tr>
+                <tr><td><code>GET /runtime/form-definitions/{id}</code></td><td><code>GET /form-repository/form-definitions/{id}</code></td><td>Still a stub, and now known to need a redesign -- the standalone Form Engine this was modeled on is deprecated (Section 4); no <code>FormRepositoryService</code> exists to back it</td></tr>
+                <tr><td><code>GET /runtime/history/task-instances</code></td><td><code>GET /history/historic-task-instances</code></td><td>Queries the embedded <code>HistoryService</code> directly, tenant-scoped -- real engine history, not application bookkeeping</td></tr>
+            </tbody>
+        </table>
+        <p>Updated August 3, 2026: Phase 7 (real engine embedding) is no longer blocked -- see the correction in Section 4 and the rebuilt Section 5. The "Backing Today" column above reflects that.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-9">9. Full Phased Roadmap</h2>
+        <p>Covers every item from the originating Flowable-capability brief, across all four components, ordered by dependency rather than by which document each item was listed under.</p>
+        <div class="callout">
+            <div class="callout-title">Update, August 3, 2026: Phase 7 Moved Up, Not Removed</div>
+            <p>Phase 7 was originally "blocked, no date." It's been corrected (Section 4) and pulled forward -- Flowable 8.0.0 is embedded directly rather than deferred. That unblocks the case-instance view and history linkage below (they only ever needed a real engine to query), but <strong>not</strong> dynamic form rendering, which needs a design redo regardless of engine availability (the standalone Form Engine it depended on doesn't exist anymore). Phase numbers are left as originally assigned so cross-references from the other four docs don't go stale; treat the Depends-On column as current.</p>
+        </div>
+        <table class="stack-table">
+            <thead><tr><th>Phase</th><th>Scope</th><th>Depends On</th><th>Source</th></tr></thead>
+            <tbody>
+                <tr><td>1</td><td><span class="badge badge-built">Scaffolded</span> Runtime Gateway: Spring Boot 4 / Java 21 project (corrected from 25, Section 3), JWT validation against Supabase JWKS, <code>runtime</code> schema Liquibase migrations (applied to the live project), health check, the provisional endpoints in Section 8 wired to real (if thin) persistence. Code at <code>WaaS/Workflow-Wrapper</code> -- uncompiled/unverified, see the callout on Section 0.</td><td>Nothing -- pure foundation</td><td>This document</td></tr>
+                <tr><td>2</td><td><span class="badge badge-built">Built</span> Designer: one-click "Publish" pipeline calling <code>POST /runtime/deployments</code> (1C in the brief). <code>.bar</code>-shaped packaging (1A) is partially built: the manifest can carry multiple artifacts, but Publish only ever sends the single workflow being edited today -- true multi-artifact bundling still needs a canvas grouping UI (Designer.html Section 23.1)</td><td>Phase 1</td><td>Designer.html new section (Flowable Integration Roadmap)</td></tr>
+                <tr><td>3</td><td>Designer: visual Form Builder + Data Object Schema Editor (1B). Needs a redesign before it can start -- see Section 4's Form Engine deprecation finding; the target API this was scoped against no longer exists</td><td>Phase 1</td><td>Designer.html</td></tr>
+                <tr><td>4</td><td><span class="badge badge-built">Scaffolded</span> Governance: Separation-of-Duties enforcer for deploy authorization (4C) -- built as a flat <code>tenant_admin</code>-only allow-list in <code>DeploymentService</code>, not yet the fuller "author cannot also deploy" check Governance.html Section 11.3 leaves as an open question</td><td>Phase 1</td><td>Governance.html new section</td></tr>
+                <tr><td>5</td><td>Governance: multi-tenant deployment target mapping -- default/shared templates vs. tenant-specific overrides (4A)</td><td>Phase 2</td><td>Governance.html</td></tr>
+                <tr><td>6</td><td>Onboarding: tenant-aware default app bundles, auto-seeding standard templates on new-tenant/invite provisioning (3A); tenant-prefixed identity mapping into the gateway's authorization model (3B)</td><td>Phases 2, 4</td><td>Onboarding.html new section</td></tr>
+                <tr><td>7</td><td><span class="badge badge-built">Built</span> <strong>Real Flowable engine integration</strong> -- <code>flowable-spring-boot-starter</code> 8.0.0 embedded directly in the Runtime Gateway (Section 5). Deployments, case-instance queries, and history queries now hit real Flowable services instead of application bookkeeping</td><td>Nothing -- turned out to be independent of Phases 1-6 once the compatibility blocker resolved</td><td>This document, Section 4-5</td></tr>
+                <tr><td>8</td><td>Workbench: CMMN plan-item/case-instance view (2A) -- <span class="badge badge-built">Built</span> as of August 3, 2026, but at the <code>/workflow-wrapper</code> route (<code>WorkflowWrapperPage.tsx</code>) rather than inside Workbench itself -- that route already existed as the reserved home for the Runtime Gateway's operator-facing surface, so deployments/case-instances/task-history visibility went there instead of a second place to look. Real-time execution diagram overlays (2C) remain <span class="badge badge-future">Not built</span> -- needs a diagram-state endpoint on the Runtime Gateway that doesn't exist yet. Dynamic Flowable form rendering (2B) is <strong>still blocked</strong> on a design gap (Section 4), not an engine-availability gap</td><td>Phase 7 (done) for 2A; a new diagram-state endpoint for 2C; Phase 3's redesign for 2B</td><td>Workbench.html Section 7; <code>WorkflowWrapperPage.tsx</code></td></tr>
+                <tr><td>9</td><td>Governance: engine-native history/audit linkage (<code>historic-task-instances</code>, <code>historic-activity-instances</code>) feeding the existing <code>audit_logs</code> table -- <span class="badge badge-built">unblocked</span>, the raw data now exists via Phase 7's <code>HistoryService</code>; only the write-into-<code>audit_logs</code> plumbing is still undone</td><td>Phase 7 (done)</td><td>Governance.html</td></tr>
+            </tbody>
+        </table>
+        <div class="callout">
+            <div class="callout-title">Note On Ordering (Superseded)</div>
+            <p>This callout originally explained why Phases 1-6 were sequenced ahead of Phase 7's "genuine blocker." That blocker turned out to be stale information rather than a real constraint -- see Section 4. Left here so the reasoning that shaped Phases 1-6's ordering is still visible, even though Phase 7 no longer needs to wait for anything.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2 id="sec-10">10. Risks &amp; Open Questions</h2>
+        <ul>
+            <li><strong>Dynamic form rendering has no clear target API anymore.</strong> The standalone Flowable Form Engine (<code>FormRepositoryService</code>) that Section 8's original sketch and Workbench.html 2B were scoped against was deprecated as of Flowable 7.0.1. The Process/CMMN engine's own <code>FormService</code> is the current mechanism, but it's tied to a specific process/case definition's embedded form key rather than an independently browsable, versioned repository -- Designer.html Section 23.2 and Workbench.html Section 7.2 need a real redesign pass against Flowable 8's actual API before this is buildable, not just a "wire it up" task.</li>
+            <li><strong>Embedding Flowable is new, uncompiled surface area on top of an already-uncompiled service.</strong> The Process/CMMN/DMN engine wiring in <code>DeploymentService</code>, <code>CaseInstanceController</code>, and <code>TaskInstanceHistoryController</code> was written against Flowable's documented public API (<code>RepositoryService</code>, <code>CmmnRepositoryService</code>, <code>DmnRepositoryService</code>, <code>CmmnRuntimeService</code>, <code>HistoryService</code>) but has never been compiled -- this is a materially bigger and riskier piece of uncompiled code than Phase 1's original thin layer. Treat <code>mvn clean verify</code> as non-optional before deploying this anywhere.</li>
+            <li><strong>Flowable's own Liquibase usage vs. this project's Liquibase usage.</strong> Flowable 8 uses Liquibase internally to manage its own engine tables and sets <code>spring.liquibase.enabled=false</code> by default specifically so a host app's own Liquibase setup doesn't collide with it. This project already sets <code>spring.liquibase.enabled: true</code> explicitly for the <code>runtime</code> schema changelog (Section 3) -- per Flowable's own docs this should only affect our changelog, not Flowable's internal one, but this interaction has not been observed running and is worth confirming on first real boot.</li>
+            <li><strong>Application-level tenant isolation is a new risk category.</strong> Every Runtime Gateway handler is hand-responsible for tenant scoping (Section 7) -- worth a dedicated test suite the same way Designer.html Section 20.4 calls for one for RLS, but for this service instead. This now also covers the tenant ID passed into Flowable's own multi-tenancy (Section 5), which is a second place tenant scoping can silently go wrong.</li>
+            <li><strong>Java 21 / Spring Boot 4 in this project's actual dev/deploy environment hasn't been validated.</strong> This session's sandbox has neither (Java 11 only, no Docker, no Maven) -- this scaffold needs to be built and verified somewhere that has them, which is an environment decision outside this document's scope.</li>
+        </ul>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+</div>
+
+</body>
+</html>

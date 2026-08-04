@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Doc: Governance -- Roles, Administration &amp; Approvals (CWP)</title>
+    <style>
+        :root {
+            --citi-blue-dark: #003B70;
+            --citi-blue: #0066B2;
+            --citi-blue-light: #56A0D3;
+            --bg-primary: #FFFFFF;
+            --bg-panel: #EAF3FB;
+            --bg-panel-deep: #D6E7F5;
+            --code-bg: #F4F8FC;
+            --text-primary: #16212E;
+            --text-secondary: #44566B;
+            --border-color: #C2D8EC;
+            --accent-green: #1E7E34;
+            --accent-amber: #A85E00;
+            --accent-red: #C4262E;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { border-bottom: 4px solid var(--citi-blue); padding-bottom: 2rem; margin-bottom: 2.5rem; }
+        h1 { font-size: 2.25rem; color: var(--citi-blue-dark); margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1.1rem; color: var(--text-secondary); }
+        .meta-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-top: 1.5rem; background: var(--bg-panel);
+            padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .meta-item strong { color: var(--citi-blue); display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        section { margin-bottom: 3rem; }
+        h2 { font-size: 1.5rem; color: var(--citi-blue-dark); border-bottom: 2px solid var(--bg-panel-deep); padding-bottom: 0.5rem; margin-bottom: 1.25rem; }
+        h3 { font-size: 1.15rem; color: var(--citi-blue); margin: 1.5rem 0 0.75rem 0; }
+        h4 { font-size: 1rem; color: var(--citi-blue-dark); margin: 1.25rem 0 0.5rem 0; }
+        p { color: var(--text-secondary); margin-bottom: 1rem; }
+        ul, ol { color: var(--text-secondary); margin-left: 1.5rem; margin-bottom: 1rem; }
+        li { margin-bottom: 0.35rem; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background-color: var(--bg-panel); color: var(--citi-blue-dark);
+            padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.875rem;
+        }
+        pre {
+            background-color: var(--code-bg); border: 1px solid var(--border-color);
+            border-left: 4px solid var(--citi-blue); border-radius: 8px;
+            padding: 1.25rem; overflow-x: auto; margin: 1rem 0 1.5rem 0;
+        }
+        pre code { background-color: transparent; color: var(--text-primary); padding: 0; font-size: 0.85rem; line-height: 1.5; }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background-color: var(--bg-primary); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { background-color: var(--citi-blue-dark); color: #FFFFFF; font-weight: 600; }
+        td { color: var(--text-secondary); }
+        tr:nth-child(even) td { background-color: var(--bg-panel); }
+        tr:last-child td { border-bottom: none; }
+        .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .badge-bpmn { background-color: var(--bg-panel-deep); color: var(--citi-blue-dark); }
+        .badge-cmmn { background-color: #E4E0F5; color: #4B3FA6; }
+        .badge-dmn { background-color: #DDF0E2; color: var(--accent-green); }
+        .badge-future { background-color: #F5E4E4; color: var(--accent-red); }
+        .callout { background-color: var(--bg-panel); border-left: 4px solid var(--citi-blue); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; margin: 1.5rem 0; }
+        .callout-title { font-weight: 600; color: var(--citi-blue-dark); margin-bottom: 0.25rem; }
+        .callout-risk { border-left-color: var(--accent-red); }
+        .callout-risk .callout-title { color: var(--accent-red); }
+        .decision { background-color: var(--bg-panel-deep); border: 1px solid var(--citi-blue-light); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+        .decision-title { font-weight: 700; color: var(--citi-blue-dark); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        h2, h3 { scroll-margin-top: 1.5rem; }
+        .toc { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem 1.75rem; margin-bottom: 3rem; }
+        .toc-title { font-size: 1.1rem; font-weight: 700; color: var(--citi-blue-dark); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .toc ol { list-style: none; margin-left: 0; columns: 2; column-gap: 2.5rem; }
+        .toc > ol > li { break-inside: avoid; margin-bottom: 0.4rem; }
+        .toc ol ol { margin: 0.25rem 0 0.5rem 1.25rem; columns: 1; }
+        .toc a { color: var(--citi-blue-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+        .toc ol ol a { color: var(--text-secondary); font-weight: 400; font-size: 0.85rem; }
+        .toc a:hover { color: var(--citi-blue); text-decoration: underline; }
+        .back-to-top { display: inline-block; margin-top: 0.5rem; font-size: 0.75rem; color: var(--citi-blue); text-decoration: none; }
+        .back-to-top:hover { text-decoration: underline; }
+        .stack-table td:first-child { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+        .doc-nav { font-size: 0.85rem; margin-bottom: 1rem; }
+        .doc-nav a { color: var(--citi-blue); text-decoration: none; font-weight: 600; }
+        .doc-nav a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="doc-nav">&larr; <a href="CWP.html">Common Workflow Platform (CWP) index</a></div>
+    <header>
+        <h1>Governance: Roles, Administration &amp; Approvals</h1>
+        <div class="subtitle">Component design doc within the Common Workflow Platform (CWP)</div>
+        <div class="meta-grid">
+            <div class="meta-item"><strong>Status</strong>Phases 1&ndash;4 built August 3, 2026 (see Section 10 and Designer.html Section 22.1). Phases 5&ndash;6 not yet built</div>
+            <div class="meta-item"><strong>As-Built Reference</strong>Designer.html Section 22.1 (current role model, live today: designer / tenant_admin / approver / viewer)</div>
+            <div class="meta-item"><strong>Document Version</strong>1.1.0 (Phases 1&ndash;4 implemented)</div>
+            <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
+            <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
+        </div>
+    </header>
+
+    <nav class="toc" id="top">
+        <div class="toc-title">Contents</div>
+        <ol>
+            <li><a href="#sec-0">0. Decision Summary</a></li>
+            <li><a href="#sec-1">1. Current State (As Built)</a></li>
+            <li><a href="#sec-2">2. What's Wrong With The Flat Model</a></li>
+            <li><a href="#sec-3">3. Proposed Role Model</a>
+                <ol>
+                    <li><a href="#sec-3-1">3.1 Platform-Level Roles</a></li>
+                    <li><a href="#sec-3-2">3.2 Tenant-Level Roles</a></li>
+                    <li><a href="#sec-3-3">3.3 Role vs. Capability: Which Model?</a></li>
+                </ol>
+            </li>
+            <li><a href="#sec-4">4. Segregation Of Duties</a></li>
+            <li><a href="#sec-5">5. Cross-Tenant Governance</a></li>
+            <li><a href="#sec-6">6. Roles &amp; Responsibilities Matrix</a></li>
+            <li><a href="#sec-7">7. Audit Log Design</a></li>
+            <li><a href="#sec-8">8. Invite &amp; Deactivate Flow</a></li>
+            <li><a href="#sec-9">9. Approval Delegation</a></li>
+            <li><a href="#sec-10">10. Phased Roadmap</a></li>
+            <li><a href="#sec-11">11. Flowable Integration Roadmap (Proposed)</a>
+                <ol>
+                    <li><a href="#sec-11-1">11.1 Multi-Tenant Deployment Target Mapping</a></li>
+                    <li><a href="#sec-11-2">11.2 Engine Audit Logging &amp; History Level</a></li>
+                    <li><a href="#sec-11-3">11.3 Explicit Separation Of Duties (SoD) Enforcer</a></li>
+                </ol>
+            </li>
+        </ol>
+    </nav>
+
+    <section>
+        <h2 id="sec-0">0. Decision Summary</h2>
+        <p>The Administration and Approvals screens built in the last session work, but the role model underneath them is deliberately minimal: three flat, mutually exclusive, tenant-scoped roles (<code>designer</code>, <code>admin</code>, <code>viewer</code>). That was the right call to ship something real quickly. It is not the right long-term model for a platform meant to govern workflow changes across an organization. This document brainstorms what the model should grow into, and in what order -- no schema or code changes are made here.</p>
+        <div class="decision">
+            <div class="decision-title">Central Tension</div>
+            <p>Today's <code>admin</code> role bundles three genuinely different kinds of authority into one claim: managing who's on the team, deciding whether a workflow change is safe to publish, and having full designer edit rights. A tenant admin, a compliance approver, and a power-user designer are not the same job, and treating them as one role means every admin has to be trusted with all three, whether or not that's appropriate for the organization using this platform.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2 id="sec-1">1. Current State (As Built)</h2>
+        <div class="callout">
+            <div class="callout-title">Superseded by Designer.html Section 22.1 (August 3, 2026)</div>
+            <p>The table below is the baseline this document's proposal was written against -- kept as-is for historical accuracy. It no longer reflects live behavior; every row has since been rebuilt per this document's own Sections 3&ndash;8. See Designer.html Section 22.1 for what's actually running today.</p>
+        </div>
+        <p>Recap of what existed at the time this document was written, per Designer.html Section 21 -- this document proposed changes relative to this baseline, not a hypothetical one:</p>
+        <table class="stack-table">
+            <thead><tr><th>Piece</th><th>As Of August 1, 2026</th></tr></thead>
+            <tbody>
+                <tr><td>Role storage</td><td><code>auth.users.app_metadata.role</code> (JWT claim, RLS-visible via <code>current_role_claim()</code>) plus a mirrored <code>profiles.role</code> column for display</td></tr>
+                <tr><td>Role values</td><td><code>designer</code> / <code>admin</code> / <code>viewer</code>, one per user, tenant-scoped</td></tr>
+                <tr><td>Who can change roles</td><td>Any <code>admin</code>, via the <code>admin-set-role</code> edge function, for any user in their own tenant</td></tr>
+                <tr><td>Approval authority</td><td>Bundled into <code>admin</code> -- no separate approver concept</td></tr>
+                <tr><td>Workflow governance</td><td>Any <code>admin</code> can archive or delete any workflow in the tenant</td></tr>
+                <tr><td>Cross-tenant visibility</td><td>None. Every policy is scoped by <code>current_tenant_id()</code>; nobody, including the WaaS platform team, can see across tenants without direct SQL against Supabase</td></tr>
+                <tr><td>Audit trail</td><td>Only <code>approval_requests</code> (who requested/decided, when). Role changes, deletes, and archives are not logged anywhere</td></tr>
+                <tr><td>Onboarding new members</td><td>None -- <code>admin-set-role</code> can only change the role of a user who already has a <code>profiles</code> row (already signed up)</td></tr>
+            </tbody>
+        </table>
+        <p><strong>As of August 3, 2026:</strong> role values are <code>designer</code> / <code>tenant_admin</code> / <code>approver</code> / <code>viewer</code>; only <code>approver</code> can decide approvals, and never its own; any tenant_admin can archive/delete workflows and manage roles/deactivation; cross-tenant visibility is still none (Phase 6 not built); role changes, status changes, workflow deletes/archives, approval decisions, and stale-status resets are all logged to <code>audit_logs</code>; <code>invite-user</code> provisions brand-new members without manual SQL.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-2">2. What's Wrong With The Flat Model</h2>
+        <p>Six concrete gaps, roughly in order of how much they'd matter to a real organization adopting this platform:</p>
+        <ul>
+            <li><strong>No separation of duties.</strong> An admin can author a workflow, submit it for approval, and approve their own submission. There is nothing in the RLS or the trigger stopping this today.</li>
+            <li><strong>Approval authority is bundled with tenant administration.</strong> Organizations commonly want a compliance or risk officer to approve workflow changes without that same person being able to delete workflows or reassign everyone else's roles. Today that's impossible -- approval power only comes with full admin power.</li>
+            <li><strong>No cross-tenant oversight.</strong> If WaaS operates this as a multi-tenant platform for multiple business units or clients, there is currently no way for a platform-level team to audit or support a tenant without directly querying Supabase. Every tenant is an island, including from the platform operator's own view.</li>
+            <li><strong>No real audit trail.</strong> <code>approval_requests</code> covers approval decisions, but role changes, deletes, and archives leave no record. If a workflow disappears, there's no way to answer "who did that and when" from inside the app.</li>
+            <li><strong>No invite or offboarding flow.</strong> Growing a team means someone has to be manually bootstrapped into <code>profiles</code>/<code>auth.users</code> via direct SQL (as was done twice already in this project). There's also no way to deactivate a departing user short of deleting their row outright.</li>
+            <li><strong>No delegation.</strong> If the only approver for a tenant is unavailable, nothing can move from <code>pending_approval</code> to <code>approved</code>. Single point of failure by construction.</li>
+        </ul>
+        <p><strong>Status as of August 3, 2026:</strong> the first four gaps are closed (Phases 1&ndash;4, Section 10). Delegation and cross-tenant oversight remain open (Phases 5&ndash;6).</p>
+    </section>
+
+    <section>
+        <h2 id="sec-3">3. Proposed Role Model</h2>
+        <p>Two axes, deliberately separated: platform-level (who WaaS itself trusts across every tenant) and tenant-level (who a given organization trusts within its own workspace). Today only the tenant axis exists.</p>
+
+        <h3 id="sec-3-1">3.1 Platform-Level Roles</h3>
+        <p>New concept, doesn't exist today. A single role, <code>platform_superadmin</code>, held by WaaS's own operators (not by tenant users). Its purpose is narrow: cross-tenant read access for support and audit, never a silent bypass of tenant RLS for writes. Two implementation directions worth weighing later, not decided here:</p>
+        <ul>
+            <li>An entirely separate internal tool (its own auth, its own service-role-backed read path) that never shares a login surface with the tenant-facing app -- safer by construction, more to build and operate.</li>
+            <li>A <code>platform_superadmin</code> claim recognized by an additional, explicitly audited RLS policy on each table (<code>current_role_claim() = 'platform_superadmin'</code> OR the existing tenant check) -- less to build, but every table's RLS becomes a place this claim has to be remembered and reasoned about.</li>
+        </ul>
+        <p>Leaning toward the separate tool for anything that touches real tenant data, and reserving the shared-login approach only for read-only aggregate views (e.g., "how many tenants are on the platform" style operational dashboards) that never need row-level tenant data.</p>
+
+        <h3 id="sec-3-2">3.2 Tenant-Level Roles</h3>
+        <p>Refined from three to four concepts -- three of which map directly onto today's roles, plus a genuinely new one:</p>
+        <table class="stack-table">
+            <thead><tr><th>Role</th><th>Relation To Today</th><th>Scope</th></tr></thead>
+            <tbody>
+                <tr><td><code>tenant_admin</code></td><td>Narrowed from today's <code>admin</code></td><td>User/role management, tenant settings, delete/archive any workflow. Does <em>not</em> automatically include approval authority.</td></tr>
+                <tr><td><code>approver</code></td><td>New -- currently bundled into <code>admin</code></td><td>Can decide pending approval requests. Nothing else beyond what their other capabilities grant.</td></tr>
+                <tr><td><code>designer</code></td><td>Unchanged</td><td>Author, edit, save, export, submit for approval.</td></tr>
+                <tr><td><code>viewer</code></td><td>Unchanged</td><td>Read-only.</td></tr>
+            </tbody>
+        </table>
+        <p>The open design question is whether a person can hold more than one of these at once -- e.g., a designer who is also an approver for a different team's submissions. That's addressed directly in 3.3, because the answer changes the schema shape.</p>
+
+        <h3 id="sec-3-3">3.3 Role vs. Capability: Which Model?</h3>
+        <p>Two candidate directions, not a decision yet:</p>
+        <div class="callout">
+            <div class="callout-title">Option A -- Add a role value</div>
+            <p>Extend the existing single-role-per-user pattern: <code>role</code> becomes one of <code>designer</code> / <code>tenant_admin</code> / <code>approver</code> / <code>viewer</code>. Minimal change to the current schema and RLS shape. The real limitation: a user still can't be both a designer <em>and</em> an approver, which is a common real-world need (a senior engineer who authors most workflows but is also trusted to approve others' work).</p>
+        </div>
+        <div class="callout">
+            <div class="callout-title">Option B -- Move to a capabilities model (recommended direction)</div>
+            <p>Replace the single <code>role</code> text column with a <code>capabilities text[]</code> array (or a join table if capabilities need their own metadata later): a user can hold <code>['author']</code>, <code>['author', 'approve']</code>, <code>['administer']</code>, any combination. RLS policies check <code>'approve' = any(current_capabilities())</code> instead of <code>current_role_claim() = 'admin'</code>. More flexible and closer to how real organizations actually assign responsibility, at the cost of a real migration: every existing RLS policy that reads <code>current_role_claim()</code> would need to be rewritten, and the JWT claim shape changes from a string to an array.</p>
+        </div>
+        <p>Recommendation: stay with Option A (add <code>approver</code> as a fourth role value) for the first iteration, since it's a small, low-risk change on top of a pattern that's already proven to work, and revisit Option B only if "one person needs multiple capabilities" turns out to be a real recurring need once there are actual multi-role users to observe.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-4">4. Segregation Of Duties</h2>
+        <p>Independent of which role model wins, one rule is cheap to add and closes a real gap immediately: a user should never be able to decide their own approval request. Two enforcement points to consider together, not either/or:</p>
+        <ul>
+            <li><strong>RLS check</strong> on the <code>approval_requests</code> "admin decide" policy: add <code>requested_by is distinct from auth.uid()</code> to the <code>USING</code> clause, so the database itself refuses the update regardless of what the UI allows.</li>
+            <li><strong>UI check</strong> in <code>ApprovalsPage.tsx</code>: hide or disable the Approve/Reject buttons on a request the current user submitted themselves, so the restriction is visible before someone hits an error.</li>
+        </ul>
+        <p>Stretch idea, not required for a first pass: configurable per-tenant policy for whether certain spec types (e.g., DMN decisions with sanction-severity outputs) require two distinct approvers rather than one, mirroring real compliance sign-off patterns. This would need its own small table (<code>approval_policy</code>: tenant_id, spec_type, required_approvals int) and a trigger change to only flip <code>workflows.status</code> to <code>approved</code> once the count is met.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-5">5. Cross-Tenant Governance</h2>
+        <p>"Governance among the tenants" cuts two ways, worth naming separately since they have different answers:</p>
+        <ul>
+            <li><strong>Tenant-to-tenant isolation</strong> (should stay exactly as strict as it is today): every tenant-scoped RLS policy remains keyed on <code>current_tenant_id()</code>; nothing in this document proposes loosening that. Tenants should never be able to see each other's workflows, members, or approval history.</li>
+            <li><strong>Platform-to-tenant oversight</strong> (the actual gap): the WaaS platform team currently has no supported way to look across tenants for support, compliance, or capacity questions without dropping into raw SQL against Supabase directly, which is both risky (no audit trail on those reads) and slow. This is what <code>platform_superadmin</code> in 3.1 is meant to solve, deliberately kept read-oriented and, ideally, built as a separate tool from the tenant-facing app rather than a hidden mode inside it.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2 id="sec-6">6. Roles &amp; Responsibilities Matrix</h2>
+        <p>Target state under the proposed model (Option A from 3.3). Columns are capabilities; rows are the four tenant roles plus the platform role for comparison.</p>
+        <table class="stack-table">
+            <thead>
+                <tr><th>Role</th><th>Author / Edit</th><th>Delete Own</th><th>Delete Any</th><th>Submit Approval</th><th>Decide Approval</th><th>Manage Roles</th><th>Tenant Settings</th><th>Cross-Tenant Read</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>viewer</code></td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td></tr>
+                <tr><td><code>designer</code></td><td>Yes</td><td>Yes</td><td>&ndash;</td><td>Yes</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td></tr>
+                <tr><td><code>approver</code></td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td>Yes (not own requests)</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td></tr>
+                <tr><td><code>tenant_admin</code></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>&ndash;</td><td>Yes</td><td>Yes</td><td>&ndash;</td></tr>
+                <tr><td><code>platform_superadmin</code></td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td>&ndash;</td><td>Yes (read only)</td></tr>
+            </tbody>
+        </table>
+        <p>Notable deliberate choice: <code>tenant_admin</code> does not automatically get "Decide Approval" in this matrix. An organization that wants its admin to also approve would assign both <code>tenant_admin</code> and <code>approver</code> -- two explicit grants rather than one role implying the other.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-7">7. Audit Log Design</h2>
+        <p>A single generic table rather than one bespoke log per feature, so Administration only needs one "Audit Log" tab regardless of how many things get logged over time:</p>
+        <table class="stack-table">
+            <thead><tr><th>Column</th><th>Purpose</th></tr></thead>
+            <tbody>
+                <tr><td><code>tenant_id</code></td><td>Scopes every read the same way every other table already does</td></tr>
+                <tr><td><code>actor_id</code></td><td>Who performed the action</td></tr>
+                <tr><td><code>action</code></td><td>Short code, e.g. <code>role_changed</code>, <code>workflow_deleted</code>, <code>workflow_archived</code>, <code>approval_decided</code></td></tr>
+                <tr><td><code>entity_type</code> / <code>entity_id</code></td><td>What was acted on (a workflow, a profile, a request)</td></tr>
+                <tr><td><code>before</code> / <code>after</code> (jsonb)</td><td>Snapshot of the changed fields, for a real diff view later</td></tr>
+                <tr><td><code>occurred_at</code></td><td>Timestamp</td></tr>
+            </tbody>
+        </table>
+        <p>Population strategy: database triggers on the tables that matter (<code>profiles</code> role changes, <code>workflows</code> deletes/archives, <code>approval_requests</code> decisions), the same pattern already proven with <code>sync_workflow_status_from_approval</code> -- so this is additive to something already working, not a new pattern to invent.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-8">8. Invite &amp; Deactivate Flow</h2>
+        <p>Shares its data model with Onboarding.html's invite design (cross-reference: Onboarding.html Section 4) -- listed here too because it's equally a governance concern (who gets let into a tenant, and how they get removed).</p>
+        <ul>
+            <li><strong>Invite:</strong> an <code>invites</code> table (email, tenant_id, role, invited_by, status, token, expires_at) plus an edge function using <code>supabase.auth.admin.inviteUserByEmail</code>, the same service-role pattern already proven with <code>admin-set-role</code>.</li>
+            <li><strong>Deactivate:</strong> add a <code>profiles.status</code> column (<code>active</code> / <code>deactivated</code>) instead of deleting the row outright -- preserves the audit trail (a deactivated user's past approvals and authored workflows should still show correctly attributed) while an RLS check on write-granting policies excludes deactivated users going forward.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2 id="sec-9">9. Approval Delegation</h2>
+        <p>Addresses the single-point-of-failure gap from Section 2: if the only approver is out, nothing moves. Sketch of a delegation model, not a final design: an <code>approval_delegations</code> table (tenant_id, from_user_id, to_user_id, starts_at, ends_at). When listing who can decide a pending request, the Approvals query would include both direct approvers and anyone currently delegated to by an approver. Kept as its own phase (see Section 10) since it depends on the approver role existing first.</p>
+    </section>
+
+    <section>
+        <h2 id="sec-10">10. Phased Roadmap</h2>
+        <p>Ordered by a mix of impact and how cheaply each phase can be built on top of what already exists:</p>
+        <table class="stack-table">
+            <thead><tr><th>Phase</th><th>Scope</th><th>Why This Order</th><th>Status</th></tr></thead>
+            <tbody>
+                <tr><td>1</td><td>Segregation of duties: block self-approval at the RLS layer and in the UI</td><td>Cheapest possible change (one policy clause), closes the most obviously wrong gap</td><td><span class="badge" style="background:#DDF0E2;color:#1E7E34;">Built</span></td></tr>
+                <tr><td>2</td><td>Add the <code>approver</code> role value; update RLS and Approvals/Administration UI accordingly</td><td>Small schema change, directly unblocks proper separation of duties</td><td><span class="badge" style="background:#DDF0E2;color:#1E7E34;">Built</span> &mdash; landed together with Phase 1 in the same migration</td></tr>
+                <tr><td>3</td><td>Audit log table + triggers on role changes, deletes, archives, approval decisions</td><td>Reuses the trigger pattern already proven; makes every later phase debuggable</td><td><span class="badge" style="background:#DDF0E2;color:#1E7E34;">Built</span> &mdash; <code>audit_logs</code> + Administration Audit Log tab</td></tr>
+                <tr><td>4</td><td>Invite + deactivate flow (shared build with Onboarding.html)</td><td>Removes the manual-SQL-bootstrap dependency for every new tenant member</td><td><span class="badge" style="background:#DDF0E2;color:#1E7E34;">Built</span> &mdash; <code>invite-user</code> edge function, <code>profiles.status</code></td></tr>
+                <tr><td>5</td><td>Approval delegation</td><td>Depends on the approver role existing; lower urgency until there are multiple approvers to delegate among</td><td><span class="badge" style="background:#F5E4E4;color:#C4262E;">Not started</span></td></tr>
+                <tr><td>6</td><td>Platform-level oversight tool (<code>platform_superadmin</code>)</td><td>Biggest scope, and best built as a separate tool rather than bolted onto the tenant-facing app -- deliberately last</td><td><span class="badge" style="background:#F5E4E4;color:#C4262E;">Not started</span></td></tr>
+            </tbody>
+        </table>
+        <div class="callout callout-risk">
+            <div class="callout-title">Not Decided Here</div>
+            <p>Whether to eventually move from role-values to a full capabilities model (Option B in 3.3) is explicitly deferred, not rejected -- worth revisiting once Phase 2 is live and there's real usage data on whether "one role per person" is actually limiting anyone.</p>
+        </div>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-11">11. Flowable Integration Roadmap (Proposed)</h2>
+        <p>Proposed August 3, 2026. Extends this document's own Sections 3-8 with three items that specifically need Flowable-shaped capability -- deployment-target inheritance, engine-native history, and a deploy-time SoD check. See <a href="WorkflowWrapper.html">WorkflowWrapper.html</a> Section 9 for how these map onto that document's phase numbering (11.1 is Phase 5; 11.2 is Phase 9; 11.3 is Phase 4, notably <em>not</em> blocked on Flowable itself and startable as soon as Phase 1's deploy endpoint exists).</p>
+
+        <h3 id="sec-11-1">11.1 Multi-Tenant Deployment Target Mapping &amp; Shared Artifacts</h3>
+        <p>Flowable's own multi-tenancy model supports a default-tenant inheritance pattern: definitions deployed without a specific tenant ID act as a fallback template every tenant can use unless a tenant deploys its own override. Proposed: platform-level <code>platform_superadmin</code> (Section 3.1, not yet built) or, in the interim, a designated tenant, deploys Global Workflow Templates to a default namespace via the Runtime Gateway; tenant admins choose per-template whether to inherit the global version or override it with a tenant-specific definition. This is a natural extension of Onboarding.html Section 7.1's tenant-aware seed bundles -- the seed bundles are the first consumers of whatever a "global template" ends up meaning here.</p>
+
+        <h3 id="sec-11-2">11.2 Comprehensive Engine Audit Logging &amp; History Level</h3>
+        <p>Section 7's <code>audit_logs</code> table (built) covers role/status changes, workflow archive/delete, and approval decisions -- everything happening on the Supabase side. It has no visibility into what happens once something actually runs. Proposed: once a real Flowable engine exists (WorkflowWrapper.html Phase 7), feed its native history endpoints (<code>historic-task-instances</code>, <code>historic-activity-instances</code>) into the same <code>audit_logs</code> table via a new <code>action</code> family (e.g. <code>task_completed</code>, <code>activity_reached</code>), so Administration's Audit Log tab (built, Designer.html Section 22.1) stays the one place to look regardless of whether an event happened at design time or run time -- rather than a second, separate log UI.</p>
+        <div class="callout">
+            <div class="callout-title">Update, August 3, 2026: The Blocker Is Gone, The Wiring Still Isn't Built</div>
+            <p>WorkflowWrapper.html Phase 7 is done -- Flowable 8.0.0 is embedded in the Runtime Gateway and its real <code>HistoryService</code> is queryable (WorkflowWrapper.html Section 5, backing <code>GET /runtime/history/task-instances</code>). That resolves the "once a real Flowable engine exists" precondition above. What's still missing is the second half: nothing yet writes those historic events into <code>audit_logs</code> -- the Runtime Gateway exposes history as its own read endpoint, but doesn't push into Supabase. That plumbing (a new <code>action</code> family, and either a webhook/edge-function push from the gateway or a polling job) is still unbuilt.</p>
+        </div>
+
+        <h3 id="sec-11-3">11.3 Explicit Separation Of Duties (SoD) Enforcer</h3>
+        <p>Flowable itself distinguishes deployment authorization (<code>/repository/deployments</code>) from runtime task-execution permissions -- they're never the same grant. Proposed, and buildable now rather than blocked on Flowable (WorkflowWrapper.html Section 9, Phase 4): a third explicit capability, distinct from both <code>designer</code> (authors drafts) and <code>approver</code> (reviews and decides, Section 3.2, built) -- call it deploy authority -- gating who can call the Runtime Gateway's <code>POST /runtime/deployments</code> (Designer.html Section 23.3's one-click Publish). Whether this is a fifth role value, a capability grantable alongside <code>approver</code>, or folded into <code>tenant_admin</code> is an open design choice deferred to when Phase 4 is actually picked up -- flagged here so it isn't decided by default. The existing self-approval guard (Section 4, built: an approver can never decide their own request) is the direct precedent for how this should be enforced -- at the authorization layer the Runtime Gateway checks, not just hidden in the UI.</p>
+        <div class="callout">
+            <div class="callout-title">Update, August 3, 2026: Provisional Version Built</div>
+            <p>Phase 4 has been picked up as part of the Runtime Gateway's Phase 1 scaffold (<code>WaaS/Workflow-Wrapper</code>, <code>DeploymentService.assertDeployAuthority()</code>). The open design choice above was resolved provisionally, not definitively: deploy authority was folded into the existing <code>tenant_admin</code> role rather than becoming a fifth role value or a separately grantable capability -- the simplest option, chosen so Phase 1 wasn't blocked on a role-model decision. This is explicitly a placeholder: it does not yet implement the "author of this definition cannot also deploy it" check that would make this a real SoD control rather than a coarse role gate. Revisit before this matters for a real compliance boundary. Also uncompiled/unverified along with the rest of the Phase 1 scaffold -- see WorkflowWrapper.html Section 0.</p>
+        </div>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+</div>
+
+</body>
+</html>

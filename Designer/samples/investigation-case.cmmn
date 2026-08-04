@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cmmn:definitions xmlns:cmmn="http://www.omg.org/spec/CMMN/20151109/MODEL" id="Definitions_EthicsInvestigation" name="Ethics Investigation Case Definitions" targetNamespace="http://waas.citi.com/cmmn/investigation">
+  <cmmn:case id="Case_EthicsInvestigation" name="Ethics Investigation Case">
+    <cmmn:casePlanModel id="CasePlanModel_1" name="Investigation Plan">
+      <cmmn:planItem id="PI_Intake" name="Intake Review" definitionRef="Def_Intake" />
+      <cmmn:planItem id="PI_CaseOpened" name="Case Opened" definitionRef="Def_CaseOpened">
+        <cmmn:entryCriterion id="Entry_1" sentryRef="Sentry_IntakeComplete" />
+      </cmmn:planItem>
+      <cmmn:planItem id="PI_Evidence" name="Evidence Collection" definitionRef="Def_Evidence">
+        <cmmn:entryCriterion id="Entry_2" sentryRef="Sentry_CaseOpenedOccurred" />
+        <cmmn:exitCriterion id="Exit_1" sentryRef="Sentry_CaseDeterminedNotSubstantiated" />
+      </cmmn:planItem>
+      <cmmn:planItem id="PI_Interview" name="Interview Subject" definitionRef="Def_Interview">
+        <cmmn:entryCriterion id="Entry_3" sentryRef="Sentry_CaseOpenedOccurred" />
+      </cmmn:planItem>
+      <cmmn:planItem id="PI_EvidenceComplete" name="Evidence Complete" definitionRef="Def_EvidenceComplete">
+        <cmmn:entryCriterion id="Entry_4" sentryRef="Sentry_BothTasksComplete" />
+      </cmmn:planItem>
+      <cmmn:planItem id="PI_Determination" name="Determination Review" definitionRef="Def_Determination">
+        <cmmn:entryCriterion id="Entry_5" sentryRef="Sentry_EvidenceCompleteOccurred" />
+      </cmmn:planItem>
+      <cmmn:planItem id="PI_CaseDetermined" name="Case Determined" definitionRef="Def_CaseDetermined">
+        <cmmn:entryCriterion id="Entry_6" sentryRef="Sentry_DeterminationComplete" />
+      </cmmn:planItem>
+      <cmmn:planItem id="PI_Sanction" name="Sanction Application" definitionRef="Def_Sanction">
+        <cmmn:entryCriterion id="Entry_7" sentryRef="Sentry_CaseDeterminedSubstantiated" />
+      </cmmn:planItem>
+      <cmmn:planItem id="PI_Close" name="Close Case" definitionRef="Def_Close">
+        <cmmn:entryCriterion id="Entry_8" sentryRef="Sentry_SanctionComplete" />
+        <cmmn:entryCriterion id="Entry_9" sentryRef="Sentry_CaseDeterminedNotSubstantiated" />
+      </cmmn:planItem>
+      <cmmn:sentry id="Sentry_IntakeComplete">
+        <cmmn:planItemOnPart id="OP_1" sourceRef="PI_Intake">
+          <cmmn:standardEvent>complete</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+      </cmmn:sentry>
+      <cmmn:sentry id="Sentry_CaseOpenedOccurred">
+        <cmmn:planItemOnPart id="OP_2" sourceRef="PI_CaseOpened">
+          <cmmn:standardEvent>occur</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+      </cmmn:sentry>
+      <cmmn:sentry id="Sentry_BothTasksComplete">
+        <cmmn:planItemOnPart id="OP_3" sourceRef="PI_Evidence">
+          <cmmn:standardEvent>complete</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+        <cmmn:planItemOnPart id="OP_4" sourceRef="PI_Interview">
+          <cmmn:standardEvent>complete</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+      </cmmn:sentry>
+      <cmmn:sentry id="Sentry_EvidenceCompleteOccurred">
+        <cmmn:planItemOnPart id="OP_5" sourceRef="PI_EvidenceComplete">
+          <cmmn:standardEvent>occur</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+      </cmmn:sentry>
+      <cmmn:sentry id="Sentry_DeterminationComplete">
+        <cmmn:planItemOnPart id="OP_6" sourceRef="PI_Determination">
+          <cmmn:standardEvent>complete</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+      </cmmn:sentry>
+      <cmmn:sentry id="Sentry_CaseDeterminedSubstantiated">
+        <cmmn:planItemOnPart id="OP_7" sourceRef="PI_CaseDetermined">
+          <cmmn:standardEvent>occur</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+        <cmmn:ifPart>
+          <cmmn:condition>determinationOutcome == 'substantiated'</cmmn:condition>
+        </cmmn:ifPart>
+      </cmmn:sentry>
+      <cmmn:sentry id="Sentry_CaseDeterminedNotSubstantiated">
+        <cmmn:planItemOnPart id="OP_8" sourceRef="PI_CaseDetermined">
+          <cmmn:standardEvent>occur</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+        <cmmn:ifPart>
+          <cmmn:condition>determinationOutcome != 'substantiated'</cmmn:condition>
+        </cmmn:ifPart>
+      </cmmn:sentry>
+      <cmmn:sentry id="Sentry_SanctionComplete">
+        <cmmn:planItemOnPart id="OP_9" sourceRef="PI_Sanction">
+          <cmmn:standardEvent>complete</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+      </cmmn:sentry>
+      <cmmn:humanTask id="Def_Intake" name="Intake Review" performerRef="Role_IntakeAnalyst" />
+      <cmmn:milestone id="Def_CaseOpened" name="Case Opened" />
+      <cmmn:humanTask id="Def_Evidence" name="Evidence Collection" performerRef="Role_Investigator" />
+      <cmmn:humanTask id="Def_Interview" name="Interview Subject" performerRef="Role_Investigator" />
+      <cmmn:milestone id="Def_EvidenceComplete" name="Evidence Complete" />
+      <cmmn:humanTask id="Def_Determination" name="Determination Review" performerRef="Role_ComplianceOfficer" />
+      <cmmn:milestone id="Def_CaseDetermined" name="Case Determined" />
+      <cmmn:humanTask id="Def_Sanction" name="Sanction Application" performerRef="Role_HRBusinessPartner" />
+      <cmmn:task id="Def_Close" name="Close Case" isBlocking="false" />
+    </cmmn:casePlanModel>
+    <cmmn:caseRoles>
+      <cmmn:role id="Role_IntakeAnalyst" name="Intake Analyst" />
+      <cmmn:role id="Role_Investigator" name="Investigator" />
+      <cmmn:role id="Role_ComplianceOfficer" name="Compliance Officer" />
+      <cmmn:role id="Role_HRBusinessPartner" name="HR Business Partner" />
+    </cmmn:caseRoles>
+  </cmmn:case>
+</cmmn:definitions>
