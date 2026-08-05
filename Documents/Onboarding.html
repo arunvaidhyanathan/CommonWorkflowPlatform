@@ -135,7 +135,7 @@
 
     <section>
         <h2 id="sec-0">0. Decision Summary</h2>
-        <p>There is no onboarding today. Every tenant and every user in this project so far has been provisioned by direct SQL against Supabase, run manually. That's fine for a two-person build session; it's a dead end for anyone else who tries to sign up. This document brainstorms what a real onboarding experience should look like, split into four distinct flows that get conflated if treated as one problem.</p>
+        <p>There is no onboarding today. Every tenant and every user in this project so far has been provisioned by direct SQL against the PostgreSQL database, run manually. That's fine for a two-person build session; it's a dead end for anyone else who tries to sign up. This document brainstorms what a real onboarding experience should look like, split into four distinct flows that get conflated if treated as one problem.</p>
         <div class="decision">
             <div class="decision-title">Framing</div>
             <p>"Onboarding" isn't one screen, it's four different moments: creating a brand-new tenant, joining an existing one, a new user's first few minutes inside the app, and what an experienced user sees when they hit an empty list. Each needs its own design, even though they'll likely share components.</p>
@@ -144,17 +144,17 @@
 
     <section>
         <h2 id="sec-1">1. Problem Statement</h2>
-        <p>Today, a brand-new Supabase Auth user who signs up hits <code>DesignerPage</code>'s "Workspace Not Provisioned" screen and stops there -- correct behavior given no self-serve path exists, but a genuine dead end from the user's perspective. There's no way for them to create a tenant, no way for them to ask to join one, and no way for an existing admin to bring them in without someone running SQL by hand. This is the single biggest gap between "this works for us building it" and "this works for anyone we'd hand it to."</p>
+        <p>Today, a brand-new user who signs up through the auth service hits <code>DesignerPage</code>'s "Workspace Not Provisioned" screen and stops there -- correct behavior given no self-serve path exists, but a genuine dead end from the user's perspective. There's no way for them to create a tenant, no way for them to ask to join one, and no way for an existing admin to bring them in without someone running SQL by hand. This is the single biggest gap between "this works for us building it" and "this works for anyone we'd hand it to."</p>
     </section>
 
     <section>
         <h2 id="sec-2">2. The Four Onboarding Flows</h2>
 
         <h3 id="sec-2-1">2.1 New Tenant Creation</h3>
-        <p>The very first user of a brand-new organization. They have no tenant, no invite, nothing to join. Proposed flow: a short form (organization name, slug) submitted through a dedicated, unauthenticated-friendly signup path; on submit, a tenant row is created and the submitting user is automatically assigned <code>tenant_admin</code> (per Governance.html's proposed role) for that new tenant -- they're the first person in, so they have to start as the admin. This is the one flow that unavoidably needs a privileged write (creating a tenant and setting the first user's role), so like <code>admin-set-role</code>, it has to be an edge function, not a direct client write.</p>
+        <p>The very first user of a brand-new organization. They have no tenant, no invite, nothing to join. Proposed flow: a short form (organization name, slug) submitted through a dedicated, unauthenticated-friendly signup path; on submit, a tenant row is created and the submitting user is automatically assigned <code>tenant_admin</code> (per Governance.html's proposed role) for that new tenant -- they're the first person in, so they have to start as the admin. This is the one flow that unavoidably needs a privileged write (creating a tenant and setting the first user's role), so like <code>admin-set-role</code>, it has to be a privileged serverless function, not a direct client write.</p>
 
         <h3 id="sec-2-2">2.2 Invite Into An Existing Tenant</h3>
-        <p>The far more common case day-to-day: a <code>tenant_admin</code> invites a colleague. Proposed flow, shared design with Governance.html Section 8: admin enters an email and picks a role in Administration, which creates a row in a new <code>invites</code> table and triggers an edge function that calls <code>supabase.auth.admin.inviteUserByEmail</code>. The invited person gets a real email, clicks through, sets a password, and lands already provisioned -- no manual SQL, no waiting on someone else to run a query.</p>
+        <p>The far more common case day-to-day: a <code>tenant_admin</code> invites a colleague. Proposed flow, shared design with Governance.html Section 8: admin enters an email and picks a role in Administration, which creates a row in a new <code>invites</code> table and triggers a serverless function that calls the auth service's admin invite-by-email API. The invited person gets a real email, clicks through, sets a password, and lands already provisioned -- no manual SQL, no waiting on someone else to run a query.</p>
 
         <h3 id="sec-2-3">2.3 First-Login Guided Tour</h3>
         <p>For a freshly provisioned user (from either flow above), the first few minutes inside the app matter more than any other session they'll have. Proposed: a lightweight, dismissible tour -- not a blocking modal wizard, which people click through without reading, but a small persistent "Getting Started" panel (see 3.2) that points at real UI (the nav sidebar, the New Workflow button) rather than describing it in the abstract.</p>
@@ -191,8 +191,8 @@
         <table class="stack-table">
             <thead><tr><th>Flow</th><th>New Data Needed</th></tr></thead>
             <tbody>
-                <tr><td>2.1 New tenant</td><td>No new table -- reuses <code>tenants</code> + <code>profiles</code>, just needs an edge function to do the privileged first-write instead of direct SQL</td></tr>
-                <tr><td>2.2 Invite</td><td><code>invites</code> table (email, tenant_id, role, invited_by, status, token, expires_at) + an edge function using <code>auth.admin.inviteUserByEmail</code></td></tr>
+                <tr><td>2.1 New tenant</td><td>No new table -- reuses <code>tenants</code> + <code>profiles</code>, just needs a serverless function to do the privileged first-write instead of direct SQL</td></tr>
+                <tr><td>2.2 Invite</td><td><code>invites</code> table (email, tenant_id, role, invited_by, status, token, expires_at) + a serverless function using the auth service's admin invite-by-email API</td></tr>
                 <tr><td>2.3 Guided tour</td><td>A per-user "onboarding dismissed" flag -- could live on <code>profiles</code> as a boolean, or purely client-side (localStorage) if it doesn't need to persist across devices</td></tr>
                 <tr><td>2.4 Empty states</td><td>No new data -- purely a UI change referencing the existing sample files</td></tr>
             </tbody>
@@ -204,7 +204,7 @@
         <ul>
             <li><strong>Self-serve tenant creation vs. admin-provisioned only?</strong> Letting anyone create a tenant is the friendliest option but means anyone can spin up an org with no gatekeeping -- worth deciding deliberately rather than defaulting into it.</li>
             <li><strong>Domain-based auto-join?</strong> Common pattern (anyone signing up with an <code>@company.com</code> email auto-joins that company's tenant) -- convenient, but a real security decision, not a default to make lightly.</li>
-            <li><strong>Email deliverability.</strong> The invite flow depends entirely on Supabase Auth's transactional email actually landing, which needs a configured email provider in production, not just the default Supabase sender.</li>
+            <li><strong>Email deliverability.</strong> The invite flow depends entirely on the auth service's transactional email actually landing, which needs a configured email provider in production, not just the default sender.</li>
             <li><strong>Guided tour fatigue.</strong> If it's ever made a blocking modal instead of a dismissible panel, it will get clicked through unread within a week of anyone using the product regularly -- worth resisting that direction even if it seems more "complete."</li>
         </ul>
     </section>
@@ -214,7 +214,7 @@
         <table class="stack-table">
             <thead><tr><th>Phase</th><th>Scope</th><th>Status</th></tr></thead>
             <tbody>
-                <tr><td>1</td><td>Invite-into-existing-tenant flow (2.2) + the Getting Started checklist (3.2) -- covers the day-to-day growth case for a tenant that already exists, which is most of what'll actually happen once there's more than one tenant</td><td><span class="badge" style="background:#DDF0E2;color:#1E7E34;">Built</span> &mdash; <code>invite-user</code> edge function, <code>invites</code> table, <code>GettingStartedPanel.tsx</code>. Designer.html Section 22.2</td></tr>
+                <tr><td>1</td><td>Invite-into-existing-tenant flow (2.2) + the Getting Started checklist (3.2) -- covers the day-to-day growth case for a tenant that already exists, which is most of what'll actually happen once there's more than one tenant</td><td><span class="badge" style="background:#DDF0E2;color:#1E7E34;">Built</span> &mdash; <code>invite-user</code> serverless function, <code>invites</code> table, <code>GettingStartedPanel.tsx</code>. Designer.html Section 22.2</td></tr>
                 <tr><td>2</td><td>Empty-state sample imports (2.4) -- cheap, no new data model, immediately makes the product feel less blank on day one</td><td><span class="badge" style="background:#DDF0E2;color:#1E7E34;">Built</span> &mdash; one-click import buttons in <code>DesignerPage.tsx</code>'s empty state</td></tr>
                 <tr><td>3</td><td>Self-serve new tenant creation (2.1) -- once there's an actual need for multiple independent organizations rather than the single bootstrapped tenant this project has today</td><td><span class="badge" style="background:#F5E4E4;color:#C4262E;">Deferred</span> &mdash; deliberately not built; still one bootstrapped tenant</td></tr>
             </tbody>
@@ -231,7 +231,7 @@
         <p>Today, a brand-new tenant starts with an empty <code>workflows</code> list -- Onboarding.html Section 2.4's sample imports (built) address this one user at a time, by hand. Proposed: when a new tenant is provisioned (whether via the still-deferred self-serve tenant creation, Section 2.1/Phase 3, or the existing manual-bootstrap path), automatically deploy a standard set of starter templates -- Document Approval, Incident Management, a common Decision Matrix -- into that tenant's namespace via the Runtime Gateway, once app packaging (Designer.html Section 23.1) exists to define what a "template" actually is.</p>
 
         <h3 id="sec-7-2">7.2 Tenant-Isolated User &amp; Group Provisioning</h3>
-        <p>The <code>invite-user</code> edge function (Section 2.2, built) already sets <code>app_metadata.tenant_id</code>/<code>role</code> on invite. Proposed extension once the Runtime Gateway exists: mirror that same tenant-scoped identity into the gateway's authorization model with tenant-prefixed keys (e.g. <code>tenantA:designer</code>), matching Flowable's own multi-tenancy convention of prefixing group IDs with a tenant key to keep identity globally unique while staying tenant-isolated. This is additive to the invite flow, not a replacement -- Supabase stays the single identity provider (CWP.html Section 2); the Runtime Gateway just needs its own tenant-safe representation of "who is this" for the runtime-shaped endpoints in WorkflowWrapper.html Section 8.</p>
+        <p>The <code>invite-user</code> serverless function (Section 2.2, built) already sets <code>app_metadata.tenant_id</code>/<code>role</code> on invite. Proposed extension once the Runtime Gateway exists: mirror that same tenant-scoped identity into the gateway's authorization model with tenant-prefixed keys (e.g. <code>tenantA:designer</code>), matching Flowable's own multi-tenancy convention of prefixing group IDs with a tenant key to keep identity globally unique while staying tenant-isolated. This is additive to the invite flow, not a replacement -- the PostgreSQL database stays the single identity provider (CWP.html Section 2); the Runtime Gateway just needs its own tenant-safe representation of "who is this" for the runtime-shaped endpoints in WorkflowWrapper.html Section 8.</p>
 
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
     </section>

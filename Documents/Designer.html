@@ -343,7 +343,7 @@
             </div>
             <div class="meta-item">
                 <strong>Design-Time Plane</strong>
-                Supabase (Postgres + Auth + RLS)
+                PostgreSQL (Postgres + Auth + RLS)
             </div>
             <div class="meta-item">
                 <strong>Runtime Plane</strong>
@@ -413,7 +413,7 @@
                     <li><a href="#sec-2-2">2.2 Enforcement Points</a></li>
                 </ol>
             </li>
-            <li><a href="#sec-3">3. Design-Time Data Model (Supabase Postgres)</a>
+            <li><a href="#sec-3">3. Design-Time Data Model (PostgreSQL)</a>
                 <ol>
                     <li><a href="#sec-3-1">3.1 Schema DDL</a></li>
                     <li><a href="#sec-3-2">3.2 RLS Policies</a></li>
@@ -513,12 +513,12 @@
         <div class="decision">
             <div class="decision-title">Decision Log</div>
             <ul>
-                <li><strong>Persistence:</strong> Supabase Postgres is the design-time source of truth. Workflows, versions, forms, and deployment records live in Supabase under RLS. Flowable only receives deployed XML.</li>
-                <li><strong>Identity:</strong> Supabase Auth end-to-end. Supabase issues JWTs; RLS isolates tenants at the database; the Spring Boot wrapper validates the same JWT (Supabase JWKS) and derives the tenant from claims.</li>
-                <li><strong>Frontend:</strong> Vite + React 19 SPA. Browser-only Supabase client (<code>createBrowserClient</code>); no SSR middleware.</li>
+                <li><strong>Persistence:</strong> PostgreSQL is the design-time source of truth. Workflows, versions, forms, and deployment records live in PostgreSQL under RLS. Flowable only receives deployed XML.</li>
+                <li><strong>Identity:</strong> A JWT-based auth service end-to-end. The auth service issues JWTs; RLS isolates tenants at the database; the Spring Boot wrapper validates the same JWT (against the auth service's JWKS endpoint) and derives the tenant from claims.</li>
+                <li><strong>Frontend:</strong> Vite + React 19 SPA. Browser-only Postgres REST client (<code>createBrowserClient</code>); no SSR middleware.</li>
                 <li><strong>Collaboration:</strong> Single-editor v1 with a lock flag on the workflow row. Live co-editing deferred to v2.</li>
                 <li><strong>Engine access:</strong> The SPA never calls Flowable REST directly. All runtime operations route through the Spring Boot wrapper.</li>
-                <li><strong>Round-trip editing:</strong> The Designer is a full editor, not just an authoring tool. Existing BPMN 2.0 definitions import from file, from Supabase history, or from the running Flowable engine, and re-serialize losslessly (ISO 19510 XML interchange).</li>
+                <li><strong>Round-trip editing:</strong> The Designer is a full editor, not just an authoring tool. Existing BPMN 2.0 definitions import from file, from PostgreSQL history, or from the running Flowable engine, and re-serialize losslessly (ISO 19510 XML interchange).</li>
                 <li><strong>Workflow identity:</strong> Process ID (definition key) and name are user-controlled, captured at creation or import, validated for uniqueness per tenant, and preserved across versions.</li>
             </ul>
         </div>
@@ -526,7 +526,7 @@
 
     <section>
         <h2 id="sec-1">1. System Architecture & Component Topography</h2>
-        <p>The platform is split into two planes. The <strong>design-time plane</strong> (Supabase) owns workflow authoring data and identity. The <strong>runtime plane</strong> (Spring Boot wrapper + Flowable Core) owns execution. The SPA talks to each plane over its own contract: <code>supabase-js</code> for authoring CRUD, and REST + SSE with a Supabase JWT bearer token for runtime operations.</p>
+        <p>The platform is split into two planes. The <strong>design-time plane</strong> (PostgreSQL) owns workflow authoring data and identity. The <strong>runtime plane</strong> (Spring Boot wrapper + Flowable Core) owns execution. The SPA talks to each plane over its own contract: a Postgres REST client for authoring CRUD, and REST + SSE with a JWT bearer token for runtime operations.</p>
 
         <div class="architecture-diagram">
 +---------------------------------------------------------------------------------------------------+
@@ -551,13 +551,13 @@
 |  +---------------------------------------------------------------------------------------------+  |
 +-----------+---------------------------------------------------------------+-----------------------+
             |                                                               |
-            | supabase-js (design-time CRUD, RLS enforced)                  | REST + SSE
-            v                                                               | (Bearer: Supabase JWT)
+            | Postgres REST client (design-time CRUD, RLS enforced)         | REST + SSE
+            v                                                               | (Bearer: JWT)
 +---------------------------------------+                                   v
-|      SUPABASE  (DESIGN-TIME PLANE)    |     +---------------------------------------------------+
+|     POSTGRESQL  (DESIGN-TIME PLANE)   |     +---------------------------------------------------+
 |                                       |     |     SPRING BOOT FLOWABLE WRAPPER (RUNTIME PLANE)  |
 |  Auth (JWT issuer, tenant claims)     |     |                                                   |
-|  Postgres + RLS:                      |     |  JWT Validation (Supabase JWKS)                   |
+|  Postgres + RLS:                      |     |  JWT Validation (Auth Service JWKS)               |
 |   tenants / profiles / workflows      |     |  Tenant Security Interceptor (claims -> tenant)   |
 |   workflow_versions / deployments     |     |  Flowable Services (Repository/Runtime/Task)      |
 |   form_schemas                        |     |  Retry Aspect / Migration Engine / OTel Tracing   |
@@ -571,14 +571,14 @@
             <li><strong>Canvas Presentation Layer:</strong> Renders custom nodes, sequence flows, sentries, and decision trees using <code>@xyflow/react</code>.</li>
             <li><strong>State & Command Layer:</strong> Powered by <code>Zustand</code> with transactional mutations, <code>zundo</code> undo/redo history, and active selection tracking.</li>
             <li><strong>Moddle Translation Pipeline:</strong> Translates visual graph JSON into OMG-compliant XML definitions (BPMN 2.0, CMMN 1.1, DMN 1.3) required by Flowable.</li>
-            <li><strong>Design-Time Repository:</strong> Supabase Postgres stores graph JSON and generated XML per version, with tenant-scoped RLS.</li>
-            <li><strong>Runtime Gateway:</strong> The Spring Boot wrapper is the only component that touches Flowable APIs; it validates Supabase JWTs and enforces tenant isolation on every call.</li>
+            <li><strong>Design-Time Repository:</strong> PostgreSQL stores graph JSON and generated XML per version, with tenant-scoped RLS.</li>
+            <li><strong>Runtime Gateway:</strong> The Spring Boot wrapper is the only component that touches Flowable APIs; it validates JWTs and enforces tenant isolation on every call.</li>
         </ul>
     </section>
 
     <section>
         <h2 id="sec-2">2. Identity, Multi-Tenancy & Row-Level Security</h2>
-        <p>Supabase Auth is the single identity provider. Tenant membership and role are written to <code>app_metadata</code> at user provisioning time, making them tamper-proof claims inside every JWT.</p>
+        <p>A JWT-based auth service is the single identity provider. Tenant membership and role are written to <code>app_metadata</code> at user provisioning time, making them tamper-proof claims inside every JWT.</p>
 
         <h3 id="sec-2-1">2.1 JWT Claim Contract</h3>
         <pre><code>{
@@ -601,13 +601,13 @@
             </thead>
             <tbody>
                 <tr>
-                    <td>Supabase Postgres</td>
-                    <td>RLS policies keyed on <code>auth.jwt() -&gt; app_metadata -&gt;&gt; 'tenant_id'</code></td>
+                    <td>PostgreSQL</td>
+                    <td>RLS policies keyed on <code>current_setting('request.jwt.claims', true)::json -&gt; 'app_metadata' -&gt;&gt; 'tenant_id'</code></td>
                     <td>All design-time rows (workflows, versions, forms)</td>
                 </tr>
                 <tr>
                     <td>Spring Boot Wrapper</td>
-                    <td>JWT validation against Supabase JWKS; tenant claim mapped to <code>X-Tenant-ID</code> and Flowable tenant queries</td>
+                    <td>JWT validation against the auth service's JWKS endpoint; tenant claim mapped to <code>X-Tenant-ID</code> and Flowable tenant queries</td>
                     <td>Deployments, process instances, tasks, telemetry streams</td>
                 </tr>
                 <tr>
@@ -620,12 +620,12 @@
 
         <div class="callout">
             <div class="callout-title">Single Token, Two Planes</div>
-            <p>The same Supabase-issued JWT authorizes both direct database access (via RLS) and wrapper API calls. There is no second credential exchange, and tenant identity cannot diverge between planes because both read the same claim.</p>
+            <p>The same auth-service-issued JWT authorizes both direct database access (via RLS) and wrapper API calls. There is no second credential exchange, and tenant identity cannot diverge between planes because both read the same claim.</p>
         </div>
     </section>
 
     <section>
-        <h2 id="sec-3">3. Design-Time Data Model (Supabase Postgres)</h2>
+        <h2 id="sec-3">3. Design-Time Data Model (PostgreSQL)</h2>
         <p>Six tables form the authoring repository. Versions are immutable once written; the workflow row carries mutable workspace state (draft pointer, lock, status).</p>
 
         <table>
@@ -660,7 +660,7 @@
                 <tr>
                     <td><code>deployments</code></td>
                     <td>id, workflow_version_id, tenant_id, flowable_deployment_id, deployed_by, deployed_at, status</td>
-                    <td>Traceability bridge between Supabase versions and Flowable deployments</td>
+                    <td>Traceability bridge between PostgreSQL versions and Flowable deployments</td>
                 </tr>
                 <tr>
                     <td><code>form_schemas</code></td>
@@ -736,7 +736,7 @@
 <span class="comment">-- Helper: current tenant from JWT app_metadata</span>
 <span class="keyword">create function</span> <span class="function">current_tenant_id</span>() <span class="keyword">returns</span> uuid
 <span class="keyword">language</span> sql <span class="keyword">stable as</span> $$
-  <span class="keyword">select</span> ((auth.jwt() -&gt; <span class="string">'app_metadata'</span>) -&gt;&gt; <span class="string">'tenant_id'</span>)::uuid
+  <span class="keyword">select</span> ((current_setting(<span class="string">'request.jwt.claims'</span>, true)::json -&gt; <span class="string">'app_metadata'</span>) -&gt;&gt; <span class="string">'tenant_id'</span>)::uuid
 $$;
 
 <span class="keyword">create policy</span> <span class="string">"tenant read"</span> <span class="keyword">on</span> workflows
@@ -745,7 +745,7 @@ $$;
 <span class="keyword">create policy</span> <span class="string">"designer write"</span> <span class="keyword">on</span> workflows
   <span class="keyword">for all using</span> (
     tenant_id = current_tenant_id()
-    <span class="keyword">and</span> ((auth.jwt() -&gt; <span class="string">'app_metadata'</span>) -&gt;&gt; <span class="string">'role'</span>) <span class="keyword">in</span> (<span class="string">'designer'</span>, <span class="string">'admin'</span>)
+    <span class="keyword">and</span> ((current_setting(<span class="string">'request.jwt.claims'</span>, true)::json -&gt; <span class="string">'app_metadata'</span>) -&gt;&gt; <span class="string">'role'</span>) <span class="keyword">in</span> (<span class="string">'designer'</span>, <span class="string">'admin'</span>)
   );
 
 <span class="comment">-- Identical pattern applied to workflow_versions, deployments, form_schemas.</span>
@@ -783,7 +783,7 @@ $$;
                 </tr>
                 <tr>
                     <td><strong>Open existing</strong></td>
-                    <td>Supabase <code>workflow_versions</code></td>
+                    <td>PostgreSQL <code>workflow_versions</code></td>
                     <td>Any historical version opens read-only; "Edit as new draft" branches it into the current draft</td>
                 </tr>
             </tbody>
@@ -812,13 +812,13 @@ $$;
 
         <div class="callout">
             <div class="callout-title">Single-Editor Lock (v1)</div>
-            <p>Opening a workflow for editing sets <code>locked_by / locked_at</code>. Other users get read-only mode with the lock owner surfaced. Locks expire after inactivity (e.g. 15 minutes) and admins can force-release. Live co-editing via Supabase Realtime is deferred to v2.</p>
+            <p>Opening a workflow for editing sets <code>locked_by / locked_at</code>. Other users get read-only mode with the lock owner surfaced. Locks expire after inactivity (e.g. 15 minutes) and admins can force-release. Live co-editing via a Postgres change-stream/realtime layer is deferred to v2.</p>
         </div>
     </section>
 
     <section>
         <h2 id="sec-5">5. Application Surfaces: Designer & Task Workbench</h2>
-        <p>The SPA ships two surfaces from one codebase, sharing the Supabase client, auth session, and design tokens (Shadcn UI on TailwindCSS).</p>
+        <p>The SPA ships two surfaces from one codebase, sharing the Postgres REST client, auth session, and design tokens (Shadcn UI on TailwindCSS).</p>
 
         <table>
             <thead>
@@ -834,19 +834,19 @@ $$;
                     <td><strong>Designer (Developer Workspace)</strong></td>
                     <td>Workflow developers</td>
                     <td>Visual canvas (BPMN/CMMN), DMN grid, properties panel, form schema builder, validation, versioning, deploy</td>
-                    <td>Supabase (authoring), wrapper (deploy)</td>
+                    <td>PostgreSQL (authoring), wrapper (deploy)</td>
                 </tr>
                 <tr>
                     <td><strong>Task Workbench (End User Portal)</strong></td>
                     <td>Business users</td>
                     <td>Real-time task inbox, claim and delegate, JSON Schema-driven form rendering, visual execution viewer</td>
-                    <td>Wrapper (TaskService/RuntimeService), Supabase (form schemas)</td>
+                    <td>Wrapper (TaskService/RuntimeService), PostgreSQL (form schemas)</td>
                 </tr>
             </tbody>
         </table>
 
         <h3 id="sec-5-1">5.1 Task Workbench Interaction Contract</h3>
-        <pre><code><span class="comment">// All calls carry the Supabase JWT; the wrapper scopes results by tenant claim.</span>
+        <pre><code><span class="comment">// All calls carry the auth service's JWT; the wrapper scopes results by tenant claim.</span>
 GET    /api/v1/tasks?assignee=me&amp;state=open        <span class="comment">// my inbox</span>
 GET    /api/v1/tasks?candidateGroup=approvers      <span class="comment">// group queue</span>
 POST   /api/v1/tasks/{taskId}/claim
@@ -954,7 +954,7 @@ GET    /api/v1/instances/{instanceId}/stream       <span class="comment">// SSE 
     setGraph: (nodes, edges) => set({ nodes, edges, isDirty: <span class="keyword">false</span> }),
   }))
 );</code></pre>
-        <p>Autosave subscribes to <code>isDirty</code> transitions and debounces an upsert of the serialized graph into the draft <code>workflow_versions</code> row via <code>supabase-js</code>.</p>
+        <p>Autosave subscribes to <code>isDirty</code> transitions and debounces an upsert of the serialized graph into the draft <code>workflow_versions</code> row via the Postgres REST client.</p>
     </section>
 
     <section>
@@ -1471,7 +1471,7 @@ ServiceTaskNode.displayName = <span class="string">'ServiceTaskNode'</span>;</co
         <h2 id="sec-13">13. Dynamic Form Builder & Runtime Rendering</h2>
         <p>Forms are plain JSON Schema (draft 2020-12) stored in <code>form_schemas</code>, decoupled from Flowable's proprietary form format. The Designer edits schemas with a live preview; the Task Workbench renders them at runtime.</p>
         <ul>
-            <li><strong>Binding:</strong> User Task <code>formKey</code> = <code>form_schemas.form_key</code>. The wrapper returns the formKey with each task; the SPA fetches the schema from Supabase (RLS-scoped).</li>
+            <li><strong>Binding:</strong> User Task <code>formKey</code> = <code>form_schemas.form_key</code>. The wrapper returns the formKey with each task; the SPA fetches the schema from PostgreSQL (RLS-scoped).</li>
             <li><strong>Rendering:</strong> Schema-driven renderer maps JSON Schema types to Shadcn inputs (string to text/select via <code>enum</code>, number to numeric input, boolean to switch, <code>format: date</code> to date picker). <code>ui:*</code> vendor extensions control layout, ordering, and widget overrides.</li>
             <li><strong>Validation:</strong> AJV validates client-side before submit; values post to <code>/tasks/{id}/complete</code> as process variables. The wrapper re-validates against the same schema server-side.</li>
             <li><strong>Versioning:</strong> Schemas are versioned; a deployed workflow version pins the schema version current at deploy time so in-flight tasks render the form they were designed with.</li>
@@ -1484,7 +1484,7 @@ ServiceTaskNode.displayName = <span class="string">'ServiceTaskNode'</span>;</co
 
         <div class="callout">
             <div class="callout-title">Runtime Telemetry Overlay Strategy</div>
-            <p>Active instance telemetry streams over Server-Sent Events (SSE) from the wrapper, authorized with the same Supabase JWT. The canvas overlays dynamic CSS styling based on activity states; the Workbench renders the same overlay read-only over the deployed diagram.</p>
+            <p>Active instance telemetry streams over Server-Sent Events (SSE) from the wrapper, authorized with the same auth-service-issued JWT. The canvas overlays dynamic CSS styling based on activity states; the Workbench renders the same overlay read-only over the deployed diagram.</p>
         </div>
 
         <pre><code><span class="keyword">export interface</span> <span class="type">ExecutionTreePayload</span> {
@@ -1525,17 +1525,17 @@ ServiceTaskNode.displayName = <span class="string">'ServiceTaskNode'</span>;</co
 
     <section>
         <h2 id="sec-15">15. Multi-Tenant Deployment Integration API</h2>
-        <p>HTTP contract between the workbench client and the Spring Boot Flowable wrapper. The bearer token is the Supabase-issued JWT; the wrapper derives the tenant from the token claim and cross-checks the path parameter.</p>
+        <p>HTTP contract between the workbench client and the Spring Boot Flowable wrapper. The bearer token is the auth-service-issued JWT; the wrapper derives the tenant from the token claim and cross-checks the path parameter.</p>
 
         <pre><code><span class="keyword">import</span> axios <span class="keyword">from</span> <span class="string">'axios'</span>;
-<span class="keyword">import</span> { supabase } <span class="keyword">from</span> <span class="string">'../lib/supabaseClient'</span>;
+<span class="keyword">import</span> { db } <span class="keyword">from</span> <span class="string">'../lib/dbClient'</span>;
 
 <span class="keyword">export async function</span> <span class="function">deployWorkflowToEngine</span>(
   tenantId: <span class="type">string</span>,
   deploymentName: <span class="type">string</span>,
   xmlContent: <span class="type">string</span>
 ) {
-  <span class="keyword">const</span> { data: { session } } = <span class="keyword">await</span> supabase.auth.getSession();
+  <span class="keyword">const</span> { data: { session } } = <span class="keyword">await</span> db.auth.getSession();
 
   <span class="keyword">const</span> formData = <span class="keyword">new</span> FormData();
   <span class="keyword">const</span> xmlBlob = <span class="keyword">new</span> Blob([xmlContent], { type: <span class="string">'text/xml'</span> });
@@ -1555,7 +1555,7 @@ ServiceTaskNode.displayName = <span class="string">'ServiceTaskNode'</span>;</co
     }
   );
 
-  <span class="comment">// Record traceability in Supabase: deployments row with flowable_deployment_id</span>
+  <span class="comment">// Record traceability in PostgreSQL: deployments row with flowable_deployment_id</span>
   <span class="keyword">return</span> response.data; <span class="comment">// { flowableDeploymentId, definitionKey, version }</span>
 }</code></pre>
     </section>
@@ -1578,7 +1578,7 @@ ServiceTaskNode.displayName = <span class="string">'ServiceTaskNode'</span>;</co
         <h3 id="sec-16-2">16.2 Process Versioning & Schema Evolution</h3>
         <p>Hosting 1,000+ workflows across 50+ tenant apps means definitions change constantly. Two guarantees:</p>
         <ul>
-            <li><strong>Version pinning:</strong> Running process instances finish on the XML version they started with unless explicitly migrated. Flowable's native definition versioning provides this; the Supabase <code>deployments</code> table tracks which version each instance cohort runs on.</li>
+            <li><strong>Version pinning:</strong> Running process instances finish on the XML version they started with unless explicitly migrated. Flowable's native definition versioning provides this; the PostgreSQL <code>deployments</code> table tracks which version each instance cohort runs on.</li>
             <li><strong>Instance migration:</strong> A Process Instance Migration Engine in the wrapper uses Flowable's <code>ProcessInstanceMigrationBuilder</code> to transition active instances between versions without losing variable state.</li>
         </ul>
         <pre><code><span class="keyword">public void</span> <span class="function">migrateInstances</span>(String tenantId, String sourceDefId, String targetDefId) {
@@ -1625,19 +1625,19 @@ ServiceTaskNode.displayName = <span class="string">'ServiceTaskNode'</span>;</co
 
     <section>
         <h2 id="sec-17">17. Frontend Scaffolding Revision (Vite)</h2>
-        <p>The initial scaffolding in <code>Designer/</code> used the Next.js-oriented <code>@supabase/ssr</code> pattern. With the Vite + React SPA decision, the client setup simplifies:</p>
+        <p>The initial scaffolding in <code>Designer/</code> used a Next.js-oriented SSR client pattern. With the Vite + React SPA decision, the client setup simplifies:</p>
         <ul>
-            <li><strong>Remove:</strong> <code>utils/supabase/server.ts</code> and <code>utils/supabase/middleware.ts</code> (SSR/middleware concepts do not apply).</li>
-            <li><strong>Keep:</strong> a single browser client, renamed to <code>src/lib/supabaseClient.ts</code>.</li>
-            <li><strong>Env:</strong> Vite exposes variables prefixed <code>VITE_</code>; <code>.env.local</code> keys become <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>. <code>DATABASE_URL</code> remains server-side only (never shipped to the SPA).</li>
+            <li><strong>Remove:</strong> <code>utils/db/server.ts</code> and <code>utils/db/middleware.ts</code> (SSR/middleware concepts do not apply).</li>
+            <li><strong>Keep:</strong> a single browser client, renamed to <code>src/lib/dbClient.ts</code>.</li>
+            <li><strong>Env:</strong> Vite exposes variables prefixed <code>VITE_</code>; <code>.env.local</code> keys become <code>VITE_DATABASE_URL</code> and <code>VITE_DATABASE_ANON_KEY</code>. <code>DATABASE_URL</code> remains server-side only (never shipped to the SPA).</li>
         </ul>
-        <pre><code><span class="keyword">import</span> { createClient } <span class="keyword">from</span> <span class="string">'@supabase/supabase-js'</span>;
+        <pre><code><span class="keyword">import</span> { createClient } <span class="keyword">from</span> <span class="string">'pg-rest-client'</span>;
 
-<span class="keyword">export const</span> supabase = <span class="function">createClient</span>(
-  <span class="keyword">import</span>.meta.env.VITE_SUPABASE_URL,
-  <span class="keyword">import</span>.meta.env.VITE_SUPABASE_ANON_KEY
+<span class="keyword">export const</span> db = <span class="function">createClient</span>(
+  <span class="keyword">import</span>.meta.env.VITE_DATABASE_URL,
+  <span class="keyword">import</span>.meta.env.VITE_DATABASE_ANON_KEY
 );</code></pre>
-        <p>Planned dependency set: <code>@supabase/supabase-js</code>, <code>@xyflow/react</code>, <code>zustand</code>, <code>zundo</code>, <code>bpmn-moddle</code>, <code>cmmn-moddle</code>, <code>dmn-moddle</code>, <code>@tanstack/react-table</code>, <code>@tanstack/react-query</code>, <code>ajv</code>, <code>axios</code>, <code>elkjs</code> (auto-layout), <code>@codemirror/lang-xml</code> (source view), <code>tailwindcss</code>, Shadcn UI.</p>
+        <p>Planned dependency set: a Postgres REST client SDK, <code>@xyflow/react</code>, <code>zustand</code>, <code>zundo</code>, <code>bpmn-moddle</code>, <code>cmmn-moddle</code>, <code>dmn-moddle</code>, <code>@tanstack/react-table</code>, <code>@tanstack/react-query</code>, <code>ajv</code>, <code>axios</code>, <code>elkjs</code> (auto-layout), <code>@codemirror/lang-xml</code> (source view), <code>tailwindcss</code>, Shadcn UI.</p>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
     </section>
 
@@ -1677,12 +1677,12 @@ ServiceTaskNode.displayName = <span class="string">'ServiceTaskNode'</span>;</co
                 <tr><th>Technology</th><th>What It Is</th><th>Role In This Design</th></tr>
             </thead>
             <tbody>
-                <tr><td>Supabase</td><td>Managed Postgres platform (DB + Auth + Storage + Realtime)</td><td>Design-time source of truth: workflows, versions, forms, tenants, identity</td></tr>
-                <tr><td>Supabase Postgres</td><td>Postgres 15 database</td><td>Stores <code>workflows</code>, <code>workflow_versions</code>, <code>deployments</code>, <code>form_schemas</code>, <code>tenants</code>, <code>profiles</code></td></tr>
-                <tr><td>Supabase Auth</td><td>JWT-based identity provider</td><td>Issues user JWTs carrying <code>tenant_id</code> and <code>role</code> in <code>app_metadata</code></td></tr>
+                <tr><td>PostgreSQL</td><td>Managed Postgres platform (DB + Auth + Storage + Realtime)</td><td>Design-time source of truth: workflows, versions, forms, tenants, identity</td></tr>
+                <tr><td>PostgreSQL Database</td><td>Postgres 15 database</td><td>Stores <code>workflows</code>, <code>workflow_versions</code>, <code>deployments</code>, <code>form_schemas</code>, <code>tenants</code>, <code>profiles</code></td></tr>
+                <tr><td>Auth Service</td><td>JWT-based identity provider</td><td>Issues user JWTs carrying <code>tenant_id</code> and <code>role</code> in <code>app_metadata</code></td></tr>
                 <tr><td>Row-Level Security (RLS)</td><td>Postgres native access-control feature</td><td>Enforces tenant isolation directly at the database on every table</td></tr>
-                <tr><td>Supabase MCP</td><td>Model Context Protocol server for Supabase</td><td>Gives Claude direct database/schema/debugging access during this design and build</td></tr>
-                <tr><td>@supabase/supabase-js</td><td>Supabase JS client SDK</td><td>Browser client for auth session and Postgres CRUD/RLS-scoped queries</td></tr>
+                <tr><td>Database MCP</td><td>Model Context Protocol server for the PostgreSQL database</td><td>Gives Claude direct database/schema/debugging access during this design and build</td></tr>
+                <tr><td>Postgres REST client SDK</td><td>Auto-generated Postgres REST client SDK</td><td>Browser client for auth session and Postgres CRUD/RLS-scoped queries</td></tr>
             </tbody>
         </table>
 
@@ -1697,7 +1697,7 @@ ServiceTaskNode.displayName = <span class="string">'ServiceTaskNode'</span>;</co
                 <tr><td>Spring Retry</td><td>Declarative retry library for Spring</td><td>Powers the <code>@Retryable</code> aspect around optimistic-locking failures</td></tr>
                 <tr><td>Flowable RepositoryService / RuntimeService / TaskService</td><td>Flowable's Java service APIs</td><td>Deployment, process instance, and task operations invoked by the wrapper</td></tr>
                 <tr><td>ProcessInstanceMigrationBuilder</td><td>Flowable migration API</td><td>Transitions running instances between definition versions without losing state</td></tr>
-                <tr><td>Engine Postgres</td><td>Postgres database (separate from Supabase)</td><td>Flowable's own runtime schema (instances, tasks, history, jobs)</td></tr>
+                <tr><td>Engine Postgres</td><td>Postgres database (separate from the design-time database)</td><td>Flowable's own runtime schema (instances, tasks, history, jobs)</td></tr>
                 <tr><td>Nginx</td><td>Reverse proxy / web server</td><td>Edge of the runtime plane, in front of the Spring Boot wrapper</td></tr>
             </tbody>
         </table>
@@ -1787,7 +1787,7 @@ graph TD
     DL["data/workflows.ts (CRUD)"]
     STORE <--> DL
 
-    subgraph Supabase["Supabase (design-time source of truth)"]
+    subgraph PostgreSQLDB["PostgreSQL (design-time source of truth)"]
         AUTH["Auth: JWT app_metadata.tenant_id / role"]
         RLS["Row-Level Security"]
         WF["workflows"]
@@ -1807,7 +1807,7 @@ graph TD
 graph LR
     subgraph Completed["Completed"]
         direction TB
-        D1["Supabase schema, RLS policies, tenant/role bootstrap"]
+        D1["PostgreSQL schema, RLS policies, tenant/role bootstrap"]
         D2["Vite + React + TS scaffold, Citi theme"]
         D3["Zustand + zundo canvas store"]
         D4["BPMN: import, edit, save, auto-layout, full DI round-trip"]
@@ -1872,7 +1872,7 @@ graph LR
                 <tr><td><code>autoLayout.ts</code></td><td>High</td><td>Unit</td><td><code>needsAutoLayout</code> stacking-detection heuristic, elkjs layout produces non-overlapping positions</td></tr>
                 <tr><td><code>detectSpecType.ts</code></td><td>Medium</td><td>Unit</td><td>Extension-based detection, content-sniff fallback for ambiguous <code>.xml</code></td></tr>
                 <tr><td><code>useWorkbenchStore.ts</code></td><td>Highest</td><td>Unit</td><td>Every action, zundo undo/redo, <code>isDirty</code> transitions, DMN decision actions</td></tr>
-                <tr><td><code>data/workflows.ts</code></td><td>High</td><td>Unit (mocked client) + integration (local Supabase)</td><td>Row shaping, version-number increment, cross-tenant RLS denial</td></tr>
+                <tr><td><code>data/workflows.ts</code></td><td>High</td><td>Unit (mocked client) + integration (local PostgreSQL)</td><td>Row shaping, version-number increment, cross-tenant RLS denial</td></tr>
                 <tr><td><code>PropertiesPanel.tsx</code>, <code>DmnEditor.tsx</code></td><td>Medium-High</td><td>Component (Testing Library)</td><td>Field-to-store wiring, add/remove clause or rule, hit-policy-conditional fields</td></tr>
                 <tr><td><code>WorkflowIdentityDialog.tsx</code></td><td>Medium</td><td>Component</td><td>Validation errors, spec-type selector, duplicate-key check</td></tr>
                 <tr><td><code>Canvas.tsx</code></td><td>Medium</td><td>Unit (logic only)</td><td>Node-id generation, drop-position calculation</td></tr>
@@ -1891,7 +1891,7 @@ graph LR
                 <tr><td>@testing-library/react + @testing-library/jest-dom</td><td>Standard, official React Testing Library</td></tr>
                 <tr><td>Vitest v8 coverage provider</td><td>Built into Vitest, no extra install</td></tr>
                 <tr><td>@playwright/test</td><td>Microsoft's official E2E tool; first-party Vite integration</td></tr>
-                <tr><td>Supabase CLI local stack</td><td>Official local dev tool; RLS integration tests run against local Postgres, never against the live <code>nrhsoabqeskybrznxfyi</code> project</td></tr>
+                <tr><td>Local Postgres dev stack</td><td>Official local dev tooling; RLS integration tests run against local Postgres, never against the live database</td></tr>
                 <tr><td>Stryker (stretch goal)</td><td>Mutation testing to validate coverage is meaningful</td></tr>
             </tbody>
         </table>
@@ -1910,7 +1910,7 @@ graph LR
         <p>This project is continuing in a new conversation. Paste the following into the new session to re-establish context without re-deriving it:</p>
         <div class="callout">
             <div class="callout-title">Kickoff Prompt</div>
-            <p>Continuing the Multi-Specification Workflow Canvas &amp; Developer Workbench project (BPMN/CMMN/DMN designer). Full context lives in <code>/Users/arunvaidhyanathan/Developer/WaaS/Documents/Designer.html</code> &mdash; read Section 0 (decision summary), Section 19 (implementation status as of the last build session), and Section 20 (this testing plan) before doing anything else. The app is a working Vite + React 19 + TypeScript SPA at <code>/Users/arunvaidhyanathan/Developer/WaaS/Designer</code>, backed by Supabase (project <code>nrhsoabqeskybrznxfyi</code>) with RLS. BPMN, CMMN, and DMN import/edit/save all work end to end and have been manually verified against the sample files in <code>Designer/samples/</code>. Next task: implement the testing plan in Section 20, starting with Vitest setup and adapter round-trip tests against the existing sample fixtures.</p>
+            <p>Continuing the Multi-Specification Workflow Canvas &amp; Developer Workbench project (BPMN/CMMN/DMN designer). Full context lives in <code>/Users/arunvaidhyanathan/Developer/WaaS/Documents/Designer.html</code> &mdash; read Section 0 (decision summary), Section 19 (implementation status as of the last build session), and Section 20 (this testing plan) before doing anything else. The app is a working Vite + React 19 + TypeScript SPA at <code>/Users/arunvaidhyanathan/Developer/WaaS/Designer</code>, backed by a PostgreSQL database with RLS. BPMN, CMMN, and DMN import/edit/save all work end to end and have been manually verified against the sample files in <code>Designer/samples/</code>. Next task: implement the testing plan in Section 20, starting with Vitest setup and adapter round-trip tests against the existing sample fixtures.</p>
         </div>
 
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
@@ -1928,7 +1928,7 @@ graph LR
 
         <h3 id="sec-21-3">21.3 Administration</h3>
         <p>Two sections on one screen (<code>AdministrationPage.tsx</code>): team &amp; role management, and tenant-wide workflow governance (archive/delete regardless of who created the workflow &mdash; the existing <code>workflows tenant read</code> RLS policy was already tenant-wide with no owner filter, so no policy change was needed for visibility).</p>
-        <p>Role reassignment could not be done from the browser client: role lives in <code>auth.users.raw_app_meta_data</code>, which only a service-role key can write, and <code>profiles.role</code> alone has no bearing on RLS since <code>current_role_claim()</code> reads the JWT claim, not the table. Deployed <code>admin-set-role</code> as a Supabase Edge Function that holds the service-role key server-side: it verifies the caller's own JWT claims show <code>role: admin</code>, confirms the target user is in the same tenant, then calls the Supabase Admin API to update <code>app_metadata.role</code> and mirrors the value into <code>profiles.role</code> for display. The initial security-advisor scan flagged nothing on this function itself, but did flag the new approval-sync trigger function (see 21.4) as directly RPC-callable, which was closed off.</p>
+        <p>Role reassignment could not be done from the browser client: role lives in <code>auth.users.raw_app_meta_data</code>, which only a service-role key can write, and <code>profiles.role</code> alone has no bearing on RLS since <code>current_role_claim()</code> reads the JWT claim, not the table. Deployed <code>admin-set-role</code> as a serverless function that holds the service-role key server-side: it verifies the caller's own JWT claims show <code>role: admin</code>, confirms the target user is in the same tenant, then calls the auth service's admin API to update <code>app_metadata.role</code> and mirrors the value into <code>profiles.role</code> for display. The initial security-advisor scan flagged nothing on this function itself, but did flag the new approval-sync trigger function (see 21.4) as directly RPC-callable, which was closed off.</p>
 
         <h3 id="sec-21-4">21.4 Design-Time Approval Workflow</h3>
         <p>Lifecycle extended: <code>draft &rarr; pending_approval &rarr; approved</code> (rejection returns a workflow to <code>draft</code>). The <code>workflows.status</code> check constraint was widened to include the two new values. A new <code>approval_requests</code> table is the audit trail (who requested, when, who decided, when, optional comment) rather than overloading <code>workflows.status</code> with no history.</p>
@@ -1938,7 +1938,7 @@ graph LR
         <h3 id="sec-21-5">21.5 Known Limitations (superseded by Section 22)</h3>
         <p><em>As of this section's original writing (August 1, 2026). Every item below was addressed in the Section 22 build-out (August 3, 2026) except Workflow Wrapper and Agentic Designer, which remain explicitly out of scope &mdash; see CWP.html.</em></p>
         <ul>
-            <li>Team member list shows display name and user ID, not email &mdash; email lives in <code>auth.users</code>, which the anon-key client can't query, and building a second admin-scoped edge function just to list emails was out of scope for this pass. <strong>Fixed, Section 22.5.</strong></li>
+            <li>Team member list shows display name and user ID, not email &mdash; email lives in <code>auth.users</code>, which the anon-key client can't query, and building a second admin-scoped serverless function just to list emails was out of scope for this pass. <strong>Fixed, Section 22.5.</strong></li>
             <li>No invite-new-user flow yet; Administration can only reassign roles for people who already have a profile row (i.e., already signed up). <strong>Fixed, Section 22.2.</strong></li>
             <li>Saving a new version over an <code>approved</code> workflow does not automatically revert its status to <code>draft</code> &mdash; the status can go stale relative to the content until this is addressed. <strong>Fixed, Section 22.4.</strong></li>
             <li>Onboarding, Workbench, Workflow Wrapper, and Agentic Designer are navigable placeholders only; nothing behind them is built. <strong>Onboarding and Workbench built, Sections 22.2&ndash;22.3. Workflow Wrapper and Agentic Designer remain out of scope.</strong></li>
@@ -1952,12 +1952,12 @@ graph LR
         <p>Built August 3, 2026, across two passes in the same session. The first pass built out Onboarding and Workbench from Section 21's placeholders and rebuilt the role model per Governance.html's proposal. The second pass fixed two of the four remaining items from Section 21.5's known-limitations list (the other two -- invite flow and role split -- had already landed in the first pass) plus the team-list email gap. All of Governance.html's Phase 1&ndash;4 roadmap, Onboarding.html's Phase 1&ndash;2 roadmap, and Workbench.html's Phase 1&ndash;3 roadmap are now built; see those documents' own phased-roadmap sections for what's deliberately still deferred (self-serve tenant creation, approval delegation, <code>platform_superadmin</code>, the full activity feed).</p>
 
         <h3 id="sec-22-1">22.1 Role Model Rebuild</h3>
-        <p>Governance.html Section 3.2/3.3 (Option A) implemented directly against the live schema: the flat <code>admin</code> role is renamed <code>tenant_admin</code>, and a new <code>approver</code> role is split out with sole decide-authority over <code>approval_requests</code> &mdash; <code>tenant_admin</code> no longer automatically gets it, matching the doc's explicit "notable deliberate choice." Segregation of duties (Section 4) is enforced in the same migration: the <code>approval_requests admin decide</code> policy (renamed in spirit, not name) now requires <code>current_role_claim() = 'approver'</code> <em>and</em> <code>requested_by is distinct from auth.uid()</code>, so nobody can decide their own submission, checked at the database layer, not just hidden in the UI. <code>admin-set-role</code> was updated to accept the new role values and to reject a caller changing their own role server-side (previously only a client-side disabled control).</p>
+        <p>Governance.html Section 3.2/3.3 (Option A) implemented directly against the live schema: the flat <code>admin</code> role is renamed <code>tenant_admin</code>, and a new <code>approver</code> role is split out with sole decide-authority over <code>approval_requests</code> &mdash; <code>tenant_admin</code> no longer automatically gets it, matching the doc's explicit "notable deliberate choice." Segregation of duties (Section 4) is enforced in the same migration: the <code>approval_requests admin decide</code> policy (renamed in spirit, not name) now requires <code>current_role_claim() = 'approver'</code> <em>and</em> <code>requested_by is distinct from current_user_id()</code>, so nobody can decide their own submission, checked at the database layer, not just hidden in the UI. <code>admin-set-role</code> was updated to accept the new role values and to reject a caller changing their own role server-side (previously only a client-side disabled control).</p>
         <p>A related hardening found while touching this policy: <code>profiles self update</code> had no column restriction, so any signed-in user could <code>UPDATE</code> their own <code>profiles.role</code> or <code>tenant_id</code> directly (didn't grant real authority since RLS reads the JWT claim, not this table, but was a data-integrity hole). Closed by rewriting the policy's <code>WITH CHECK</code> to require <code>role</code>/<code>tenant_id</code>/<code>email</code> (see 22.5) stay unchanged on a self-update.</p>
         <p>Also added: <code>profiles.status</code> (<code>active</code> / <code>deactivated</code>) plus an <code>is_current_user_active()</code> helper appended to every write-granting RLS policy, so a deactivated member is cut off going forward without deleting their row (Governance.html Section 8) &mdash; and a generic <code>audit_logs</code> table populated by <code>SECURITY DEFINER</code> triggers on role/status changes, workflow archive/delete, and approval decisions (Governance.html Section 7), surfaced as a new Audit Log tab in <code>AdministrationPage.tsx</code>.</p>
 
         <h3 id="sec-22-2">22.2 Onboarding: Invites, Getting Started, Sample Imports</h3>
-        <p>Onboarding.html Section 2.2's recommended first build (invite-into-existing-tenant) is live: a new <code>invite-user</code> Edge Function mirrors <code>admin-set-role</code>'s shape &mdash; verifies the caller is <code>tenant_admin</code> server-side, then uses the service-role key to call <code>auth.admin.inviteUserByEmail</code>, set the new user's <code>app_metadata</code> (tenant/role), and provision their <code>profiles</code> row before they've ever logged in. A new <code>invites</code> table is the tenant-visible record (Administration's new Invites tab: send, view, revoke). The acceptance side (Section 2.2's other half) is a one-time "set your password" screen in <code>App.tsx</code>, shown when the URL hash captured before Supabase's own init indicates an invite/recovery link.</p>
+        <p>Onboarding.html Section 2.2's recommended first build (invite-into-existing-tenant) is live: a new <code>invite-user</code> serverless function mirrors <code>admin-set-role</code>'s shape &mdash; verifies the caller is <code>tenant_admin</code> server-side, then uses the service-role key to call the auth service's admin invite-by-email API, set the new user's <code>app_metadata</code> (tenant/role), and provision their <code>profiles</code> row before they've ever logged in. A new <code>invites</code> table is the tenant-visible record (Administration's new Invites tab: send, view, revoke). The acceptance side (Section 2.2's other half) is a one-time "set your password" screen in <code>App.tsx</code>, shown when the URL hash captured before the auth client's own init indicates an invite/recovery link.</p>
         <p>Section 3.2's Getting Started panel is a dismissible checklist above Designer's workflow list, persisted via a new <code>profiles.onboarding_dismissed_at</code> column. Section 2.4's empty-state sample imports are live: the two files in <code>Designer/samples/</code> (copied into <code>Designer/public/samples/</code> so they're fetchable at runtime) are one-click imports from the empty workflow list, reusing the existing import pipeline.</p>
 
         <h3 id="sec-22-3">22.3 Workbench: My Work Dashboard</h3>
@@ -1999,10 +1999,10 @@ graph LR
         </div>
 
         <h3 id="sec-23-3">23.3 One-Click Deploy</h3>
-        <p>Today, <strong>Submit for Approval</strong> (Section 21.4) and <strong>Export</strong> (Section 21.1) are the only two things that happen to a saved version -- there is no path from an approved workflow to anything actually running. Proposed: once a version reaches <code>approved</code> status, a <strong>Publish</strong> action calls the Runtime Gateway's <code>POST /runtime/deployments</code> directly, closing the gap between "approved in Supabase" and "deployed to a runtime." Per Governance.html's new Separation-of-Duties enforcer section, this action itself needs its own authorization check distinct from who can author or approve -- deploy authority is a third, explicit grant, not implied by either.</p>
+        <p>Today, <strong>Submit for Approval</strong> (Section 21.4) and <strong>Export</strong> (Section 21.1) are the only two things that happen to a saved version -- there is no path from an approved workflow to anything actually running. Proposed: once a version reaches <code>approved</code> status, a <strong>Publish</strong> action calls the Runtime Gateway's <code>POST /runtime/deployments</code> directly, closing the gap between "approved in PostgreSQL" and "deployed to a runtime." Per Governance.html's new Separation-of-Duties enforcer section, this action itself needs its own authorization check distinct from who can author or approve -- deploy authority is a third, explicit grant, not implied by either.</p>
         <div class="callout">
             <div class="callout-title">Update, August 3, 2026: Built</div>
-            <p>A <strong>Publish</strong> button now appears in <code>DesignerPage.tsx</code>'s editor toolbar when a workflow's status is <code>approved</code>, visible only to <code>tenant_admin</code> accounts (<code>canDeploy</code>, Governance.html Section 11.3's provisional deploy-authority rule -- everyone else sees "Approved -- awaiting publish by a tenant admin" instead of a button that would just 403). It serializes the current model and calls the Runtime Gateway via a new <code>lib/runtimeGatewayClient.ts</code>/<code>data/deployments.ts</code> pair, attaching the same Supabase session JWT used everywhere else in the app (WorkflowWrapper.html Section 7's "Single Token, Two Planes"). If <code>VITE_RUNTIME_GATEWAY_URL</code> isn't set (true today -- the gateway hasn't been deployed anywhere, see WorkflowWrapper.html Section 0), Publish shows a clear "not configured" message rather than a confusing network error. Verified with <code>tsc -b</code> (zero type errors); a full <code>vite build</code>/<code>oxlint</code> pass could not run in this session's sandbox due to missing native bindings for this CPU architecture (<code>lightningcss</code>/<code>oxlint</code>'s Linux ARM64 binaries), unrelated to this change -- worth a real build/lint pass before merging.</p>
+            <p>A <strong>Publish</strong> button now appears in <code>DesignerPage.tsx</code>'s editor toolbar when a workflow's status is <code>approved</code>, visible only to <code>tenant_admin</code> accounts (<code>canDeploy</code>, Governance.html Section 11.3's provisional deploy-authority rule -- everyone else sees "Approved -- awaiting publish by a tenant admin" instead of a button that would just 403). It serializes the current model and calls the Runtime Gateway via a new <code>lib/runtimeGatewayClient.ts</code>/<code>data/deployments.ts</code> pair, attaching the same session JWT used everywhere else in the app (WorkflowWrapper.html Section 7's "Single Token, Two Planes"). If <code>VITE_RUNTIME_GATEWAY_URL</code> isn't set (true today -- the gateway hasn't been deployed anywhere, see WorkflowWrapper.html Section 0), Publish shows a clear "not configured" message rather than a confusing network error. Verified with <code>tsc -b</code> (zero type errors); a full <code>vite build</code>/<code>oxlint</code> pass could not run in this session's sandbox due to missing native bindings for this CPU architecture (<code>lightningcss</code>/<code>oxlint</code>'s Linux ARM64 binaries), unrelated to this change -- worth a real build/lint pass before merging.</p>
         </div>
 
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
