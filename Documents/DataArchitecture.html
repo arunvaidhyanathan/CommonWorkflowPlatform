@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Doc: Data Architecture -- Catalog, ERD &amp; Process Flows (CWP)</title>
+    <style>
+        :root {
+            --citi-blue-dark: #003B70;
+            --citi-blue: #0066B2;
+            --citi-blue-light: #56A0D3;
+            --bg-primary: #FFFFFF;
+            --bg-panel: #EAF3FB;
+            --bg-panel-deep: #D6E7F5;
+            --code-bg: #F4F8FC;
+            --text-primary: #16212E;
+            --text-secondary: #44566B;
+            --border-color: #C2D8EC;
+            --accent-green: #1E7E34;
+            --accent-amber: #A85E00;
+            --accent-red: #C4262E;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { border-bottom: 4px solid var(--citi-blue); padding-bottom: 2rem; margin-bottom: 2.5rem; }
+        h1 { font-size: 2.25rem; color: var(--citi-blue-dark); margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1.1rem; color: var(--text-secondary); }
+        .meta-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-top: 1.5rem; background: var(--bg-panel);
+            padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .meta-item strong { color: var(--citi-blue); display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        section { margin-bottom: 3rem; }
+        h2 { font-size: 1.5rem; color: var(--citi-blue-dark); border-bottom: 2px solid var(--bg-panel-deep); padding-bottom: 0.5rem; margin-bottom: 1.25rem; }
+        h3 { font-size: 1.15rem; color: var(--citi-blue); margin: 1.5rem 0 0.75rem 0; }
+        h4 { font-size: 1rem; color: var(--citi-blue-dark); margin: 1.25rem 0 0.5rem 0; }
+        p { color: var(--text-secondary); margin-bottom: 1rem; }
+        ul, ol { color: var(--text-secondary); margin-left: 1.5rem; margin-bottom: 1rem; }
+        li { margin-bottom: 0.35rem; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background-color: var(--bg-panel); color: var(--citi-blue-dark);
+            padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.875rem;
+        }
+        pre {
+            background-color: var(--code-bg); border: 1px solid var(--border-color);
+            border-left: 4px solid var(--citi-blue); border-radius: 8px;
+            padding: 1.25rem; overflow-x: auto; margin: 1rem 0 1.5rem 0;
+        }
+        pre code { background-color: transparent; color: var(--text-primary); padding: 0; font-size: 0.85rem; line-height: 1.5; }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background-color: var(--bg-primary); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { background-color: var(--citi-blue-dark); color: #FFFFFF; font-weight: 600; }
+        td { color: var(--text-secondary); }
+        tr:nth-child(even) td { background-color: var(--bg-panel); }
+        tr:last-child td { border-bottom: none; }
+        .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .badge-design { background-color: var(--bg-panel-deep); color: var(--citi-blue-dark); }
+        .badge-future { background-color: #F5E4E4; color: var(--accent-red); }
+        .badge-built { background-color: #DDF0E2; color: var(--accent-green); }
+        .callout { background-color: var(--bg-panel); border-left: 4px solid var(--citi-blue); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; margin: 1.5rem 0; }
+        .callout-title { font-weight: 600; color: var(--citi-blue-dark); margin-bottom: 0.25rem; }
+        .callout-risk { border-left-color: var(--accent-red); }
+        .callout-risk .callout-title { color: var(--accent-red); }
+        .decision { background-color: var(--bg-panel-deep); border: 1px solid var(--citi-blue-light); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+        .decision-title { font-weight: 700; color: var(--citi-blue-dark); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        h2, h3 { scroll-margin-top: 1.5rem; }
+        .toc { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem 1.75rem; margin-bottom: 3rem; }
+        .toc-title { font-size: 1.1rem; font-weight: 700; color: var(--citi-blue-dark); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .toc ol { list-style: none; margin-left: 0; columns: 2; column-gap: 2.5rem; }
+        .toc > ol > li { break-inside: avoid; margin-bottom: 0.4rem; }
+        .toc ol ol { margin: 0.25rem 0 0.5rem 1.25rem; columns: 1; }
+        .toc a { color: var(--citi-blue-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+        .toc ol ol a { color: var(--text-secondary); font-weight: 400; font-size: 0.85rem; }
+        .toc a:hover { color: var(--citi-blue); text-decoration: underline; }
+        .back-to-top { display: inline-block; margin-top: 0.5rem; font-size: 0.75rem; color: var(--citi-blue); text-decoration: none; }
+        .back-to-top:hover { text-decoration: underline; }
+        .stack-table td:first-child { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+        .doc-nav { font-size: 0.85rem; margin-bottom: 1rem; }
+        .doc-nav a { color: var(--citi-blue); text-decoration: none; font-weight: 600; }
+        .doc-nav a:hover { text-decoration: underline; }
+        .mermaid { background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin: 1rem 0 1.5rem 0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="doc-nav">&larr; <a href="CWP.html">Common Workflow Platform (CWP) index</a></div>
+    <header>
+        <h1>Data Architecture: Catalog, ERD &amp; Process Flows</h1>
+        <div class="subtitle">Component design doc within the Common Workflow Platform (CWP)</div>
+        <div class="meta-grid">
+            <div class="meta-item"><strong>Scope</strong>The design-time PostgreSQL schema (9 tables) -- CWP.html's "single PostgreSQL database" plane, not the Runtime Gateway's own <code>runtime</code> schema or Flowable's engine tables</div>
+            <div class="meta-item"><strong>Source</strong>Live schema introspection (columns, FKs, indexes, functions, triggers) cross-checked against a schema-visualizer export, August 4, 2026</div>
+            <div class="meta-item"><strong>Document Version</strong>1.0.0</div>
+            <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
+            <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
+        </div>
+    </header>
+
+    <nav class="toc" id="top">
+        <div class="toc-title">Contents</div>
+        <ol>
+            <li><a href="#sec-0">0. Scope &amp; How This Relates To The Other Docs</a></li>
+            <li><a href="#sec-1">1. Multi-Tenancy &amp; Identity Model</a></li>
+            <li><a href="#sec-2">2. Entity-Relationship Diagram</a></li>
+            <li><a href="#sec-3">3. Data Catalog</a>
+                <ol>
+                    <li><a href="#sec-3-1">3.1 tenants</a></li>
+                    <li><a href="#sec-3-2">3.2 profiles</a></li>
+                    <li><a href="#sec-3-3">3.3 workflows</a></li>
+                    <li><a href="#sec-3-4">3.4 workflow_versions</a></li>
+                    <li><a href="#sec-3-5">3.5 deployments</a></li>
+                    <li><a href="#sec-3-6">3.6 form_schemas</a></li>
+                    <li><a href="#sec-3-7">3.7 approval_requests</a></li>
+                    <li><a href="#sec-3-8">3.8 audit_logs</a></li>
+                    <li><a href="#sec-3-9">3.9 invites</a></li>
+                </ol>
+            </li>
+            <li><a href="#sec-4">4. Functions &amp; Triggers Catalog</a></li>
+            <li><a href="#sec-5">5. Row-Level Security Policy Catalog</a></li>
+            <li><a href="#sec-6">6. Process Flows</a>
+                <ol>
+                    <li><a href="#sec-6-1">6.1 Workflow Lifecycle</a></li>
+                    <li><a href="#sec-6-2">6.2 Invite / Onboarding Flow</a></li>
+                    <li><a href="#sec-6-3">6.3 Audit Trail Flow</a></li>
+                    <li><a href="#sec-6-4">6.4 Request-Time Tenant Isolation</a></li>
+                </ol>
+            </li>
+            <li><a href="#sec-7">7. Known Gaps &amp; Risks</a></li>
+            <li><a href="#sec-8">8. Schema Export &amp; Migration Plan</a></li>
+        </ol>
+    </nav>
+
+    <section>
+        <h2 id="sec-0">0. Scope &amp; How This Relates To The Other Docs</h2>
+        <p>CWP.html Section 2 already states the platform's foundation in one line: a single PostgreSQL database with row-level security as the tenant isolation boundary. Designer.html Section 3 sketches the schema DDL and Section 2 sketches the RLS pattern; Governance.html documents the role model these policies enforce. This document is the missing piece between those sketches and reality: the complete, current data catalog (every column, constraint, index, and default -- not just the illustrative subset each component doc needed), a single entity-relationship diagram tying all nine tables together, the actual function/trigger bodies that make audit logging and status transitions work, the full RLS policy catalog, and process-flow diagrams for the flows that touch the most tables (workflow lifecycle, invites, audit trail, tenant isolation).</p>
+        <div class="decision">
+            <div class="decision-title">What's Deliberately Out Of Scope Here</div>
+            <p>The Runtime Gateway's own <code>runtime</code> schema (WorkflowWrapper.html) and Flowable's <code>ACT_*</code> engine tables are separate, Liquibase-managed schemas owned by that Java service -- cataloging them here would create a second, driftable source of truth for something already documented and versioned elsewhere. Section 7 flags one live finding from that schema (an RLS gap) because it's a genuine risk worth surfacing, but the full catalog stays in WorkflowWrapper.html.</p>
+        </div>
+    </section>
+
+    <section>
+        <h2 id="sec-1">1. Multi-Tenancy &amp; Identity Model</h2>
+        <p>Every tenant-scoped table carries a <code>tenant_id</code> column, and every RLS policy that reads or writes tenant data checks it against <code>current_tenant_id()</code> -- a SQL function that extracts the claim from the caller's JWT. Three helper functions form the entire authorization vocabulary every policy in Section 5 is built from:</p>
+        <table class="stack-table">
+            <thead><tr><th>Function</th><th>Returns</th><th>Reads</th><th>Used By</th></tr></thead>
+            <tbody>
+                <tr><td><code>current_tenant_id()</code></td><td><code>uuid</code></td><td>JWT <code>app_metadata.tenant_id</code> claim</td><td>Every tenant-scoped <code>SELECT</code>/<code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code> policy</td></tr>
+                <tr><td><code>current_role_claim()</code></td><td><code>text</code></td><td>JWT <code>app_metadata.role</code> claim</td><td>Every write policy that's role-gated (designer/tenant_admin/approver)</td></tr>
+                <tr><td><code>current_user_id()</code></td><td><code>uuid</code></td><td>JWT <code>sub</code> claim (the standard JWT subject -- "who is this")</td><td><code>profiles self update</code>, the approval-decision self-approval block, every audit trigger's <code>actor_id</code></td></tr>
+                <tr><td><code>is_current_user_active()</code></td><td><code>boolean</code></td><td><code>profiles.status</code> for <code>current_user_id()</code></td><td>Every write policy, so a deactivated member loses write access immediately without deleting their row (Governance.html Section 8)</td></tr>
+            </tbody>
+        </table>
+        <div class="callout">
+            <div class="callout-title">Single Token, Every Layer</div>
+            <p>The same JWT that authorizes a direct database read (via RLS, above) also authorizes calls to the Runtime Gateway (WorkflowWrapper.html Section 7) -- there is exactly one credential in the entire system, and tenant identity cannot diverge between the two planes because both read the same <code>app_metadata</code> claim. The Runtime Gateway isn't subject to RLS (it connects as a privileged JDBC role, not through the anon/authenticated REST path), so it re-derives the same tenant scoping in application code instead -- a second place the same logic has to be gotten right, flagged as a standing risk in WorkflowWrapper.html Section 10.</p>
+        </div>
+        <p><strong>Where the identity behind <code>sub</code>/sign-in actually lives is a separate concern from this schema.</strong> <code>profiles.id</code> is a foreign key to whatever issues JWTs -- on the live database, that's the auth service's own user table. This schema doesn't create or own that table (Section 8 covers what that means for exporting to a new database).</p>
+    </section>
+
+    <section>
+        <h2 id="sec-2">2. Entity-Relationship Diagram</h2>
+        <div class="mermaid">
+erDiagram
+    TENANTS ||--o{ PROFILES : "has members"
+    TENANTS ||--o{ WORKFLOWS : owns
+    TENANTS ||--o{ DEPLOYMENTS : owns
+    TENANTS ||--o{ FORM_SCHEMAS : owns
+    TENANTS ||--o{ APPROVAL_REQUESTS : owns
+    TENANTS ||--o{ AUDIT_LOGS : owns
+    TENANTS ||--o{ INVITES : owns
+    AUTH_USERS ||--|| PROFILES : "identity for"
+    PROFILES ||--o{ WORKFLOWS : "creates / locks"
+    WORKFLOWS ||--o{ WORKFLOW_VERSIONS : "has versions"
+    WORKFLOW_VERSIONS ||--o{ DEPLOYMENTS : "deployed as"
+    WORKFLOWS ||--o{ APPROVAL_REQUESTS : "requested for"
+    WORKFLOW_VERSIONS ||--o{ APPROVAL_REQUESTS : "pins version"
+    PROFILES ||--o{ APPROVAL_REQUESTS : "requests / decides"
+    PROFILES ||--o{ AUDIT_LOGS : "acts as"
+    PROFILES ||--o{ INVITES : sends
+
+    TENANTS {
+        uuid id PK
+        text name
+        text slug UK
+        timestamptz created_at
+    }
+    AUTH_USERS {
+        uuid id PK
+        text note "owned by the auth service, not this schema"
+    }
+    PROFILES {
+        uuid id PK_FK
+        uuid tenant_id FK
+        text role
+        text display_name
+        text status
+        text email
+        timestamptz created_at
+        timestamptz onboarding_dismissed_at
+    }
+    WORKFLOWS {
+        uuid id PK
+        uuid tenant_id FK
+        text definition_key
+        text name
+        text description
+        text spec_type
+        text status
+        uuid current_version_id FK
+        uuid locked_by FK
+        timestamptz locked_at
+        uuid created_by FK
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    WORKFLOW_VERSIONS {
+        uuid id PK
+        uuid workflow_id FK
+        int version_no
+        jsonb graph_json
+        text xml_content
+        uuid created_by FK
+        timestamptz created_at
+    }
+    DEPLOYMENTS {
+        uuid id PK
+        uuid workflow_version_id FK
+        uuid tenant_id FK
+        text flowable_deployment_id
+        uuid deployed_by FK
+        timestamptz deployed_at
+        text status
+    }
+    FORM_SCHEMAS {
+        uuid id PK
+        uuid tenant_id FK
+        text form_key
+        jsonb json_schema
+        int version
+        timestamptz created_at
+    }
+    APPROVAL_REQUESTS {
+        uuid id PK
+        uuid tenant_id FK
+        uuid workflow_id FK
+        uuid version_id FK
+        uuid requested_by FK
+        timestamptz requested_at
+        text status
+        uuid approver_id FK
+        timestamptz decided_at
+        text comment
+    }
+    AUDIT_LOGS {
+        uuid id PK
+        uuid tenant_id FK
+        uuid actor_id FK
+        text action
+        text entity_type
+        uuid entity_id
+        jsonb before
+        jsonb after
+        timestamptz occurred_at
+    }
+    INVITES {
+        uuid id PK
+        uuid tenant_id FK
+        text email
+        text role
+        uuid invited_by FK
+        text status
+        timestamptz created_at
+        timestamptz accepted_at
+    }
+        </div>
+        <p>Two relationships worth calling out because they're easy to misread from the diagram alone: <code>workflows.current_version_id</code> and <code>workflow_versions.workflow_id</code> form a circular reference (a workflow points at its current version; every version points back at its parent workflow) -- <code>schema.sql</code> (Section 8) creates <code>workflows</code> first with the FK deferred, then closes the loop after <code>workflow_versions</code> exists. And <code>public.deployments</code> is a design-time traceability row only (who deployed which version, and the resulting <code>flowable_deployment_id</code>) -- it is <strong>not</strong> the same table as the Runtime Gateway's <code>runtime.deployments</code>, which is a separate schema with no FK or sync between the two (WorkflowWrapper.html Section 7).</p>
+    </section>
+
+    <section>
+        <h2 id="sec-3">3. Data Catalog</h2>
+        <p>Every column, in creation order, for all nine design-time tables. <code>PK</code>/<code>FK</code>/<code>UK</code> abbreviate primary key / foreign key / unique constraint; <code>NN</code> marks columns that are <code>not null</code> (every column not marked nullable in the source visualizer export is <code>NN</code> here).</p>
+
+        <h3 id="sec-3-1">3.1 <code>tenants</code></h3>
+        <p>The tenant registry -- the root every other table's <code>tenant_id</code> ultimately traces back to.</p>
+        <table class="stack-table">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Default</th></tr></thead>
+            <tbody>
+                <tr><td><code>id</code></td><td><code>uuid</code></td><td>PK, NN</td><td><code>gen_random_uuid()</code></td></tr>
+                <tr><td><code>name</code></td><td><code>text</code></td><td>NN</td><td>--</td></tr>
+                <tr><td><code>slug</code></td><td><code>text</code></td><td>NN, UK</td><td>--</td></tr>
+                <tr><td><code>created_at</code></td><td><code>timestamptz</code></td><td>NN</td><td><code>now()</code></td></tr>
+            </tbody>
+        </table>
+        <p><strong>Referenced by:</strong> <code>tenant_id</code> on every other table in this catalog except none -- all eight remaining tables carry it. <strong>Indexes:</strong> PK on <code>id</code>; unique on <code>slug</code>.</p>
+
+        <h3 id="sec-3-2">3.2 <code>profiles</code></h3>
+        <p>Tenant membership and role for a user -- the row RLS policies join against to answer "what can this JWT's owner do."</p>
+        <table class="stack-table">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Default</th></tr></thead>
+            <tbody>
+                <tr><td><code>id</code></td><td><code>uuid</code></td><td>PK, NN, FK &rarr; auth service's user table</td><td>--</td></tr>
+                <tr><td><code>tenant_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>tenants.id</code></td><td>--</td></tr>
+                <tr><td><code>role</code></td><td><code>text</code></td><td>NN, check: <code>designer</code> / <code>tenant_admin</code> / <code>approver</code> / <code>viewer</code></td><td>--</td></tr>
+                <tr><td><code>display_name</code></td><td><code>text</code></td><td>nullable</td><td>--</td></tr>
+                <tr><td><code>created_at</code></td><td><code>timestamptz</code></td><td>NN</td><td><code>now()</code></td></tr>
+                <tr><td><code>status</code></td><td><code>text</code></td><td>NN, check: <code>active</code> / <code>deactivated</code></td><td><code>'active'</code></td></tr>
+                <tr><td><code>onboarding_dismissed_at</code></td><td><code>timestamptz</code></td><td>nullable</td><td>--</td></tr>
+                <tr><td><code>email</code></td><td><code>text</code></td><td>nullable, synced from the auth service by <code>sync_profile_email()</code> (Section 4)</td><td>--</td></tr>
+            </tbody>
+        </table>
+        <p><strong>Referenced by:</strong> <code>workflows.created_by</code>/<code>locked_by</code>, <code>workflow_versions.created_by</code>, <code>deployments.deployed_by</code>, <code>approval_requests.requested_by</code>/<code>approver_id</code>, <code>audit_logs.actor_id</code>, <code>invites.invited_by</code>. <strong>Indexes:</strong> PK on <code>id</code> only -- no secondary index on <code>tenant_id</code> today (every query already goes through <code>id</code> or is RLS-filtered, so this hasn't been a measured bottleneck).</p>
+
+        <h3 id="sec-3-3">3.3 <code>workflows</code></h3>
+        <p>The workspace object -- one row per authored process/case/decision, holding mutable state (status, lock) while <code>workflow_versions</code> holds immutable content.</p>
+        <table class="stack-table">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Default</th></tr></thead>
+            <tbody>
+                <tr><td><code>id</code></td><td><code>uuid</code></td><td>PK, NN</td><td><code>gen_random_uuid()</code></td></tr>
+                <tr><td><code>tenant_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>tenants.id</code></td><td>--</td></tr>
+                <tr><td><code>definition_key</code></td><td><code>text</code></td><td>NN, UK with <code>tenant_id</code></td><td>--</td></tr>
+                <tr><td><code>name</code></td><td><code>text</code></td><td>NN</td><td>--</td></tr>
+                <tr><td><code>description</code></td><td><code>text</code></td><td>nullable</td><td>--</td></tr>
+                <tr><td><code>spec_type</code></td><td><code>text</code></td><td>NN, check: <code>BPMN</code> / <code>CMMN</code> / <code>DMN</code></td><td>--</td></tr>
+                <tr><td><code>status</code></td><td><code>text</code></td><td>NN, check: <code>draft</code> / <code>pending_approval</code> / <code>approved</code> / <code>deployed</code> / <code>archived</code></td><td><code>'draft'</code></td></tr>
+                <tr><td><code>current_version_id</code></td><td><code>uuid</code></td><td>nullable, FK &rarr; <code>workflow_versions.id</code></td><td>--</td></tr>
+                <tr><td><code>locked_by</code></td><td><code>uuid</code></td><td>nullable, FK &rarr; <code>profiles.id</code></td><td>--</td></tr>
+                <tr><td><code>locked_at</code></td><td><code>timestamptz</code></td><td>nullable</td><td>--</td></tr>
+                <tr><td><code>created_by</code></td><td><code>uuid</code></td><td>nullable, FK &rarr; <code>profiles.id</code></td><td>--</td></tr>
+                <tr><td><code>created_at</code></td><td><code>timestamptz</code></td><td>NN</td><td><code>now()</code></td></tr>
+                <tr><td><code>updated_at</code></td><td><code>timestamptz</code></td><td>NN</td><td><code>now()</code></td></tr>
+            </tbody>
+        </table>
+        <p><strong>Indexes:</strong> PK on <code>id</code>; unique on <code>(tenant_id, definition_key)</code> (a tenant can't have two workflows sharing a process ID); non-unique on <code>tenant_id</code>.</p>
+
+        <h3 id="sec-3-4">3.4 <code>workflow_versions</code></h3>
+        <p>Immutable snapshots -- no <code>UPDATE</code>/<code>DELETE</code> RLS policy exists at all (Section 5), so the only way content changes is a new row.</p>
+        <table class="stack-table">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Default</th></tr></thead>
+            <tbody>
+                <tr><td><code>id</code></td><td><code>uuid</code></td><td>PK, NN</td><td><code>gen_random_uuid()</code></td></tr>
+                <tr><td><code>workflow_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>workflows.id</code></td><td>--</td></tr>
+                <tr><td><code>version_no</code></td><td><code>int4</code></td><td>NN, UK with <code>workflow_id</code></td><td>--</td></tr>
+                <tr><td><code>graph_json</code></td><td><code>jsonb</code></td><td>NN -- the React Flow node/edge snapshot</td><td>--</td></tr>
+                <tr><td><code>xml_content</code></td><td><code>text</code></td><td>NN -- moddle-serialized OMG XML</td><td>--</td></tr>
+                <tr><td><code>created_by</code></td><td><code>uuid</code></td><td>nullable, FK &rarr; <code>profiles.id</code></td><td>--</td></tr>
+                <tr><td><code>created_at</code></td><td><code>timestamptz</code></td><td>NN</td><td><code>now()</code></td></tr>
+            </tbody>
+        </table>
+        <p><strong>Indexes:</strong> PK on <code>id</code>; unique on <code>(workflow_id, version_no)</code>; non-unique on <code>workflow_id</code>.</p>
+
+        <h3 id="sec-3-5">3.5 <code>deployments</code></h3>
+        <p>Design-time traceability: who deployed which version, and to what Flowable deployment ID. Distinct from <code>runtime.deployments</code> -- see Section 2's callout.</p>
+        <table class="stack-table">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Default</th></tr></thead>
+            <tbody>
+                <tr><td><code>id</code></td><td><code>uuid</code></td><td>PK, NN</td><td><code>gen_random_uuid()</code></td></tr>
+                <tr><td><code>workflow_version_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>workflow_versions.id</code></td><td>--</td></tr>
+                <tr><td><code>tenant_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>tenants.id</code></td><td>--</td></tr>
+                <tr><td><code>flowable_deployment_id</code></td><td><code>text</code></td><td>nullable</td><td>--</td></tr>
+                <tr><td><code>deployed_by</code></td><td><code>uuid</code></td><td>nullable, FK &rarr; <code>profiles.id</code></td><td>--</td></tr>
+                <tr><td><code>deployed_at</code></td><td><code>timestamptz</code></td><td>NN</td><td><code>now()</code></td></tr>
+                <tr><td><code>status</code></td><td><code>text</code></td><td>NN, check: <code>pending</code> / <code>active</code> / <code>failed</code> / <code>superseded</code></td><td><code>'pending'</code></td></tr>
+            </tbody>
+        </table>
+        <p><strong>Indexes:</strong> PK on <code>id</code>; non-unique on <code>tenant_id</code> and on <code>workflow_version_id</code>.</p>
+
+        <h3 id="sec-3-6">3.6 <code>form_schemas</code></h3>
+        <p>JSON Schema forms referenced by a User Task's <code>formKey</code>. The one table with no dedicated RLS write-trigger interaction and no inbound FK from any other table in this catalog -- it's a leaf.</p>
+        <table class="stack-table">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Default</th></tr></thead>
+            <tbody>
+                <tr><td><code>id</code></td><td><code>uuid</code></td><td>PK, NN</td><td><code>gen_random_uuid()</code></td></tr>
+                <tr><td><code>tenant_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>tenants.id</code></td><td>--</td></tr>
+                <tr><td><code>form_key</code></td><td><code>text</code></td><td>NN, UK with <code>tenant_id</code>+<code>version</code></td><td>--</td></tr>
+                <tr><td><code>json_schema</code></td><td><code>jsonb</code></td><td>NN</td><td>--</td></tr>
+                <tr><td><code>version</code></td><td><code>int4</code></td><td>NN</td><td><code>1</code></td></tr>
+                <tr><td><code>created_at</code></td><td><code>timestamptz</code></td><td>NN</td><td><code>now()</code></td></tr>
+            </tbody>
+        </table>
+        <p><strong>Indexes:</strong> PK on <code>id</code>; unique on <code>(tenant_id, form_key, version)</code>; non-unique on <code>tenant_id</code>.</p>
+
+        <h3 id="sec-3-7">3.7 <code>approval_requests</code></h3>
+        <p>The audit trail for the approval lifecycle (Designer.html Section 21.4) -- who requested, when, who decided, when, with an optional comment. Drives <code>workflows.status</code> via triggers (Section 4), rather than the client writing that column directly.</p>
+        <table class="stack-table">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Default</th></tr></thead>
+            <tbody>
+                <tr><td><code>id</code></td><td><code>uuid</code></td><td>PK, NN</td><td><code>gen_random_uuid()</code></td></tr>
+                <tr><td><code>tenant_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>tenants.id</code></td><td>--</td></tr>
+                <tr><td><code>workflow_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>workflows.id</code></td><td>--</td></tr>
+                <tr><td><code>version_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>workflow_versions.id</code></td><td>--</td></tr>
+                <tr><td><code>requested_by</code></td><td><code>uuid</code></td><td>nullable, FK &rarr; <code>profiles.id</code></td><td>--</td></tr>
+                <tr><td><code>requested_at</code></td><td><code>timestamptz</code></td><td>NN</td><td><code>now()</code></td></tr>
+                <tr><td><code>status</code></td><td><code>text</code></td><td>NN, check: <code>pending</code> / <code>approved</code> / <code>rejected</code></td><td><code>'pending'</code></td></tr>
+                <tr><td><code>approver_id</code></td><td><code>uuid</code></td><td>nullable, FK &rarr; <code>profiles.id</code></td><td>--</td></tr>
+                <tr><td><code>decided_at</code></td><td><code>timestamptz</code></td><td>nullable</td><td>--</td></tr>
+                <tr><td><code>comment</code></td><td><code>text</code></td><td>nullable</td><td>--</td></tr>
+            </tbody>
+        </table>
+        <p><strong>Indexes:</strong> PK on <code>id</code> only.</p>
+
+        <h3 id="sec-3-8">3.8 <code>audit_logs</code></h3>
+        <p>One generic table for every logged action platform-wide (Governance.html Section 7) rather than a bespoke log per feature. Populated exclusively by <code>SECURITY DEFINER</code>-style triggers (Section 4) -- there is no <code>INSERT</code> RLS policy granting client write access, by design.</p>
+        <table class="stack-table">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Default</th></tr></thead>
+            <tbody>
+                <tr><td><code>id</code></td><td><code>uuid</code></td><td>PK, NN</td><td><code>gen_random_uuid()</code></td></tr>
+                <tr><td><code>tenant_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>tenants.id</code></td><td>--</td></tr>
+                <tr><td><code>actor_id</code></td><td><code>uuid</code></td><td>nullable, FK &rarr; <code>profiles.id</code></td><td>--</td></tr>
+                <tr><td><code>action</code></td><td><code>text</code></td><td>NN -- e.g. <code>role_changed</code>, <code>workflow_deleted</code>, <code>approval_decided</code></td><td>--</td></tr>
+                <tr><td><code>entity_type</code></td><td><code>text</code></td><td>NN -- e.g. <code>workflow</code>, <code>profile</code>, <code>approval_request</code></td><td>--</td></tr>
+                <tr><td><code>entity_id</code></td><td><code>uuid</code></td><td>nullable</td><td>--</td></tr>
+                <tr><td><code>before</code></td><td><code>jsonb</code></td><td>nullable</td><td>--</td></tr>
+                <tr><td><code>after</code></td><td><code>jsonb</code></td><td>nullable</td><td>--</td></tr>
+                <tr><td><code>occurred_at</code></td><td><code>timestamptz</code></td><td>NN</td><td><code>now()</code></td></tr>
+            </tbody>
+        </table>
+        <p><strong>Indexes:</strong> PK on <code>id</code>; <code>(tenant_id, occurred_at desc)</code> for the Administration Audit Log tab's default sort.</p>
+
+        <h3 id="sec-3-9">3.9 <code>invites</code></h3>
+        <p>The tenant-visible record behind Administration's Invites tab (Onboarding.html Section 2.2) -- send, view, revoke.</p>
+        <table class="stack-table">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Default</th></tr></thead>
+            <tbody>
+                <tr><td><code>id</code></td><td><code>uuid</code></td><td>PK, NN</td><td><code>gen_random_uuid()</code></td></tr>
+                <tr><td><code>tenant_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>tenants.id</code></td><td>--</td></tr>
+                <tr><td><code>email</code></td><td><code>text</code></td><td>NN</td><td>--</td></tr>
+                <tr><td><code>role</code></td><td><code>text</code></td><td>NN, check: <code>designer</code> / <code>tenant_admin</code> / <code>approver</code> / <code>viewer</code></td><td>--</td></tr>
+                <tr><td><code>invited_by</code></td><td><code>uuid</code></td><td>nullable, FK &rarr; <code>profiles.id</code></td><td>--</td></tr>
+                <tr><td><code>status</code></td><td><code>text</code></td><td>NN, check: <code>invited</code> / <code>accepted</code> / <code>revoked</code></td><td><code>'invited'</code></td></tr>
+                <tr><td><code>created_at</code></td><td><code>timestamptz</code></td><td>NN</td><td><code>now()</code></td></tr>
+                <tr><td><code>accepted_at</code></td><td><code>timestamptz</code></td><td>nullable</td><td>--</td></tr>
+            </tbody>
+        </table>
+        <p><strong>Indexes:</strong> PK on <code>id</code>; <code>(tenant_id, created_at desc)</code> for the Invites tab's default sort. No unique constraint on <code>(tenant_id, email)</code> today -- re-inviting the same address creates a second row rather than upserting; not currently a reported problem, flagged in Section 7 as worth a decision if it ever is.</p>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-4">4. Functions &amp; Triggers Catalog</h2>
+        <p>Ten functions do all the work: four are the auth-claim helpers from Section 1, one is a portability-relevant email sync, and five are audit/status triggers. All are <code>SECURITY INVOKER</code> (the default) except where the underlying platform's trigger execution model grants elevated write access to <code>audit_logs</code> despite that table having no client-facing <code>INSERT</code> policy -- triggers execute with the privileges needed to complete their defined action regardless of the RLS policies that would otherwise block the invoking role, which is exactly why audit logging can't be bypassed by a client that simply avoids calling an API layer.</p>
+        <table class="stack-table">
+            <thead><tr><th>Function</th><th>Fires On</th><th>Effect</th></tr></thead>
+            <tbody>
+                <tr><td><code>audit_approval_decision()</code></td><td><code>approval_requests</code> UPDATE, when <code>status</code> changes to <code>approved</code>/<code>rejected</code></td><td>Inserts an <code>approval_decided</code> row into <code>audit_logs</code></td></tr>
+                <tr><td><code>audit_profile_status_change()</code></td><td><code>profiles</code> UPDATE, when <code>status</code> changes</td><td>Inserts a <code>profile_status_changed</code> row</td></tr>
+                <tr><td><code>audit_workflow_archive()</code></td><td><code>workflows</code> UPDATE, when <code>status</code> becomes <code>archived</code></td><td>Inserts a <code>workflow_archived</code> row</td></tr>
+                <tr><td><code>audit_workflow_delete()</code></td><td><code>workflows</code> DELETE</td><td>Inserts a <code>workflow_deleted</code> row (captures name/status/definition_key from the deleted row, since it won't exist to look up afterward)</td></tr>
+                <tr><td><code>sync_workflow_status_from_approval()</code></td><td><code>approval_requests</code> INSERT/UPDATE</td><td>Insert &rarr; flips parent <code>workflows.status</code> to <code>pending_approval</code>. Update to <code>approved</code>/<code>rejected</code> &rarr; flips to <code>approved</code>/<code>draft</code>. This is how the client never writes <code>workflows.status</code> for the approval lifecycle directly (Designer.html Section 21.4)</td></tr>
+                <tr><td><code>reset_workflow_status_on_new_version()</code></td><td><code>workflow_versions</code> INSERT</td><td>If the parent workflow's status was <code>approved</code>, resets it to <code>draft</code> and logs a <code>workflow_status_reset_on_edit</code> row -- the fix described in Designer.html Section 22.4</td></tr>
+                <tr><td><code>sync_profile_email()</code></td><td>Auth-provider user-table UPDATE (email change) -- lives on the identity table, not on anything in this catalog</td><td>Mirrors the new email into <code>profiles.email</code>, so Administration's team list can show it without querying the identity table directly (Designer.html Section 22.5)</td></tr>
+            </tbody>
+        </table>
+        <div class="callout callout-risk">
+            <div class="callout-title">One Trigger Gap, Noted Not Fixed</div>
+            <p>Saving a new version while a workflow is <code>pending_approval</code> is not blocked and does not auto-withdraw the stale request -- the pending <code>approval_requests.version_id</code> can end up pointing at a superseded version. This was flagged, not fixed, when <code>reset_workflow_status_on_new_version()</code> was built (Designer.html Section 22.4) and remains open.</p>
+        </div>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-5">5. Row-Level Security Policy Catalog</h2>
+        <p>Every policy, by table. All are <code>PERMISSIVE</code> (Postgres OR-combines multiple permissive policies for the same command, rather than requiring all to pass), and all roles are <code>public</code> -- the distinction between an anonymous caller and an authenticated one is made inside each policy's expression (via whether <code>current_tenant_id()</code>/<code>current_role_claim()</code> resolve to anything), not via separate Postgres roles per policy.</p>
+
+        <h3><code>tenants</code></h3>
+        <table class="stack-table">
+            <thead><tr><th>Policy</th><th>Command</th><th>USING</th><th>WITH CHECK</th></tr></thead>
+            <tbody>
+                <tr><td><code>tenant self read</code></td><td>SELECT</td><td><code>id = current_tenant_id()</code></td><td>--</td></tr>
+            </tbody>
+        </table>
+        <p>No INSERT/UPDATE/DELETE policy exists at all -- tenant creation and editing has no client-facing path yet (Onboarding.html Section 2.1, self-serve tenant creation, still deferred).</p>
+
+        <h3><code>profiles</code></h3>
+        <table class="stack-table">
+            <thead><tr><th>Policy</th><th>Command</th><th>USING</th><th>WITH CHECK</th></tr></thead>
+            <tbody>
+                <tr><td><code>profiles tenant read</code></td><td>SELECT</td><td><code>tenant_id = current_tenant_id()</code></td><td>--</td></tr>
+                <tr><td><code>profiles admin update</code></td><td>UPDATE</td><td><code>tenant_id = current_tenant_id() AND current_role_claim() = 'tenant_admin' AND is_current_user_active()</code></td><td><code>tenant_id = current_tenant_id() AND current_role_claim() = 'tenant_admin'</code></td></tr>
+                <tr><td><code>profiles self update</code></td><td>UPDATE</td><td><code>id = current_user_id()</code></td><td>Same row's <code>role</code>/<code>tenant_id</code>/<code>email</code> must stay unchanged (blocks self-privilege-escalation via direct table write, Designer.html Section 22.1)</td></tr>
+            </tbody>
+        </table>
+
+        <h3><code>workflows</code></h3>
+        <table class="stack-table">
+            <thead><tr><th>Policy</th><th>Command</th><th>USING</th><th>WITH CHECK</th></tr></thead>
+            <tbody>
+                <tr><td><code>workflows tenant read</code></td><td>SELECT</td><td><code>tenant_id = current_tenant_id()</code></td><td>--</td></tr>
+                <tr><td><code>workflows designer write</code></td><td>INSERT</td><td>--</td><td><code>tenant_id = current_tenant_id() AND current_role_claim() IN ('designer','tenant_admin') AND is_current_user_active()</code></td></tr>
+                <tr><td><code>workflows designer update</code></td><td>UPDATE</td><td>Same role/active check as INSERT</td><td><code>tenant_id = current_tenant_id()</code></td></tr>
+                <tr><td><code>workflows admin delete</code></td><td>DELETE</td><td><code>tenant_id = current_tenant_id() AND current_role_claim() = 'tenant_admin' AND is_current_user_active()</code></td><td>--</td></tr>
+            </tbody>
+        </table>
+
+        <h3><code>workflow_versions</code></h3>
+        <table class="stack-table">
+            <thead><tr><th>Policy</th><th>Command</th><th>USING</th><th>WITH CHECK</th></tr></thead>
+            <tbody>
+                <tr><td><code>versions tenant read</code></td><td>SELECT</td><td><code>workflow_id IN (workflows WHERE tenant_id = current_tenant_id())</code></td><td>--</td></tr>
+                <tr><td><code>versions designer insert</code></td><td>INSERT</td><td>--</td><td><code>current_role_claim() IN ('designer','tenant_admin') AND is_current_user_active() AND workflow_id IN (tenant's workflows)</code></td></tr>
+            </tbody>
+        </table>
+        <p>No UPDATE or DELETE policy -- this is what makes versions immutable (Section 3.4), enforced at the database layer, not just by client convention.</p>
+
+        <h3><code>deployments</code></h3>
+        <table class="stack-table">
+            <thead><tr><th>Policy</th><th>Command</th><th>USING</th><th>WITH CHECK</th></tr></thead>
+            <tbody>
+                <tr><td><code>deployments tenant read</code></td><td>SELECT</td><td><code>tenant_id = current_tenant_id()</code></td><td>--</td></tr>
+                <tr><td><code>deployments designer insert</code></td><td>INSERT</td><td>--</td><td><code>tenant_id = current_tenant_id() AND current_role_claim() IN ('designer','tenant_admin') AND is_current_user_active()</code></td></tr>
+            </tbody>
+        </table>
+
+        <h3><code>form_schemas</code></h3>
+        <table class="stack-table">
+            <thead><tr><th>Policy</th><th>Command</th><th>USING</th><th>WITH CHECK</th></tr></thead>
+            <tbody>
+                <tr><td><code>forms tenant read</code></td><td>SELECT</td><td><code>tenant_id = current_tenant_id()</code></td><td>--</td></tr>
+                <tr><td><code>forms designer write</code></td><td>INSERT</td><td>--</td><td>Same role/active check as workflows</td></tr>
+                <tr><td><code>forms designer update</code></td><td>UPDATE</td><td>Same role/active check</td><td><code>tenant_id = current_tenant_id()</code></td></tr>
+            </tbody>
+        </table>
+
+        <h3><code>approval_requests</code></h3>
+        <table class="stack-table">
+            <thead><tr><th>Policy</th><th>Command</th><th>USING</th><th>WITH CHECK</th></tr></thead>
+            <tbody>
+                <tr><td><code>approval_requests tenant read</code></td><td>SELECT</td><td><code>tenant_id = current_tenant_id()</code></td><td>--</td></tr>
+                <tr><td><code>approval_requests designer insert</code></td><td>INSERT</td><td>--</td><td>Role/active check, plus <code>workflow_id</code> must belong to the tenant</td></tr>
+                <tr><td><code>approval_requests admin decide</code></td><td>UPDATE</td><td><code>current_role_claim() = 'approver' AND is_current_user_active() AND requested_by IS DISTINCT FROM current_user_id()</code></td><td><code>requested_by IS DISTINCT FROM current_user_id()</code></td></tr>
+            </tbody>
+        </table>
+        <p>The <code>requested_by IS DISTINCT FROM current_user_id()</code> clause, on both sides of the decide policy, is the entire segregation-of-duties enforcement for self-approval (Governance.html Section 4) -- a database-layer guarantee, not just a hidden UI button.</p>
+
+        <h3><code>audit_logs</code></h3>
+        <table class="stack-table">
+            <thead><tr><th>Policy</th><th>Command</th><th>USING</th><th>WITH CHECK</th></tr></thead>
+            <tbody>
+                <tr><td><code>audit_logs tenant_admin read</code></td><td>SELECT</td><td><code>tenant_id = current_tenant_id() AND current_role_claim() = 'tenant_admin'</code></td><td>--</td></tr>
+            </tbody>
+        </table>
+        <p>No write policy of any kind -- every row comes from a trigger (Section 4), never a direct client insert.</p>
+
+        <h3><code>invites</code></h3>
+        <table class="stack-table">
+            <thead><tr><th>Policy</th><th>Command</th><th>USING</th><th>WITH CHECK</th></tr></thead>
+            <tbody>
+                <tr><td><code>invites tenant_admin read</code></td><td>SELECT</td><td><code>tenant_id = current_tenant_id() AND current_role_claim() = 'tenant_admin'</code></td><td>--</td></tr>
+                <tr><td><code>invites tenant_admin revoke</code></td><td>UPDATE</td><td><code>... AND status = 'invited' AND is_current_user_active()</code></td><td><code>tenant_id = current_tenant_id() AND status = 'revoked'</code></td></tr>
+            </tbody>
+        </table>
+        <p>No client-facing INSERT policy -- rows are created by the <code>invite-user</code> serverless function using its service-role credential, not by a direct authenticated write (Onboarding.html Section 2.2).</p>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-6">6. Process Flows</h2>
+
+        <h3 id="sec-6-1">6.1 Workflow Lifecycle</h3>
+        <p>Every state transition <code>workflows.status</code> can make, and what drives it -- a direct client write for the two "manual" edges, a trigger for everything status-sync-related.</p>
+        <div class="mermaid">
+flowchart LR
+    D[draft] -->|Submit for Approval -- client write, INSERT approval_requests| P[pending_approval]
+    P -->|Approve -- trigger: sync_workflow_status_from_approval| A[approved]
+    P -->|Reject -- trigger: sync_workflow_status_from_approval| D
+    A -->|Save new Version -- trigger: reset_workflow_status_on_new_version| D
+    A -->|Publish -- Runtime Gateway POST /runtime/deployments| Dep[deployed]
+    D -->|Archive -- client write, tenant_admin only| Arc[archived]
+    A -->|Archive| Arc
+    Dep -->|Archive| Arc
+        </div>
+
+        <h3 id="sec-6-2">6.2 Invite / Onboarding Flow</h3>
+        <p>The path from a <code>tenant_admin</code> clicking Invite to a new user's first authenticated, tenant-scoped request.</p>
+        <div class="mermaid">
+sequenceDiagram
+    participant Admin as tenant_admin (Administration UI)
+    participant Fn as invite-user (serverless function)
+    participant AuthSvc as Auth Service
+    participant DB as PostgreSQL
+    participant Invitee
+
+    Admin->>Fn: POST invite { email, role }
+    Fn->>DB: insert invites (status='invited')
+    Fn->>AuthSvc: admin invite-by-email API
+    AuthSvc-->>Invitee: invite email
+    Fn->>DB: provision profiles row (tenant_id, role, email)
+    Invitee->>AuthSvc: click link, set password
+    AuthSvc-->>Invitee: session JWT (app_metadata.tenant_id / role)
+    Invitee->>DB: authenticated request, Bearer JWT
+    DB-->>Invitee: RLS-scoped rows (current_tenant_id() matches)
+        </div>
+
+        <h3 id="sec-6-3">6.3 Audit Trail Flow</h3>
+        <p>Five triggers, one destination table -- every logged action lands in <code>audit_logs</code> regardless of which table changed.</p>
+        <div class="mermaid">
+flowchart TD
+    A["approval_requests UPDATE\n(status -> approved/rejected)"] --> T1[audit_approval_decision]
+    B["profiles UPDATE\n(status changes)"] --> T2[audit_profile_status_change]
+    C["workflows UPDATE\n(status -> archived)"] --> T3[audit_workflow_archive]
+    E["workflows DELETE"] --> T4[audit_workflow_delete]
+    F["workflow_versions INSERT\n(parent was approved)"] --> T5[reset_workflow_status_on_new_version]
+    T1 --> AL[(audit_logs)]
+    T2 --> AL
+    T3 --> AL
+    T4 --> AL
+    T5 --> AL
+    AL --> UI["Administration -> Audit Log tab"]
+        </div>
+
+        <h3 id="sec-6-4">6.4 Request-Time Tenant Isolation</h3>
+        <p>The same JWT, enforced two different ways depending on which plane it's hitting -- database-enforced RLS for design-time reads, application-level filtering for the Runtime Gateway.</p>
+        <div class="mermaid">
+sequenceDiagram
+    participant Browser
+    participant REST as REST-over-Postgres layer
+    participant PG as PostgreSQL (RLS)
+    participant RG as Runtime Gateway (Java)
+
+    Browser->>REST: request + Bearer JWT
+    REST->>PG: sets request.jwt.claims session variable
+    PG->>PG: policy calls current_tenant_id() / current_role_claim()
+    PG-->>REST: tenant-scoped rows only
+    REST-->>Browser: response
+
+    Browser->>RG: request + same Bearer JWT
+    RG->>RG: validates JWT against Auth Service JWKS
+    RG->>RG: extracts tenant_id/role from app_metadata (app code, no RLS)
+    RG->>PG: JDBC query, manually filtered by tenant_id (runtime schema)
+    PG-->>RG: rows
+    RG-->>Browser: response
+        </div>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-7">7. Known Gaps &amp; Risks</h2>
+        <ul>
+            <li><strong>A live security-advisor check found <code>runtime.deployments</code> has Row-Level Security disabled.</strong> Unlike every table in this catalog, that table (in the Runtime Gateway's own schema, WorkflowWrapper.html) is fully readable/writable by any authenticated -- and possibly anonymous -- API caller today. This is a pre-existing gap surfaced while building this document, not something introduced by it. Recommended fix, deliberately <strong>not</strong> applied automatically (enabling RLS with zero policies would block all access, including the Runtime Gateway's own reads, unless it connects as a role that bypasses RLS -- verify which role before flipping this):
+                <pre><code>alter table runtime.deployments enable row level security;
+-- then add a tenant-scoped policy before relying on this being protected</code></pre>
+            </li>
+            <li><strong>Identity lives outside this schema.</strong> Every FK that ultimately traces to "which user" (<code>profiles.id</code>, and transitively every <code>*_by</code>/<code>actor_id</code> column) depends on an auth provider's user table that this catalog doesn't own or control. Section 8 covers what that means for a schema export.</li>
+            <li><strong>No unique constraint on <code>invites (tenant_id, email)</code>.</strong> Re-inviting the same address creates a second row rather than updating the existing one. Not a reported problem today; worth a decision if it becomes one.</li>
+            <li><strong>The stale-pending-approval gap</strong> from Section 4's callout: saving a new version during <code>pending_approval</code> doesn't block the save or auto-withdraw the stale request.</li>
+            <li><strong><code>profiles</code> has no secondary index on <code>tenant_id</code>.</strong> Every current query path reaches it via <code>id</code> or RLS filtering rather than a tenant-scoped list query, so this hasn't mattered yet -- worth revisiting if a "list all members of my tenant" query path is added without going through <code>id</code>.</li>
+        </ul>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-8">8. Schema Export &amp; Migration Plan</h2>
+        <p>Full DDL and a step-by-step data migration plan live alongside the app, not embedded in this doc, so they can be run directly:</p>
+        <table class="stack-table">
+            <thead><tr><th>File</th><th>Purpose</th></tr></thead>
+            <tbody>
+                <tr><td><code>Database/schema.sql</code></td><td>Every table, constraint, and index in this catalog, as portable DDL -- runs on any Postgres 14+, no Supabase-specific objects. Includes an <code>app_auth.users</code> stand-in table so <code>profiles.id</code>'s FK has somewhere real to point, since this schema doesn't own identity (Section 7)</td></tr>
+                <tr><td><code>Database/policies.sql</code></td><td>The four auth-claim helper functions (reimplemented using the underlying <code>current_setting('request.jwt.claims', true)</code> mechanism instead of Supabase's <code>auth.jwt()</code>/<code>auth.uid()</code> wrappers -- see the file's own portability note for why this is a drop-in-compatible change), every RLS policy from Section 5, and every trigger from Section 4</td></tr>
+                <tr><td><code>Database/MIGRATION.md</code></td><td>The actual data export/import plan: <code>pg_dump</code>/<code>psql</code> commands, FK-safe load ordering, and -- the genuinely hard part -- three concrete options for handling identity (keep the existing auth provider, migrate to a new one with ID remapping, or stand up the placeholder <code>app_auth.users</code> for real), plus a post-load verification checklist that tests RLS behaviorally, not just structurally</td></tr>
+            </tbody>
+        </table>
+        <div class="callout">
+            <div class="callout-title">Why The Runtime Schema And Flowable's Engine Tables Aren't In These Scripts</div>
+            <p>Both are Liquibase-managed by the Runtime Gateway itself (<code>WaaS/Workflow-Wrapper/src/main/resources/db/changelog/</code> for <code>runtime</code>; Flowable's own internal Liquibase for <code>ACT_*</code>, triggered by <code>flowable.database-schema-update=true</code> on first boot). Provisioning a new database's copy of either means running that service's migrations against it, not hand-copying SQL here -- doing the latter would create a second, driftable definition of the same schema.</p>
+        </div>
+        <p><strong>Quick start</strong> (full detail in <code>MIGRATION.md</code>):</p>
+        <pre><code>psql "$TARGET_DATABASE_URL" -f Database/schema.sql
+psql "$TARGET_DATABASE_URL" -f Database/policies.sql
+<span class="comment"># then export/import data per MIGRATION.md's Steps 2-5,
+# after deciding how to handle identity (MIGRATION.md Step 2)</span></code></pre>
+
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<script>
+    mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose' });
+</script>
+</body>
+</html>
