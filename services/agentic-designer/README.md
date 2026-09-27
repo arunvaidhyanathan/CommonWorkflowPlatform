@@ -10,7 +10,7 @@ always goes through the SPA's normal draft and approval flow.
 
 ## Status
 
-A0 (contract) done; A1 (Generate) built and live-verified on NVIDIA-hosted models.
+A0 (contract) done; A1 (Generate) and A2 (Edit) built and live-verified on NVIDIA-hosted models.
 
 | Module | What it is |
 |---|---|
@@ -19,14 +19,15 @@ A0 (contract) done; A1 (Generate) built and live-verified on NVIDIA-hosted model
 | `validator.py` | Structural rules `AD001`–`AD016` (errors block, warnings don't) |
 | `canvas.py` | `to_canvas` / `from_canvas`: conversion to the SPA's `GraphSnapshot` |
 | `llm.py` | `LLMProvider` interface (`generate_json`); Gemini adapter and an OpenAI-compatible adapter (NVIDIA, OpenRouter) |
-| `generate.py` | Generate mode: prompt, repair loop (max 2 repairs), server-sent event payloads |
+| `generate.py` | Generate mode: prompt, repair loop (max 2 repairs; empty replies retried), server-sent event payloads |
+| `edit.py` | Edit mode: patch-op proposals against the current canvas; rejected only for errors they introduce; diff for the preview |
 | `auth.py` | Supabase JWT check (JWKS, ES256); only `designer` / `tenant_admin` may author |
-| `app.py` | FastAPI: `GET /healthz`, `POST /generate` (streamed), per-tenant rate limit |
+| `app.py` | FastAPI: `GET /healthz`, `POST /generate` and `POST /edit` (streamed, with keepalive), per-tenant rate limit |
 | `usage.py` + `prices.json` | Spend metering: one usage event per model call (tokens, estimated cost or "unpriced", outcome); dated price table |
 
 Configuration: `AGENT_PROVIDER` (`gemini` | `nvidia` | `openrouter`), that provider's key
 (`GEMINI_API_KEY`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`), `AGENT_MODEL` (empty = provider
-default), `AGENT_MAX_OUTPUT_TOKENS`, `AGENT_TENANT_RPM`, `SUPABASE_JWKS_URL`; `SPEND_TRACKER_URL` and
+default), `AGENT_EDIT_MODEL` (optional, Edit only), `AGENT_MAX_OUTPUT_TOKENS`, `AGENT_TENANT_RPM`, `SUPABASE_JWKS_URL`; `SPEND_TRACKER_URL` and
 `SPEND_INGEST_TOKEN` send usage events to the spend tracker (without them, events go to the log only).
 
 ## Develop

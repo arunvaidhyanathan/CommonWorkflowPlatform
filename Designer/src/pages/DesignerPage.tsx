@@ -121,7 +121,7 @@ export function DesignerPage() {
   // deploy it." Mirrored client-side purely so the button doesn't invite a
   // 403; the Runtime Gateway enforces this for real.
   const canDeploy = role === 'tenant_admin'
-  // Agentic Designer Generate mode (AgenticDesigner.html): BPMN only until A4.
+  // Agentic Designer Generate and Edit modes (AgenticDesigner.html): BPMN only until A4.
   const [showAgent, setShowAgent] = useState(false)
 
   const refreshList = useCallback(async () => {
@@ -653,10 +653,10 @@ export function DesignerPage() {
             <button
               type="button"
               onClick={() => setShowAgent((v) => !v)}
-              title="Draft this workflow from a plain-language description (Agentic Designer)"
+              title="Generate a workflow from a description, or change this one by describing the change (Agentic Designer)"
               className="rounded border border-indigo-300 bg-white px-3 py-1.5 text-sm text-indigo-700 hover:bg-indigo-50"
             >
-              Generate with AI
+              AI Designer
             </button>
           )}
           {activeSpec !== 'DMN' && (

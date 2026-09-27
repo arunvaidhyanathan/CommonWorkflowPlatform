@@ -1,6 +1,7 @@
 """HTTP service. Reached through the edge gateway at /api/agent/**
 (nginx strips the /api/agent prefix)."""
 
+import asyncio
 import json
 import logging
 import os
@@ -12,6 +13,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from .auth import JwtVerifier, Principal, authoring_principal
+from .canvas import CanvasConversionError, from_canvas
+from .edit import MAX_GRAPH_NODES, MAX_INSTRUCTION_CHARS, edit_event_payload, edit_workflow
 from .generate import MAX_DESCRIPTION_CHARS, event_payload, generate_workflow
 from .llm import GeminiProvider, LLMProvider, OpenAICompatibleProvider, ProviderError
 from .usage import FanoutSink, HttpSink, LogSink, MeteredProvider, PriceTable, UsageContext, UsageSink
@@ -21,6 +24,12 @@ log = logging.getLogger("agentic_designer")
 
 class GenerateRequest(BaseModel):
     description: str = Field(min_length=10, max_length=MAX_DESCRIPTION_CHARS)
+
+
+class EditRequest(BaseModel):
+    instruction: str = Field(min_length=5, max_length=MAX_INSTRUCTION_CHARS)
+    # The Designer canvas as-is (GraphSnapshot: React Flow nodes and edges).
+    graph: dict
 
 
 class TenantRateLimiter:
@@ -50,6 +59,12 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title="CWP Agentic Designer")
     app.state.provider = provider if provider is not None else _provider_from_env()
+    # Edit may use a different model (AGENT_EDIT_MODEL): measured on NVIDIA,
+    # Kimi K3 returned empty replies on 2 of 3 edit prompts, GLM 5.3 on none.
+    app.state.edit_provider = (
+        (_provider_from_env(os.environ.get("AGENT_EDIT_MODEL")) if os.environ.get("AGENT_EDIT_MODEL") else None)
+        if provider is None else None
+    )
     app.state.verifier = verifier or JwtVerifier(os.environ["SUPABASE_JWKS_URL"])
     app.state.usage_sink = usage_sink or _usage_sink_from_env()
     app.state.prices = prices or PriceTable.bundled()
@@ -59,54 +74,83 @@ def create_app(
     def healthz() -> dict:
         return {"status": "ok", "provider": getattr(app.state.provider, "name", None)}
 
-    @app.post("/generate")
-    async def generate(
-        body: GenerateRequest,
-        request: Request,
-        principal: Principal = Depends(authoring_principal),
-    ) -> StreamingResponse:
+    def metered_for(request: Request, principal: Principal, feature: str) -> MeteredProvider:
+        """Refusals happen here, before any model call: no provider, or the
+        tenant's rate limit."""
         provider: LLMProvider | None = request.app.state.provider
+        if feature == "edit" and request.app.state.edit_provider is not None:
+            provider = request.app.state.edit_provider
         if provider is None:
             raise HTTPException(503, "No LLM provider is configured (set AGENT_PROVIDER and its API key).")
         request.app.state.limiter.check(principal.tenant_id)
-        metered = MeteredProvider(
+        return MeteredProvider(
             provider,
             request.app.state.usage_sink,
             request.app.state.prices,
             UsageContext(
-                feature="generate",
+                feature=feature,
                 tenant_id=principal.tenant_id,
                 user_id=principal.user_id,
                 request_id=request.headers.get("x-request-id"),
             ),
         )
 
+    def sse(feature: str, events, to_payload, principal: Principal, chars: int) -> StreamingResponse:
         async def stream():
             started = time.monotonic()
             outcome = "error"
             try:
-                async for event in generate_workflow(metered, body.description):
-                    if event.type in ("result", "failed"):
-                        outcome = f"{event.type} after {event.attempt} attempt(s)"
-                    yield event_payload(event)
+                async for item in with_keepalive(events, KEEPALIVE_S):
+                    if item is None:
+                        # SSE comment: keeps proxies and the browser from
+                        # timing out while a slow model works.
+                        yield ": keepalive\n\n"
+                        continue
+                    if item.type in ("result", "failed"):
+                        outcome = f"{item.type} after {item.attempt} attempt(s)"
+                    yield to_payload(item)
             except ProviderError as exc:
-                log.warning("generate provider error: %s", exc.__cause__ or exc)
+                log.warning("%s provider error: %s", feature, exc.__cause__ or exc)
                 outcome = "provider error"
-                message = exc.user_message
-                yield f"event: error\ndata: {json.dumps({'message': message})}\n\n"
+                yield f"event: error\ndata: {json.dumps({'message': exc.user_message})}\n\n"
             except Exception as exc:  # anything else mid-stream
-                log.exception("generate failed")
+                log.exception("%s failed", feature)
                 message = f"{type(exc).__name__}: the model provider call failed."
                 yield f"event: error\ndata: {json.dumps({'message': message})}\n\n"
             finally:
-                # Log sizes and outcomes, never the description itself.
+                # Log sizes and outcomes, never the user's text itself.
                 log.info(
-                    "generate tenant=%s user=%s chars=%d outcome=%s seconds=%.1f",
-                    principal.tenant_id, principal.user_id, len(body.description), outcome,
-                    time.monotonic() - started,
+                    "%s tenant=%s user=%s chars=%d outcome=%s seconds=%.1f",
+                    feature, principal.tenant_id, principal.user_id, chars, outcome, time.monotonic() - started,
                 )
 
         return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+
+    @app.post("/generate")
+    async def generate(
+        body: GenerateRequest,
+        request: Request,
+        principal: Principal = Depends(authoring_principal),
+    ) -> StreamingResponse:
+        metered = metered_for(request, principal, "generate")
+        return sse("generate", generate_workflow(metered, body.description), event_payload, principal, len(body.description))
+
+    @app.post("/edit")
+    async def edit(
+        body: EditRequest,
+        request: Request,
+        principal: Principal = Depends(authoring_principal),
+    ) -> StreamingResponse:
+        try:
+            current = from_canvas(body.graph)
+        except CanvasConversionError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        if not current.nodes:
+            raise HTTPException(422, "The canvas is empty; use Generate instead.")
+        if len(current.nodes) > MAX_GRAPH_NODES:
+            raise HTTPException(422, f"Workflows over {MAX_GRAPH_NODES} nodes can't be edited by the agent yet.")
+        metered = metered_for(request, principal, "edit")
+        return sse("edit", edit_workflow(metered, current, body.instruction), edit_event_payload, principal, len(body.instruction))
 
     return app
 
@@ -119,6 +163,31 @@ PROVIDERS = {
 }
 
 
+KEEPALIVE_S = 15
+
+
+async def with_keepalive(events, every_s: float):
+    """Yield each event from ``events``; yield None whenever ``every_s``
+    passes with no event. The pending step is never cancelled."""
+    iterator = events.__aiter__()
+    pending = asyncio.ensure_future(iterator.__anext__())
+    try:
+        while True:
+            done, _ = await asyncio.wait({pending}, timeout=every_s)
+            if not done:
+                yield None
+                continue
+            try:
+                item = pending.result()
+            except StopAsyncIteration:
+                return
+            yield item
+            pending = asyncio.ensure_future(iterator.__anext__())
+    finally:
+        if not pending.done():
+            pending.cancel()
+
+
 def _usage_sink_from_env() -> UsageSink:
     url = os.environ.get("SPEND_TRACKER_URL")
     if not url:
@@ -127,7 +196,7 @@ def _usage_sink_from_env() -> UsageSink:
     return FanoutSink(LogSink(), HttpSink(url.rstrip("/") + "/events", os.environ.get("SPEND_INGEST_TOKEN", "")))
 
 
-def _provider_from_env() -> LLMProvider | None:
+def _provider_from_env(model_override: str | None = None) -> LLMProvider | None:
     name = os.environ.get("AGENT_PROVIDER", "gemini")
     if name not in PROVIDERS:
         # A typo here should stop the service, not silently disable the feature.
@@ -137,7 +206,7 @@ def _provider_from_env() -> LLMProvider | None:
     if not api_key:
         log.warning("%s is not set; /generate will return 503.", key_var)
         return None
-    model = os.environ.get("AGENT_MODEL") or default_model
+    model = model_override or os.environ.get("AGENT_MODEL") or default_model
     max_tokens = int(os.environ.get("AGENT_MAX_OUTPUT_TOKENS", "8192"))
     log.info("LLM provider %s, model %s", name, model)
     if base_url is None:

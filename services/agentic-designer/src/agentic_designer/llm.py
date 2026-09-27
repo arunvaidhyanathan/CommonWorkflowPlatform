@@ -115,7 +115,11 @@ class OpenAICompatibleProvider:
 
         self.name = name
         self.key_alias = key_alias
-        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, max_retries=1, timeout=120)
+        # Some hosted models take minutes on a large prompt (GLM 5.3 took up to
+        # 222s on an edit); the stream keeps the browser connection alive meanwhile.
+        # No SDK-level retries: the generate/edit loops own retrying, and an SDK
+        # retry after a 300s timeout doubled one live edit to ten minutes.
+        self._client = AsyncOpenAI(api_key=api_key, base_url=base_url, max_retries=0, timeout=300)
         self.model = model
         self._max_output_tokens = max_output_tokens
 

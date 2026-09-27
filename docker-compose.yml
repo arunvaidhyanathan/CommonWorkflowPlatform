@@ -41,6 +41,8 @@ services:
       # service still starts and /generate returns 503.
       AGENT_PROVIDER: ${AGENT_PROVIDER:-gemini}
       AGENT_MODEL: ${AGENT_MODEL:-}
+      # Optional separate model for Edit mode (AgenticDesigner.html Section 4b).
+      AGENT_EDIT_MODEL: ${AGENT_EDIT_MODEL:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}

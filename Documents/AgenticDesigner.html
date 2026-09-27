@@ -92,9 +92,9 @@
         <h1>Agentic Designer</h1>
         <div class="subtitle">Agent-assisted workflow authoring: generate from a description, edit by chat, review for defects.</div>
         <div class="meta-grid">
-            <div class="meta-item"><strong>Status</strong><span id="status-text">A0 done. A1 (Generate) built and verified with a live model (NVIDIA-hosted Kimi K3; Gemini is blocked by its project spend cap). The in-browser run by a logged-in user is still to do.</span></div>
+            <div class="meta-item"><strong>Status</strong><span id="status-text">A0 done. A1 (Generate) and A2 (Edit) built and verified with a live model (NVIDIA-hosted Kimi K3). The in-browser run by a logged-in user is still to do.</span></div>
             <div class="meta-item"><strong>Service</strong><code>services/agentic-designer/</code> (Python / FastAPI), behind the edge gateway at <code>/api/agent/**</code></div>
-            <div class="meta-item"><strong>Document Version</strong>1.3.0 (A1: Live-Verified, Multiple Providers)</div>
+            <div class="meta-item"><strong>Document Version</strong>1.4.0 (A2: Edit Mode)</div>
             <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
             <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
         </div>
@@ -109,6 +109,7 @@
             <li><a href="#sec-3">3. Graph Contract</a></li>
             <li><a href="#sec-4">4. Service Internals</a></li>
             <li><a href="#sec-4a">4a. Generate Mode as Built (Phase A1)</a></li>
+            <li><a href="#sec-4b">4b. Edit Mode as Built (Phase A2)</a></li>
             <li><a href="#sec-5">5. Phases &amp; Status</a></li>
             <li><a href="#sec-6">6. Risks &amp; Open Questions</a></li>
             <li><a href="#sec-7">7. Change Log</a></li>
@@ -295,13 +296,53 @@
     </section>
 
     <section>
+        <h2 id="sec-4b">4b. Edit Mode as Built (Phase A2)</h2>
+        <p>Built September 27, 2026: <code>POST /edit</code> (<code>edit.py</code>) and the Edit tab of the Designer panel (toolbar button renamed <strong>AI Designer</strong>; <code>AgentPanel.tsx</code>, <code>lib/editPreview.ts</code>).</p>
+        <h3>Flow</h3>
+        <ol>
+            <li>With a BPMN workflow open, the user picks the Edit tab (the default when the canvas has nodes) and describes a change (5 to 2,000 characters).</li>
+            <li>The SPA sends the instruction and the canvas as it is. The service converts the canvas with <code>from_canvas</code>; an unsupported element (e.g. a boundary event), an empty canvas, or more than 300 nodes is refused with 422 <em>before</em> any model call.</li>
+            <li>The model gets the current graph and the instruction, both fenced as data, and returns <strong>patch operations</strong> (A0's <code>add_node</code>, <code>update_node</code>, <code>remove_node</code>, <code>connect</code>, <code>disconnect</code>, <code>set_condition</code>), never a replacement graph.</li>
+            <li>Code applies them and validates the result. An edit is rejected only for errors it <strong>introduces</strong>: problems the workflow already had are reported as "already in this workflow (not caused by this edit)" and don't block it. A bad reference is sent back naming the failing op's index; an edit that changes nothing is sent back too. At most 2 repairs.</li>
+            <li>The SPA previews the result on the canvas without disturbing the layout: existing nodes keep their position and any Designer-only data; new nodes are placed next to the node they connect from, clear of existing nodes. Added nodes and flows are outlined green, changed ones yellow, and the panel lists every change in words, including removals (which can't be shown on the canvas).</li>
+            <li><strong>Accept</strong> keeps the changes (unsaved; highlights removed). <strong>Reject</strong> restores the canvas exactly, including its unsaved-changes state. Nothing is saved until Save Version, so approvals apply as before.</li>
+        </ol>
+        <h3>Live model findings (NVIDIA, September 27, 2026)</h3>
+        <table class="stack-table">
+            <thead><tr><th>Model</th><th>Edit results</th><th>Time</th></tr></thead>
+            <tbody>
+                <tr><td><code>moonshotai/kimi-k3</code>, single calls</td><td>Intermittently degenerate: 2 of 3 calls returned an empty reply (reasoning of "!!!!", no content), with either response format</td><td>22&ndash;58 s</td></tr>
+                <tr><td><code>moonshotai/kimi-k3</code> through the edit loop (empty replies retried)</td><td><strong>4 of 4 valid</strong> (two needed one retry): compliance review after the manager for loans over 50k; removing the manager step (also removed the now-useless merge gateway and rewired the amount check)</td><td>28&ndash;48 s</td></tr>
+                <tr><td><code>z-ai/glm-5.3</code></td><td>Valid when it answered (the compliance edit was correct first time), but one edit timed out</td><td>49&ndash;300 s+</td></tr>
+                <tr><td><code>z-ai/glm-5.3-flash</code></td><td>2 valid, 2 timeouts</td><td>115&ndash;150 s+</td></tr>
+                <tr><td><code>moonshotai/kimi-k2.6</code></td><td>Listed by the catalog, but calls return 404</td><td>&mdash;</td></tr>
+            </tbody>
+        </table>
+        <p>Result: Edit uses the same model as Generate (Kimi K3). <code>AGENT_EDIT_MODEL</code> exists for choosing a different edit model later; it is empty locally.</p>
+        <h3>Hardening that came out of the live runs</h3>
+        <ul>
+            <li><strong>Empty replies are retried</strong> in both Generate and Edit, with the same conversation and within the repair budget, instead of failing the request (<code>AD000</code>: "The model returned an empty reply; retrying").</li>
+            <li><strong>Keepalive:</strong> while a model works, the stream sends an SSE comment every 15 seconds so the browser and proxies don't time out; the SPA's stream reader skips them.</li>
+            <li><strong>Timeouts:</strong> the OpenAI-compatible client waits up to 300 seconds and no longer retries by itself. An SDK retry after a timeout had doubled one live edit to ten minutes; the generate/edit loops own retrying.</li>
+            <li>The <code>/generate</code> and <code>/edit</code> endpoints share one code path for refusals, metering and streaming. Edit calls are metered as their own feature (<code>edit</code>) in the spend tracker.</li>
+        </ul>
+        <h3>Verified</h3>
+        <ul>
+            <li>108 agent tests (16 new): ops, graph and diff returned; graph and instruction fenced as data; failing op index sent back; edits that break the process rejected (exactly <code>AD009</code> + <code>AD010</code> when a merge gateway is removed without rewiring); pre-existing problems don't block; no-op edits refused; the original graph untouched; empty replies retried and budgeted; keepalive; edit-model selection; HTTP streaming, metering, 422 refusals before any model call, and role checks. Three deliberately introduced bugs were each caught.</li>
+            <li>UI, with Playwright against the running app (stand-in login, mocked database rows, a real edit payload): the preview highlights 2 new nodes and 4 flows on the canvas, the panel lists all 7 changes, Reject restores the canvas to its 7 original nodes with no highlights left, and there were no console errors.</li>
+            <li><strong>Not yet verified:</strong> the browser flow by a real logged-in user against the live model.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
         <h2 id="sec-5">5. Phases &amp; Status</h2>
         <table class="stack-table">
             <thead><tr><th>Phase</th><th>Deliverable</th><th>Done when</th><th>Status</th></tr></thead>
             <tbody>
                 <tr id="phase-a0"><td>A0</td><td>Graph contract + validator + patch operations + canvas converter, with a pytest suite</td><td>The validator rejects each malformed-graph fixture for the right reason</td><td><span class="badge badge-built">Done</span> September 27, 2026 (Section 3)</td></tr>
                 <tr><td>A1</td><td><code>/generate</code> for BPMN with the repair loop, plus the Designer side panel</td><td>A prompt becomes a valid draft on the canvas, saves, and can be submitted for approval</td><td><span class="badge badge-design">Built; live-verified on NVIDIA; browser run pending</span> (Section 4a)</td></tr>
-                <tr><td>A2</td><td><code>/edit</code> with patch operations and a diff preview on the canvas</td><td>Accept and reject work; undo restores the prior graph</td><td><span class="badge badge-future">Not started</span></td></tr>
+                <tr><td>A2</td><td><code>/edit</code> with patch operations and a diff preview on the canvas</td><td>Accept and reject work; undo restores the prior graph</td><td><span class="badge badge-built">Built; live-verified on NVIDIA</span> (Section 4b)</td></tr>
                 <tr><td>A3</td><td><code>/review</code> findings linked to nodes</td><td>Seeded defects in sample workflows are all reported</td><td><span class="badge badge-future">Not started</span></td></tr>
                 <tr><td>A4</td><td>CMMN and DMN support</td><td>The same checks pass for the CMMN and DMN samples in <code>Designer/samples</code></td><td><span class="badge badge-future">Not started</span></td></tr>
                 <tr><td>A5</td><td>Grounding in the tenant's existing workflows (pgvector + embeddings) and an eval harness (golden prompts &rarr; validity rate and structure checks, per provider)</td><td>Scores reported per provider</td><td><span class="badge badge-future">Not started</span></td></tr>
@@ -326,6 +367,7 @@
         <h2 id="sec-7">7. Change Log</h2>
         <ul id="changelog">
             <li><strong>September 27, 2026:</strong> design approved; document created.</li>
+            <li><strong>September 27, 2026 (A2):</strong> Edit mode: patch-op proposals against the current canvas, validated so an edit can only be rejected for problems it introduces, previewed with highlights and accepted or rejected. Live on Kimi K3: 4 of 4 edits valid in 28&ndash;48 s with empty-reply retries. Keepalive, retry and timeout hardening; 108 tests.</li>
             <li><strong>September 27, 2026 (later):</strong> OpenAI-compatible provider added (NVIDIA, OpenRouter) with <code>AGENT_PROVIDER</code> selection; live generation verified on three NVIDIA-hosted models, all valid on the first attempt; 79 tests.</li>
             <li><strong>September 27, 2026:</strong> A1 built: FastAPI service in Docker Compose behind <code>/api/agent</code>, Gemini provider, repair loop, streamed progress, Designer "Generate with AI" panel; 74 tests. Live generation not yet verified (Gemini key over its spend cap).</li>
             <li><strong>September 27, 2026:</strong> A0 done. Graph contract, patch operations, validator (<code>AD001</code>&ndash;<code>AD016</code>) and canvas converter, with 51 passing tests. Known limits: BPMN only; no boundary events; <code>from_canvas</code> not yet checked against a graph saved by the real SPA (A1 will do this end to end).</li>

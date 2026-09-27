@@ -137,7 +137,10 @@ export async function apiStream(
         if (line.startsWith('event: ')) event = line.slice(7)
         else if (line.startsWith('data: ')) data += line.slice(6)
       }
-      onEvent({ event, data: data ? JSON.parse(data) : null })
+      // Blocks with no data are keepalive comments (": keepalive") sent while
+      // a slow model works; they carry nothing for the caller.
+      if (!data) continue
+      onEvent({ event, data: JSON.parse(data) })
     }
   }
 }

@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pydantic import ValidationError
 
 from .graph import WorkflowGraph
-from .llm import LLMProvider, Turn
+from .llm import LLMProvider, ProviderError, Turn
 from .validator import Issue, errors, validate
 
 MAX_DESCRIPTION_CHARS = 4000
@@ -55,6 +55,20 @@ class GenerateEvent:
     attempt: int
     issues: list[Issue] = field(default_factory=list)
     graph: WorkflowGraph | None = None
+
+
+EMPTY_REPLY = "AD000"
+
+
+async def _call(provider, system: str, turns, schema) -> tuple[str | None, "Issue | None"]:
+    """One model call. An empty reply (seen intermittently from hosted
+    reasoning models) is a failed attempt to retry, not a fatal error."""
+    try:
+        return (await provider.generate_json(system, turns, schema)).text, None
+    except ProviderError as exc:
+        if exc.kind != "empty":
+            raise
+        return None, Issue(EMPTY_REPLY, "error", "The model returned an empty reply; retrying.")
 
 
 def user_turn(description: str) -> Turn:
@@ -99,7 +113,11 @@ async def generate_workflow(
 
     for attempt in range(1, max_repairs + 2):
         yield GenerateEvent("attempt", attempt)
-        text = (await provider.generate_json(SYSTEM_PROMPT, turns, schema)).text
+        text, empty = await _call(provider, SYSTEM_PROMPT, turns, schema)
+        if empty:
+            issues = [empty]
+            yield GenerateEvent("invalid", attempt, issues=issues)
+            continue  # same conversation again; there's nothing to correct
         graph, issues = _parse(text)
         if graph is not None:
             issues = validate(graph)
@@ -113,22 +131,23 @@ async def generate_workflow(
     yield GenerateEvent("failed", max_repairs + 1, issues=errors(issues))
 
 
+def issue_json(i: Issue) -> dict:
+    return {
+        "code": i.code,
+        "severity": i.severity,
+        "message": i.message,
+        "nodeIds": list(i.node_ids),
+        "edgeIds": list(i.edge_ids),
+    }
+
+
 def event_payload(event: GenerateEvent) -> str:
     """Server-sent event text for one GenerateEvent."""
     from .canvas import to_canvas
 
     body: dict = {"attempt": event.attempt}
     if event.issues:
-        body["issues"] = [
-            {
-                "code": i.code,
-                "severity": i.severity,
-                "message": i.message,
-                "nodeIds": list(i.node_ids),
-                "edgeIds": list(i.edge_ids),
-            }
-            for i in event.issues
-        ]
+        body["issues"] = [issue_json(i) for i in event.issues]
     if event.graph is not None:
         body["graph"] = to_canvas(event.graph)
     return f"event: {event.type}\ndata: {json.dumps(body)}\n\n"
