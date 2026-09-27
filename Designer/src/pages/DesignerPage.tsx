@@ -121,7 +121,7 @@ export function DesignerPage() {
   // deploy it." Mirrored client-side purely so the button doesn't invite a
   // 403; the Runtime Gateway enforces this for real.
   const canDeploy = role === 'tenant_admin'
-  // Agentic Designer Generate and Edit modes (AgenticDesigner.html): BPMN only until A4.
+  // Agentic Designer (AgenticDesigner.html): Generate, Edit and Review for BPMN, CMMN and DMN.
   const [showAgent, setShowAgent] = useState(false)
 
   const refreshList = useCallback(async () => {
@@ -649,7 +649,7 @@ export function DesignerPage() {
           {isDirty && <span className="text-xs text-amber-600">Unsaved changes</span>}
           {saveStatus === 'saved' && <span className="text-xs text-emerald-600">Saved</span>}
           {saveError && <span className="text-xs text-red-600">{saveError}</span>}
-          {activeSpec === 'BPMN' && canWrite && isApiConfigured() && (
+          {canWrite && isApiConfigured() && (
             <button
               type="button"
               onClick={() => setShowAgent((v) => !v)}
@@ -781,6 +781,7 @@ export function DesignerPage() {
               No decision selected.
             </div>
           )}
+          {showAgent && <AgentPanel key={activeSpec} spec={activeSpec} onClose={() => setShowAgent(false)} />}
         </div>
       ) : (
         <div className="flex flex-1 overflow-hidden">
@@ -795,8 +796,8 @@ export function DesignerPage() {
             }}
           />
           <Canvas />
-          {showAgent && activeSpec === 'BPMN' ? (
-            <AgentPanel onClose={() => setShowAgent(false)} />
+          {showAgent ? (
+            <AgentPanel key={activeSpec} spec={activeSpec} onClose={() => setShowAgent(false)} />
           ) : (
             <PropertiesPanel />
           )}

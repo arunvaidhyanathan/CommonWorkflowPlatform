@@ -3,9 +3,10 @@
 // same GraphSnapshot shape parseBpmnXml produces, so they drop straight onto
 // the canvas. Nothing here saves: the user reviews, then uses Save Version.
 import type { Edge, Node } from '@xyflow/react'
-import type { NodeData } from '../store/useWorkbenchStore'
+import type { NodeData, SpecType } from '../store/useWorkbenchStore'
+import type { DmnModel } from '../adapters/dmnAdapter'
 import { apiStream } from '../lib/apiClient'
-import type { EditDiff } from '../lib/editPreview'
+import type { DmnDiff, EditDiff } from '../lib/editPreview'
 
 export interface AgentIssue {
   code: string
@@ -18,18 +19,22 @@ export interface AgentIssue {
 export type GenerateEvent =
   | { type: 'attempt'; attempt: number }
   | { type: 'invalid'; attempt: number; issues: AgentIssue[] }
-  | { type: 'result'; attempt: number; issues: AgentIssue[]; graph: { nodes: Node<NodeData>[]; edges: Edge[] } }
+  | { type: 'result'; attempt: number; issues: AgentIssue[]; graph: AgentGraph }
   | { type: 'failed'; attempt: number; issues: AgentIssue[] }
   | { type: 'error'; message: string }
 
+/** Canvas nodes/edges for BPMN and CMMN; a dmnModel for DMN. */
+export type AgentGraph = { nodes: Node<NodeData>[]; edges: Edge[]; dmnModel?: DmnModel }
+
 export async function generateWorkflow(
+  spec: SpecType,
   description: string,
   onEvent: (event: GenerateEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
   await apiStream(
     '/agent/generate',
-    { description },
+    { spec, description },
     ({ event, data }) => {
       const body = (data ?? {}) as Record<string, unknown>
       // Trusted shape: the service builds these events from its own validated models.
@@ -39,7 +44,7 @@ export async function generateWorkflow(
   )
 }
 
-type CanvasGraph = { nodes: Node<NodeData>[]; edges: Edge[] }
+type CanvasGraph = AgentGraph
 
 export type EditEvent =
   | { type: 'attempt'; attempt: number }
@@ -49,8 +54,8 @@ export type EditEvent =
       attempt: number
       issues: AgentIssue[] // warnings only
       graph: CanvasGraph
-      ops: Record<string, unknown>[]
-      diff: EditDiff
+      ops: Record<string, unknown>[] // BPMN only
+      diff: EditDiff | DmnDiff // DmnDiff for DMN
       preexisting: AgentIssue[] // errors the workflow already had; not caused by this edit
     }
   | { type: 'failed'; attempt: number; issues: AgentIssue[] }
@@ -59,6 +64,7 @@ export type EditEvent =
 /** Edit mode: the service proposes changes to the current canvas. Nothing
  *  is applied here; the panel previews and the user accepts or rejects. */
 export async function editWorkflow(
+  spec: SpecType,
   instruction: string,
   graph: CanvasGraph,
   onEvent: (event: EditEvent) => void,
@@ -66,7 +72,7 @@ export async function editWorkflow(
 ): Promise<void> {
   await apiStream(
     '/agent/edit',
-    { instruction, graph: { nodes: graph.nodes, edges: graph.edges } },
+    { spec, instruction, graph: { nodes: graph.nodes, edges: graph.edges, dmnModel: graph.dmnModel ?? null } },
     ({ event, data }) => {
       const body = (data ?? {}) as Record<string, unknown>
       // Trusted shape: the service builds these events from its own validated models.
@@ -94,6 +100,7 @@ export type ReviewEvent =
 
 /** Review mode: read-only; nothing here changes the workflow. */
 export async function reviewWorkflow(
+  spec: SpecType,
   graph: CanvasGraph,
   focus: string,
   onEvent: (event: ReviewEvent) => void,
@@ -101,7 +108,7 @@ export async function reviewWorkflow(
 ): Promise<void> {
   await apiStream(
     '/agent/review',
-    { graph: { nodes: graph.nodes, edges: graph.edges }, focus: focus || null },
+    { spec, graph: { nodes: graph.nodes, edges: graph.edges, dmnModel: graph.dmnModel ?? null }, focus: focus || null },
     ({ event, data }) => {
       const body = (data ?? {}) as Record<string, unknown>
       // Trusted shape: the service builds these events from its own validated models.

@@ -1,0 +1,239 @@
+{
+ "definitionsId": "Definitions_InvestigationDecisions",
+ "definitionsName": "Investigation Case Decisions",
+ "namespace": "http://waas.citi.com/dmn/investigation",
+ "decisions": [
+  {
+   "id": "Decision_RiskScoreAggregation",
+   "name": "Risk Score Aggregation",
+   "decisionTable": {
+    "id": "DecisionTable_Risk",
+    "hitPolicy": "COLLECT",
+    "aggregation": "SUM",
+    "inputs": [
+     {
+      "id": "Input_1",
+      "label": "Department",
+      "expression": "department",
+      "typeRef": "string"
+     },
+     {
+      "id": "Input_2",
+      "label": "Prior Incident Count",
+      "expression": "priorIncidentCount",
+      "typeRef": "number"
+     }
+    ],
+    "outputs": [
+     {
+      "id": "Output_1",
+      "name": "riskPoints",
+      "typeRef": "number"
+     }
+    ],
+    "rules": [
+     {
+      "id": "Rule_1",
+      "inputEntries": [
+       "\"Trading\"",
+       ">= 3"
+      ],
+      "outputEntries": [
+       "25"
+      ]
+     },
+     {
+      "id": "Rule_2",
+      "inputEntries": [
+       "\"Trading\"",
+       "< 3"
+      ],
+      "outputEntries": [
+       "10"
+      ]
+     },
+     {
+      "id": "Rule_3",
+      "inputEntries": [
+       "\"Compliance\"",
+       "-"
+      ],
+      "outputEntries": [
+       "15"
+      ]
+     },
+     {
+      "id": "Rule_4",
+      "inputEntries": [
+       "-",
+       ">= 5"
+      ],
+      "outputEntries": [
+       "20"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "Decision_SanctionSeverity",
+   "name": "Sanction Severity",
+   "decisionTable": {
+    "id": "DecisionTable_Sanction",
+    "hitPolicy": "PRIORITY",
+    "inputs": [
+     {
+      "id": "Input_3",
+      "label": "Violation Type",
+      "expression": "violationType",
+      "typeRef": "string"
+     },
+     {
+      "id": "Input_4",
+      "label": "Risk Score",
+      "expression": "riskScore",
+      "typeRef": "number"
+     }
+    ],
+    "outputs": [
+     {
+      "id": "Output_2",
+      "name": "severity",
+      "typeRef": "string"
+     },
+     {
+      "id": "Output_3",
+      "name": "requiresBoardApproval",
+      "typeRef": "boolean"
+     }
+    ],
+    "rules": [
+     {
+      "id": "Rule_5",
+      "inputEntries": [
+       "\"fraud\",\"embezzlement\"",
+       ">= 20"
+      ],
+      "outputEntries": [
+       "\"critical\"",
+       "true"
+      ]
+     },
+     {
+      "id": "Rule_6",
+      "inputEntries": [
+       "\"fraud\",\"embezzlement\"",
+       "< 20"
+      ],
+      "outputEntries": [
+       "\"high\"",
+       "true"
+      ]
+     },
+     {
+      "id": "Rule_7",
+      "inputEntries": [
+       "\"policy_violation\"",
+       ">= 15"
+      ],
+      "outputEntries": [
+       "\"medium\"",
+       "false"
+      ]
+     },
+     {
+      "id": "Rule_8",
+      "inputEntries": [
+       "-",
+       "-"
+      ],
+      "outputEntries": [
+       "\"low\"",
+       "false"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "Decision_EscalationPath",
+   "name": "Escalation Path",
+   "decisionTable": {
+    "id": "DecisionTable_Escalation",
+    "hitPolicy": "UNIQUE",
+    "inputs": [
+     {
+      "id": "Input_5",
+      "label": "Severity",
+      "expression": "severity",
+      "typeRef": "string"
+     },
+     {
+      "id": "Input_6",
+      "label": "Requires Board Approval",
+      "expression": "requiresBoardApproval",
+      "typeRef": "boolean"
+     }
+    ],
+    "outputs": [
+     {
+      "id": "Output_4",
+      "name": "escalationOwner",
+      "typeRef": "string"
+     },
+     {
+      "id": "Output_5",
+      "name": "slaDays",
+      "typeRef": "number"
+     }
+    ],
+    "rules": [
+     {
+      "id": "Rule_9",
+      "inputEntries": [
+       "\"critical\"",
+       "true"
+      ],
+      "outputEntries": [
+       "\"Board Ethics Committee\"",
+       "2"
+      ]
+     },
+     {
+      "id": "Rule_10",
+      "inputEntries": [
+       "\"high\"",
+       "true"
+      ],
+      "outputEntries": [
+       "\"Chief Compliance Officer\"",
+       "5"
+      ]
+     },
+     {
+      "id": "Rule_11",
+      "inputEntries": [
+       "\"medium\"",
+       "false"
+      ],
+      "outputEntries": [
+       "\"Regional Compliance Manager\"",
+       "10"
+      ]
+     },
+     {
+      "id": "Rule_12",
+      "inputEntries": [
+       "\"low\"",
+       "false"
+      ],
+      "outputEntries": [
+       "\"Case Analyst\"",
+       "20"
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

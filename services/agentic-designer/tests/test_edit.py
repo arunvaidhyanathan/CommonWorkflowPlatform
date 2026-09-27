@@ -33,9 +33,9 @@ def test_valid_edit_returns_ops_graph_and_diff():
     result = events[-1]
     assert result.type == "result"
     assert result.graph.node("compliance") is not None
-    assert (result.diff.added_nodes, result.diff.removed_edges) == (["compliance"], ["f2"])
-    assert set(result.diff.added_edges) == {"f2a", "f2b"}
-    assert result.diff.changed_nodes == []  # nothing else touched
+    assert (result.diff["addedNodes"], result.diff["removedEdges"]) == (["compliance"], ["f2"])
+    assert set(result.diff["addedEdges"]) == {"f2a", "f2b"}
+    assert result.diff["changedNodes"] == []  # nothing else touched
 
 
 def test_model_sees_the_current_graph_and_the_instruction_as_fenced_data():
@@ -75,14 +75,14 @@ def test_problems_that_were_already_there_do_not_block_an_edit():
     result = run(ScriptedProvider(rename), graph=draft, instruction="Rename the review step")[-1]
     assert result.type == "result"
     assert [i.code for i in result.preexisting] == ["AD011"]
-    assert result.diff.changed_nodes == ["review"]
+    assert result.diff["changedNodes"] == ["review"]
 
 
 def test_an_edit_that_changes_nothing_is_not_accepted():
     noop = json.dumps({"ops": []})
     provider = ScriptedProvider(noop, INSERT_COMPLIANCE)
     events = run(provider)
-    assert events[1].type == "invalid" and "change nothing" in events[1].issues[0].message
+    assert events[1].type == "invalid" and "Nothing changed" in events[1].issues[0].message
     assert events[-1].type == "result"
 
 

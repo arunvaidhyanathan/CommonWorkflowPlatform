@@ -1,0 +1,405 @@
+{
+ "nodes": [
+  {
+   "id": "PI_Intake",
+   "type": "cmmnHumanTask",
+   "position": {
+    "x": 100,
+    "y": 200
+   },
+   "data": {
+    "label": "Intake Review",
+    "isBlocking": true,
+    "performerRef": "Role_IntakeAnalyst"
+   }
+  },
+  {
+   "id": "PI_CaseOpened",
+   "type": "cmmnMilestone",
+   "position": {
+    "x": 320,
+    "y": 200
+   },
+   "data": {
+    "label": "Case Opened"
+   }
+  },
+  {
+   "id": "PI_Evidence",
+   "type": "cmmnHumanTask",
+   "position": {
+    "x": 540,
+    "y": 200
+   },
+   "data": {
+    "label": "Evidence Collection",
+    "isBlocking": true,
+    "performerRef": "Role_Investigator"
+   }
+  },
+  {
+   "id": "PI_Interview",
+   "type": "cmmnHumanTask",
+   "position": {
+    "x": 760,
+    "y": 200
+   },
+   "data": {
+    "label": "Interview Subject",
+    "isBlocking": true,
+    "performerRef": "Role_Investigator"
+   }
+  },
+  {
+   "id": "PI_EvidenceComplete",
+   "type": "cmmnMilestone",
+   "position": {
+    "x": 980,
+    "y": 200
+   },
+   "data": {
+    "label": "Evidence Complete"
+   }
+  },
+  {
+   "id": "PI_Determination",
+   "type": "cmmnHumanTask",
+   "position": {
+    "x": 1200,
+    "y": 200
+   },
+   "data": {
+    "label": "Determination Review",
+    "isBlocking": true,
+    "performerRef": "Role_ComplianceOfficer"
+   }
+  },
+  {
+   "id": "PI_CaseDetermined",
+   "type": "cmmnMilestone",
+   "position": {
+    "x": 1420,
+    "y": 200
+   },
+   "data": {
+    "label": "Case Determined"
+   }
+  },
+  {
+   "id": "PI_Sanction",
+   "type": "cmmnHumanTask",
+   "position": {
+    "x": 1640,
+    "y": 200
+   },
+   "data": {
+    "label": "Sanction Application",
+    "isBlocking": true,
+    "performerRef": "Role_HRBusinessPartner"
+   }
+  },
+  {
+   "id": "PI_Close",
+   "type": "cmmnTask",
+   "position": {
+    "x": 1860,
+    "y": 200
+   },
+   "data": {
+    "label": "Close Case",
+    "isBlocking": false
+   }
+  },
+  {
+   "id": "Sentry_IntakeComplete",
+   "type": "cmmnSentry",
+   "position": {
+    "x": 2080,
+    "y": 350
+   },
+   "data": {
+    "label": "Sentry"
+   }
+  },
+  {
+   "id": "Sentry_CaseOpenedOccurred",
+   "type": "cmmnSentry",
+   "position": {
+    "x": 2260,
+    "y": 350
+   },
+   "data": {
+    "label": "Sentry"
+   }
+  },
+  {
+   "id": "Sentry_BothTasksComplete",
+   "type": "cmmnSentry",
+   "position": {
+    "x": 2440,
+    "y": 350
+   },
+   "data": {
+    "label": "Sentry"
+   }
+  },
+  {
+   "id": "Sentry_EvidenceCompleteOccurred",
+   "type": "cmmnSentry",
+   "position": {
+    "x": 2620,
+    "y": 350
+   },
+   "data": {
+    "label": "Sentry"
+   }
+  },
+  {
+   "id": "Sentry_DeterminationComplete",
+   "type": "cmmnSentry",
+   "position": {
+    "x": 2800,
+    "y": 350
+   },
+   "data": {
+    "label": "Sentry"
+   }
+  },
+  {
+   "id": "Sentry_CaseDeterminedSubstantiated",
+   "type": "cmmnSentry",
+   "position": {
+    "x": 2980,
+    "y": 350
+   },
+   "data": {
+    "label": "Sentry",
+    "conditionExpression": "determinationOutcome == 'substantiated'"
+   }
+  },
+  {
+   "id": "Sentry_CaseDeterminedNotSubstantiated",
+   "type": "cmmnSentry",
+   "position": {
+    "x": 3160,
+    "y": 350
+   },
+   "data": {
+    "label": "Sentry",
+    "conditionExpression": "determinationOutcome != 'substantiated'"
+   }
+  },
+  {
+   "id": "Sentry_SanctionComplete",
+   "type": "cmmnSentry",
+   "position": {
+    "x": 3340,
+    "y": 350
+   },
+   "data": {
+    "label": "Sentry"
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "onpart_OP_1",
+   "source": "PI_Intake",
+   "target": "Sentry_IntakeComplete",
+   "type": "smoothstep",
+   "label": "complete",
+   "data": {
+    "criterionType": "onPart",
+    "standardEvent": "complete"
+   }
+  },
+  {
+   "id": "onpart_OP_2",
+   "source": "PI_CaseOpened",
+   "target": "Sentry_CaseOpenedOccurred",
+   "type": "smoothstep",
+   "label": "occur",
+   "data": {
+    "criterionType": "onPart",
+    "standardEvent": "occur"
+   }
+  },
+  {
+   "id": "onpart_OP_3",
+   "source": "PI_Evidence",
+   "target": "Sentry_BothTasksComplete",
+   "type": "smoothstep",
+   "label": "complete",
+   "data": {
+    "criterionType": "onPart",
+    "standardEvent": "complete"
+   }
+  },
+  {
+   "id": "onpart_OP_4",
+   "source": "PI_Interview",
+   "target": "Sentry_BothTasksComplete",
+   "type": "smoothstep",
+   "label": "complete",
+   "data": {
+    "criterionType": "onPart",
+    "standardEvent": "complete"
+   }
+  },
+  {
+   "id": "onpart_OP_5",
+   "source": "PI_EvidenceComplete",
+   "target": "Sentry_EvidenceCompleteOccurred",
+   "type": "smoothstep",
+   "label": "occur",
+   "data": {
+    "criterionType": "onPart",
+    "standardEvent": "occur"
+   }
+  },
+  {
+   "id": "onpart_OP_6",
+   "source": "PI_Determination",
+   "target": "Sentry_DeterminationComplete",
+   "type": "smoothstep",
+   "label": "complete",
+   "data": {
+    "criterionType": "onPart",
+    "standardEvent": "complete"
+   }
+  },
+  {
+   "id": "onpart_OP_7",
+   "source": "PI_CaseDetermined",
+   "target": "Sentry_CaseDeterminedSubstantiated",
+   "type": "smoothstep",
+   "label": "occur",
+   "data": {
+    "criterionType": "onPart",
+    "standardEvent": "occur"
+   }
+  },
+  {
+   "id": "onpart_OP_8",
+   "source": "PI_CaseDetermined",
+   "target": "Sentry_CaseDeterminedNotSubstantiated",
+   "type": "smoothstep",
+   "label": "occur",
+   "data": {
+    "criterionType": "onPart",
+    "standardEvent": "occur"
+   }
+  },
+  {
+   "id": "onpart_OP_9",
+   "source": "PI_Sanction",
+   "target": "Sentry_SanctionComplete",
+   "type": "smoothstep",
+   "label": "complete",
+   "data": {
+    "criterionType": "onPart",
+    "standardEvent": "complete"
+   }
+  },
+  {
+   "id": "entry_Entry_1",
+   "source": "Sentry_IntakeComplete",
+   "target": "PI_CaseOpened",
+   "type": "smoothstep",
+   "label": "entry",
+   "data": {
+    "criterionType": "entry"
+   }
+  },
+  {
+   "id": "entry_Entry_2",
+   "source": "Sentry_CaseOpenedOccurred",
+   "target": "PI_Evidence",
+   "type": "smoothstep",
+   "label": "entry",
+   "data": {
+    "criterionType": "entry"
+   }
+  },
+  {
+   "id": "exit_Exit_1",
+   "source": "Sentry_CaseDeterminedNotSubstantiated",
+   "target": "PI_Evidence",
+   "type": "smoothstep",
+   "label": "exit",
+   "data": {
+    "criterionType": "exit"
+   }
+  },
+  {
+   "id": "entry_Entry_3",
+   "source": "Sentry_CaseOpenedOccurred",
+   "target": "PI_Interview",
+   "type": "smoothstep",
+   "label": "entry",
+   "data": {
+    "criterionType": "entry"
+   }
+  },
+  {
+   "id": "entry_Entry_4",
+   "source": "Sentry_BothTasksComplete",
+   "target": "PI_EvidenceComplete",
+   "type": "smoothstep",
+   "label": "entry",
+   "data": {
+    "criterionType": "entry"
+   }
+  },
+  {
+   "id": "entry_Entry_5",
+   "source": "Sentry_EvidenceCompleteOccurred",
+   "target": "PI_Determination",
+   "type": "smoothstep",
+   "label": "entry",
+   "data": {
+    "criterionType": "entry"
+   }
+  },
+  {
+   "id": "entry_Entry_6",
+   "source": "Sentry_DeterminationComplete",
+   "target": "PI_CaseDetermined",
+   "type": "smoothstep",
+   "label": "entry",
+   "data": {
+    "criterionType": "entry"
+   }
+  },
+  {
+   "id": "entry_Entry_7",
+   "source": "Sentry_CaseDeterminedSubstantiated",
+   "target": "PI_Sanction",
+   "type": "smoothstep",
+   "label": "entry",
+   "data": {
+    "criterionType": "entry"
+   }
+  },
+  {
+   "id": "entry_Entry_8",
+   "source": "Sentry_SanctionComplete",
+   "target": "PI_Close",
+   "type": "smoothstep",
+   "label": "entry",
+   "data": {
+    "criterionType": "entry"
+   }
+  },
+  {
+   "id": "entry_Entry_9",
+   "source": "Sentry_CaseDeterminedNotSubstantiated",
+   "target": "PI_Close",
+   "type": "smoothstep",
+   "label": "entry",
+   "data": {
+    "criterionType": "entry"
+   }
+  }
+ ]
+}

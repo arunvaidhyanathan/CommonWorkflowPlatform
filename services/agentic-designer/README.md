@@ -10,20 +10,23 @@ always goes through the SPA's normal draft and approval flow.
 
 ## Status
 
-A0 (contract) done; A1 (Generate), A2 (Edit) and A3 (Review) built and live-verified on NVIDIA-hosted models.
+A0–A4 done: Generate, Edit and Review for BPMN, CMMN and DMN, live-verified on NVIDIA-hosted models.
 
 | Module | What it is |
 |---|---|
 | `graph.py` | `WorkflowGraph` / `Node` / `Edge`: the typed contract the model must produce. camelCase JSON, unknown fields rejected |
 | `patch.py` | Edit ops (`add_node`, `update_node`, `remove_node`, `connect`, `disconnect`, `set_condition`) and `apply_patch` |
 | `validator.py` | Structural rules `AD001`–`AD017` (errors block, warnings don't) |
+| `cmmn.py` | CMMN case contract, rules `CD001`–`CD011`, canvas conversion (mirrors `cmmnAdapter.ts`) |
+| `dmn.py` | DMN decision-table contract, rules `DM001`–`DM012`, conversion to the Designer's `DmnModel` |
+| `specs.py` | One `Spec` per notation (model, validator, conversion, prompts) that Generate/Edit/Review run against |
 | `canvas.py` | `to_canvas` / `from_canvas`: conversion to the SPA's `GraphSnapshot` |
 | `llm.py` | `LLMProvider` interface (`generate_json`); Gemini adapter and an OpenAI-compatible adapter (NVIDIA, OpenRouter) |
 | `generate.py` | Generate mode: prompt, repair loop (max 2 repairs; empty replies retried), server-sent event payloads |
 | `review.py` | Review mode: code checks first, then grounded AI findings in fixed categories; checks-only without a model |
 | `edit.py` | Edit mode: patch-op proposals against the current canvas; rejected only for errors they introduce; diff for the preview |
 | `auth.py` | Supabase JWT check (JWKS, ES256); only `designer` / `tenant_admin` may author |
-| `app.py` | FastAPI: `GET /healthz`, `POST /generate`, `POST /edit` and `POST /review` (streamed, with keepalive), per-tenant rate limit |
+| `app.py` | FastAPI: `GET /healthz`, `POST /generate`, `POST /edit` and `POST /review` (streamed, with keepalive; `spec`: BPMN, CMMN or DMN), per-tenant rate limit |
 | `usage.py` + `prices.json` | Spend metering: one usage event per model call (tokens, estimated cost or "unpriced", outcome); dated price table |
 
 Configuration: `AGENT_PROVIDER` (`gemini` | `nvidia` | `openrouter`), that provider's key

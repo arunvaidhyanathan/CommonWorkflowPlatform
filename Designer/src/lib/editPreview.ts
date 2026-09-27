@@ -3,6 +3,7 @@
 // user's layout, highlight what changed, and describe it in plain words.
 import type { Edge, Node } from '@xyflow/react'
 import type { NodeData } from '../store/useWorkbenchStore'
+import type { DmnModel } from '../adapters/dmnAdapter'
 
 export interface EditDiff {
   addedNodes: string[]
@@ -13,9 +14,18 @@ export interface EditDiff {
   changedEdges: string[]
 }
 
-// The node fields the agent's contract covers; anything else in node.data
-// (Designer-only state) is kept as it was.
-const CONTRACT_KEYS = ['label', 'documentation', 'assignee', 'candidateGroups', 'delegateExpression', 'formKey'] as const
+type CanvasSpec = 'BPMN' | 'CMMN'
+
+// The node and link fields the agent's contract covers, per notation;
+// anything else in node.data / edge.data (Designer-only state) is kept.
+const NODE_KEYS: Record<CanvasSpec, readonly string[]> = {
+  BPMN: ['label', 'documentation', 'assignee', 'candidateGroups', 'delegateExpression', 'formKey'],
+  CMMN: ['label', 'isBlocking', 'conditionExpression'],
+}
+const EDGE_KEYS: Record<CanvasSpec, readonly string[]> = {
+  BPMN: ['conditionExpression'],
+  CMMN: ['criterionType', 'standardEvent'],
+}
 
 // Status colors (dataviz reference palette): good = added, warning = changed.
 // Always paired with the text summary in the panel, never color alone.
@@ -28,6 +38,7 @@ export function mergeProposal(
   current: { nodes: Node<NodeData>[]; edges: Edge[] },
   proposed: { nodes: Node<NodeData>[]; edges: Edge[] },
   diff: EditDiff,
+  spec: CanvasSpec = 'BPMN',
 ): { nodes: Node<NodeData>[]; edges: Edge[] } {
   const currentNodes = new Map(current.nodes.map((n) => [n.id, n]))
   const currentEdges = new Map(current.edges.map((e) => [e.id, e]))
@@ -60,7 +71,7 @@ export function mergeProposal(
       return { ...p, position: placed.get(p.id)!, style: highlight(ADDED_COLOR) }
     }
     const data = { ...existing.data } as Record<string, unknown>
-    for (const k of CONTRACT_KEYS) delete data[k]
+    for (const k of NODE_KEYS[spec]) delete data[k]
     return {
       ...existing,
       data: { ...data, ...p.data } as NodeData,
@@ -72,11 +83,9 @@ export function mergeProposal(
   const edges = proposed.edges.map((p) => {
     const existing = currentEdges.get(p.id)
     if (!existing) return { ...p, style: { stroke: ADDED_COLOR, strokeWidth: 2 } }
-    const merged = {
-      ...existing,
-      label: p.label,
-      data: { ...(existing.data ?? {}), conditionExpression: (p.data as { conditionExpression?: string } | undefined)?.conditionExpression },
-    }
+    const data = { ...(existing.data ?? {}) } as Record<string, unknown>
+    for (const k of EDGE_KEYS[spec]) delete data[k]
+    const merged = { ...existing, label: p.label, data: { ...data, ...(p.data ?? {}) } }
     return changedEdges.has(p.id) ? { ...merged, style: { ...existing.style, stroke: CHANGED_COLOR, strokeWidth: 2 } } : merged
   })
 
@@ -101,13 +110,20 @@ export function describeChanges(
   current: { nodes: Node<NodeData>[]; edges: Edge[] },
   proposed: { nodes: Node<NodeData>[]; edges: Edge[] },
   diff: EditDiff,
+  spec: CanvasSpec = 'BPMN',
 ): { kind: 'added' | 'changed' | 'removed'; text: string }[] {
   const label = (id: string) => {
     const n = proposed.nodes.find((x) => x.id === id) ?? current.nodes.find((x) => x.id === id)
     return n?.data?.label ? `“${n.data.label}”` : id
   }
   const flow = (e: Edge | undefined) => (e ? `${label(e.source)} → ${label(e.target)}` : '')
-  const cond = (e: Edge | undefined) => (e?.data as { conditionExpression?: string } | undefined)?.conditionExpression
+  // BPMN flows carry a condition; CMMN links carry their kind or event.
+  const cond = (e: Edge | undefined) => {
+    const d = e?.data as { conditionExpression?: string; criterionType?: string; standardEvent?: string } | undefined
+    if (spec === 'CMMN') return d?.criterionType === 'onPart' ? `on ${d.standardEvent ?? 'complete'}` : d?.criterionType
+    return d?.conditionExpression
+  }
+  const linkWord = spec === 'CMMN' ? 'link' : 'flow'
   const out: { kind: 'added' | 'changed' | 'removed'; text: string }[] = []
 
   for (const id of diff.addedNodes) {
@@ -117,22 +133,63 @@ export function describeChanges(
   for (const id of diff.changedNodes) {
     const before = current.nodes.find((x) => x.id === id)?.data as Record<string, unknown> | undefined
     const after = proposed.nodes.find((x) => x.id === id)?.data as Record<string, unknown> | undefined
-    const fields = CONTRACT_KEYS.filter((k) => JSON.stringify(before?.[k] ?? null) !== JSON.stringify(after?.[k] ?? null))
+    const fields = NODE_KEYS[spec].filter((k) => JSON.stringify(before?.[k] ?? null) !== JSON.stringify(after?.[k] ?? null))
     out.push({ kind: 'changed', text: `Changed ${label(id)}: ${fields.join(', ') || 'details'}` })
   }
   for (const id of diff.removedNodes) out.push({ kind: 'removed', text: `Removed step ${label(id)}` })
   for (const id of diff.addedEdges) {
     const e = proposed.edges.find((x) => x.id === id)
-    out.push({ kind: 'added', text: `Added flow ${flow(e)}${cond(e) ? ` when ${cond(e)}` : ''}` })
+    out.push({ kind: 'added', text: `Added ${linkWord} ${flow(e)}${cond(e) ? (spec === 'CMMN' ? ` (${cond(e)})` : ` when ${cond(e)}`) : ''}` })
   }
   for (const id of diff.changedEdges) {
     const e = proposed.edges.find((x) => x.id === id)
-    out.push({ kind: 'changed', text: `Changed flow ${flow(e)}${cond(e) ? `: now ${cond(e)}` : ': condition removed'}` })
+    out.push({ kind: 'changed', text: `Changed ${linkWord} ${flow(e)}${cond(e) ? `: now ${cond(e)}` : ': condition removed'}` })
   }
-  for (const id of diff.removedEdges) out.push({ kind: 'removed', text: `Removed flow ${flow(current.edges.find((x) => x.id === id))}` })
+  for (const id of diff.removedEdges) out.push({ kind: 'removed', text: `Removed ${linkWord} ${flow(current.edges.find((x) => x.id === id))}` })
   return out
 }
 
 function highlight(color: string): Node['style'] {
   return { outline: `3px solid ${color}`, outlineOffset: 3, borderRadius: 6 }
+}
+
+// --- DMN: no canvas; the panel lists the changes and nothing applies until Accept ---
+
+export interface DmnDiff {
+  addedDecisions: string[]
+  removedDecisions: string[]
+  changedDecisions: {
+    id: string
+    name: string
+    addedRules: string[]
+    removedRules: string[]
+    changedRules: string[]
+    tableChanged: boolean // hit policy, inputs, outputs or name
+  }[]
+}
+
+export function describeDmnChanges(
+  current: DmnModel | null,
+  proposed: DmnModel,
+  diff: DmnDiff,
+): { kind: 'added' | 'changed' | 'removed'; text: string }[] {
+  const name = (id: string) =>
+    proposed.decisions.find((d) => d.id === id)?.name ?? current?.decisions.find((d) => d.id === id)?.name ?? id
+  const ruleNo = (decisionId: string, ruleId: string, model: DmnModel | null) => {
+    const i = model?.decisions.find((d) => d.id === decisionId)?.decisionTable.rules.findIndex((r) => r.id === ruleId) ?? -1
+    return i >= 0 ? `rule ${i + 1}` : ruleId
+  }
+  const out: { kind: 'added' | 'changed' | 'removed'; text: string }[] = []
+  for (const id of diff.addedDecisions) {
+    const d = proposed.decisions.find((x) => x.id === id)
+    out.push({ kind: 'added', text: `Added decision “${name(id)}” (${d?.decisionTable.rules.length ?? 0} rules)` })
+  }
+  for (const id of diff.removedDecisions) out.push({ kind: 'removed', text: `Removed decision “${name(id)}”` })
+  for (const c of diff.changedDecisions) {
+    if (c.tableChanged) out.push({ kind: 'changed', text: `“${c.name}”: table changed (name, hit policy, inputs or outputs)` })
+    for (const r of c.addedRules) out.push({ kind: 'added', text: `“${c.name}”: added ${ruleNo(c.id, r, proposed)}` })
+    for (const r of c.changedRules) out.push({ kind: 'changed', text: `“${c.name}”: changed ${ruleNo(c.id, r, proposed)}` })
+    for (const r of c.removedRules) out.push({ kind: 'removed', text: `“${c.name}”: removed ${ruleNo(c.id, r, current)}` })
+  }
+  return out
 }

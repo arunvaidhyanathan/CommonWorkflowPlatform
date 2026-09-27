@@ -13,10 +13,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from .auth import JwtVerifier, Principal, authoring_principal
-from .canvas import CanvasConversionError, from_canvas
+from .canvas import CanvasConversionError
 from .edit import MAX_GRAPH_NODES, MAX_INSTRUCTION_CHARS, edit_event_payload, edit_workflow
 from .generate import MAX_DESCRIPTION_CHARS, event_payload, generate_workflow
 from .review import MAX_FOCUS_CHARS, review_event_payload, review_workflow
+from .specs import SPECS, SpecName
 from .llm import GeminiProvider, LLMProvider, OpenAICompatibleProvider, ProviderError
 from .usage import FanoutSink, HttpSink, LogSink, MeteredProvider, PriceTable, UsageContext, UsageSink
 
@@ -25,16 +26,20 @@ log = logging.getLogger("agentic_designer")
 
 class GenerateRequest(BaseModel):
     description: str = Field(min_length=10, max_length=MAX_DESCRIPTION_CHARS)
+    spec: SpecName = "BPMN"
 
 
 class EditRequest(BaseModel):
     instruction: str = Field(min_length=5, max_length=MAX_INSTRUCTION_CHARS)
-    # The Designer canvas as-is (GraphSnapshot: React Flow nodes and edges).
+    # The Designer's current state as-is: canvas nodes/edges (BPMN, CMMN) or
+    # {"dmnModel": ...} (DMN), i.e. its GraphSnapshot.
     graph: dict
+    spec: SpecName = "BPMN"
 
 
 class ReviewRequest(BaseModel):
     graph: dict
+    spec: SpecName = "BPMN"
     focus: str | None = Field(default=None, max_length=MAX_FOCUS_CHARS)
 
 
@@ -132,17 +137,19 @@ def create_app(
 
         return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 
-    def canvas_or_422(graph: dict):
+    def canvas_or_422(graph: dict, spec):
         """Refused before any model call: unsupported elements, an empty
-        canvas, or one too large to send."""
+        model, or one too large to send."""
         try:
-            current = from_canvas(graph)
+            current = spec.from_payload(graph)
         except CanvasConversionError as exc:
             raise HTTPException(422, str(exc)) from exc
-        if not current.nodes:
-            raise HTTPException(422, "The canvas is empty; use Generate instead.")
-        if len(current.nodes) > MAX_GRAPH_NODES:
-            raise HTTPException(422, f"Workflows over {MAX_GRAPH_NODES} nodes can't be sent to the agent yet.")
+        if spec.is_empty(current):
+            raise HTTPException(422, f"The {spec.noun} is empty; use Generate instead.")
+        size = sum(len(d.rules) for d in current.decisions) if spec.name == "DMN" else len(current.nodes)
+        if size > MAX_GRAPH_NODES:
+            unit = "rules" if spec.name == "DMN" else "nodes"
+            raise HTTPException(422, f"Models over {MAX_GRAPH_NODES} {unit} can't be sent to the agent yet.")
         return current
 
     @app.post("/generate")
@@ -151,8 +158,10 @@ def create_app(
         request: Request,
         principal: Principal = Depends(authoring_principal),
     ) -> StreamingResponse:
+        spec = SPECS[body.spec]
         metered = metered_for(request, principal, "generate")
-        return sse("generate", generate_workflow(metered, body.description), event_payload, principal, len(body.description))
+        return sse("generate", generate_workflow(metered, body.description, spec=spec),
+                   lambda e: event_payload(e, spec), principal, len(body.description))
 
     @app.post("/edit")
     async def edit(
@@ -160,9 +169,11 @@ def create_app(
         request: Request,
         principal: Principal = Depends(authoring_principal),
     ) -> StreamingResponse:
-        current = canvas_or_422(body.graph)
+        spec = SPECS[body.spec]
+        current = canvas_or_422(body.graph, spec)
         metered = metered_for(request, principal, "edit")
-        return sse("edit", edit_workflow(metered, current, body.instruction), edit_event_payload, principal, len(body.instruction))
+        return sse("edit", edit_workflow(metered, current, body.instruction, spec=spec),
+                   lambda e: edit_event_payload(e, spec, body.graph), principal, len(body.instruction))
 
     @app.post("/review")
     async def review(
@@ -170,11 +181,12 @@ def create_app(
         request: Request,
         principal: Principal = Depends(authoring_principal),
     ) -> StreamingResponse:
-        current = canvas_or_422(body.graph)
+        spec = SPECS[body.spec]
+        current = canvas_or_422(body.graph, spec)
         # Without a provider, Review still returns the code checks.
         metered = metered_for(request, principal, "review") if request.app.state.provider is not None else None
         focus = body.focus.strip() if body.focus else None
-        return sse("review", review_workflow(metered, current, focus), review_event_payload, principal, len(focus or ""))
+        return sse("review", review_workflow(metered, current, focus, spec=spec), review_event_payload, principal, len(focus or ""))
 
     return app
 

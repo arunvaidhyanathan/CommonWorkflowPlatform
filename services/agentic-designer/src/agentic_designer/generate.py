@@ -9,12 +9,13 @@ caller gets the errors instead of a broken graph.
 import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
+from typing import Any
 
 from pydantic import ValidationError
 
 from .graph import WorkflowGraph
 from .llm import LLMProvider, ProviderError, Turn
-from .validator import Issue, errors, validate
+from .validator import Issue, errors
 
 MAX_DESCRIPTION_CHARS = 4000
 
@@ -54,7 +55,7 @@ class GenerateEvent:
     type: str  # "attempt" | "invalid" | "result" | "failed"
     attempt: int
     issues: list[Issue] = field(default_factory=list)
-    graph: WorkflowGraph | None = None
+    graph: "WorkflowGraph | Any | None" = None  # the spec's model
 
 
 EMPTY_REPLY = "AD000"
@@ -93,9 +94,10 @@ def _ids(issue: Issue) -> str:
     return f" ({'; '.join(parts)})" if parts else ""
 
 
-def _parse(text: str) -> tuple[WorkflowGraph | None, list[Issue]]:
+def parse_model(model_cls, text: str):
+    """Parse model output as ``model_cls``; schema problems become AD000 issues."""
     try:
-        return WorkflowGraph.model_validate_json(text), []
+        return model_cls.model_validate_json(text), []
     except ValidationError as exc:
         issues = [
             Issue(SCHEMA_ERROR, "error", f"{'.'.join(map(str, e['loc'])) or 'root'}: {e['msg']}")
@@ -105,22 +107,26 @@ def _parse(text: str) -> tuple[WorkflowGraph | None, list[Issue]]:
 
 
 async def generate_workflow(
-    provider: LLMProvider, description: str, max_repairs: int = 2
+    provider: LLMProvider, description: str, max_repairs: int = 2, spec=None
 ) -> AsyncIterator[GenerateEvent]:
-    schema = WorkflowGraph.model_json_schema(by_alias=True)
+    """``spec`` (specs.py) picks the notation: BPMN (default), CMMN or DMN."""
+    from .specs import BPMN
+
+    spec = spec or BPMN
+    schema = spec.model.model_json_schema(by_alias=True)
     turns = [user_turn(description)]
     issues: list[Issue] = []
 
     for attempt in range(1, max_repairs + 2):
         yield GenerateEvent("attempt", attempt)
-        text, empty = await _call(provider, SYSTEM_PROMPT, turns, schema)
+        text, empty = await _call(provider, spec.generate_prompt, turns, schema)
         if empty:
             issues = [empty]
             yield GenerateEvent("invalid", attempt, issues=issues)
             continue  # same conversation again; there's nothing to correct
-        graph, issues = _parse(text)
+        graph, issues = parse_model(spec.model, text)
         if graph is not None:
-            issues = validate(graph)
+            issues = spec.validate(graph)
             if not errors(issues):
                 # Warnings travel with the result; they don't block it.
                 yield GenerateEvent("result", attempt, issues=issues, graph=graph)
@@ -141,13 +147,14 @@ def issue_json(i: Issue) -> dict:
     }
 
 
-def event_payload(event: GenerateEvent) -> str:
-    """Server-sent event text for one GenerateEvent."""
-    from .canvas import to_canvas
+def event_payload(event: GenerateEvent, spec=None) -> str:
+    """Server-sent event text for one GenerateEvent. ``graph`` is in the
+    Designer's format for the notation: canvas nodes/edges, or a dmnModel."""
+    from .specs import BPMN
 
     body: dict = {"attempt": event.attempt}
     if event.issues:
         body["issues"] = [issue_json(i) for i in event.issues]
     if event.graph is not None:
-        body["graph"] = to_canvas(event.graph)
+        body["graph"] = (spec or BPMN).to_payload(event.graph, None)
     return f"event: {event.type}\ndata: {json.dumps(body)}\n\n"

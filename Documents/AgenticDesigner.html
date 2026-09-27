@@ -92,9 +92,9 @@
         <h1>Agentic Designer</h1>
         <div class="subtitle">Agent-assisted workflow authoring: generate from a description, edit by chat, review for defects.</div>
         <div class="meta-grid">
-            <div class="meta-item"><strong>Status</strong><span id="status-text">A0 done. A1 (Generate), A2 (Edit) and A3 (Review) built and verified with a live model (NVIDIA-hosted Kimi K3). The in-browser run by a logged-in user is still to do.</span></div>
+            <div class="meta-item"><strong>Status</strong><span id="status-text">A0&ndash;A4 done: Generate, Edit and Review for BPMN, CMMN and DMN, verified with a live model (NVIDIA-hosted Kimi K3). The in-browser run by a logged-in user is still to do. A5 next.</span></div>
             <div class="meta-item"><strong>Service</strong><code>services/agentic-designer/</code> (Python / FastAPI), behind the edge gateway at <code>/api/agent/**</code></div>
-            <div class="meta-item"><strong>Document Version</strong>1.5.0 (A3: Review Mode)</div>
+            <div class="meta-item"><strong>Document Version</strong>1.6.0 (A4: CMMN &amp; DMN)</div>
             <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
             <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
         </div>
@@ -111,6 +111,7 @@
             <li><a href="#sec-4a">4a. Generate Mode as Built (Phase A1)</a></li>
             <li><a href="#sec-4b">4b. Edit Mode as Built (Phase A2)</a></li>
             <li><a href="#sec-4c">4c. Review Mode as Built (Phase A3)</a></li>
+            <li><a href="#sec-4d">4d. CMMN and DMN as Built (Phase A4)</a></li>
             <li><a href="#sec-5">5. Phases &amp; Status</a></li>
             <li><a href="#sec-6">6. Risks &amp; Open Questions</a></li>
             <li><a href="#sec-7">7. Change Log</a></li>
@@ -372,6 +373,72 @@
     </section>
 
     <section>
+        <h2 id="sec-4d">4d. CMMN and DMN as Built (Phase A4)</h2>
+        <p>Built September 27, 2026. Generate, Edit and Review now work for all three notations the Designer edits. They are written once against a <code>Spec</code> per notation (<code>specs.py</code>: model, validator, conversion, prompts); requests carry <code>spec</code>: <code>BPMN</code> (default), <code>CMMN</code> or <code>DMN</code>.</p>
+        <h3>Contracts, matched to the Designer&rsquo;s adapters</h3>
+        <ul>
+            <li><strong>CMMN</strong> (<code>cmmn.py</code>), mirroring <code>cmmnAdapter.ts</code>: a flat case of plan items (<code>cmmnHumanTask</code>, <code>cmmnTask</code>, <code>cmmnMilestone</code>, <code>cmmnStage</code>) and <code>cmmnSentry</code> gates, linked by <code>onPart</code> (item &rarr; sentry, on a standard event), <code>entry</code> and <code>exit</code> (sentry &rarr; item). Sentries may have an if-condition; human tasks may be blocking.</li>
+            <li><strong>DMN</strong> (<code>dmn.py</code>), mirroring <code>dmnAdapter.ts</code>: standalone decision tables with a hit policy (and aggregation for COLLECT), typed inputs and outputs, and rules of FEEL entries. Conventions from the Designer&rsquo;s sample: quoted strings, <code>-</code> for any value.</li>
+            <li><strong>Anchored on real files:</strong> the Designer&rsquo;s own samples, parsed by its own adapters (<code>tests/data</code>): the investigation case (17 nodes, 19 links) and the investigation decisions (COLLECT/SUM, PRIORITY, UNIQUE). Both convert with zero validator issues and round-trip exactly, DMN table ids included, so drift between these contracts and the adapters fails a test.</li>
+        </ul>
+        <h3>Validator rules</h3>
+        <table class="stack-table">
+            <thead><tr><th>Code</th><th>Severity</th><th>Rule</th></tr></thead>
+            <tbody>
+                <tr><td><code>CD001</code></td><td>error</td><td>Duplicate id</td></tr>
+                <tr><td><code>CD002</code></td><td>error</td><td>No plan items</td></tr>
+                <tr><td><code>CD003</code></td><td>error</td><td>Link to a missing node</td></tr>
+                <tr><td><code>CD004</code></td><td>error</td><td>Wrong link direction (onPart must be item &rarr; sentry; entry/exit sentry &rarr; item)</td></tr>
+                <tr><td><code>CD005</code></td><td>error</td><td>onPart without its event</td></tr>
+                <tr><td><code>CD006</code></td><td>error</td><td>Event the source never raises (milestones <em>occur</em>; they don&rsquo;t <em>complete</em>)</td></tr>
+                <tr><td><code>CD007</code></td><td>error</td><td>Event on an entry/exit link</td></tr>
+                <tr><td><code>CD008</code></td><td>error</td><td>Sentry with no event and no condition: it never fires</td></tr>
+                <tr><td><code>CD009</code></td><td>warning</td><td>Sentry that gates nothing</td></tr>
+                <tr><td><code>CD010</code></td><td>error</td><td>Condition on a non-sentry, or isBlocking on a non-human task</td></tr>
+                <tr><td><code>CD011</code></td><td>warning</td><td>Plan item without a label</td></tr>
+                <tr><td><code>DM001</code></td><td>error</td><td>Duplicate id (decisions, inputs, outputs, rules)</td></tr>
+                <tr><td><code>DM002</code> / <code>DM003</code></td><td>error</td><td>No decisions / a decision without an input or output</td></tr>
+                <tr><td><code>DM004</code></td><td>error</td><td>Rule entry count doesn&rsquo;t match the columns</td></tr>
+                <tr><td><code>DM005</code></td><td>error</td><td>Aggregation without COLLECT</td></tr>
+                <tr><td><code>DM006</code> / <code>DM012</code></td><td>error</td><td>Empty output entry / empty input entry (use <code>-</code>)</td></tr>
+                <tr><td><code>DM007</code></td><td>error</td><td>Input with no expression</td></tr>
+                <tr><td><code>DM008</code></td><td>error</td><td>Two outputs with the same name</td></tr>
+                <tr><td><code>DM009</code></td><td>error</td><td>UNIQUE table with two rules testing identical inputs</td></tr>
+                <tr><td><code>DM010</code></td><td>warning</td><td>Output entry that isn&rsquo;t a literal of its type (e.g. an unquoted string)</td></tr>
+                <tr><td><code>DM011</code></td><td>warning</td><td>Decision with no rules</td></tr>
+            </tbody>
+        </table>
+        <h3>Edit: the complete updated model, diffed by code</h3>
+        <p>For CMMN and DMN the model returns the whole updated model rather than BPMN&rsquo;s patch operations: patch ops are shaped around BPMN nodes, and a decision table is a grid where &ldquo;here is the updated table&rdquo; is the natural unit. Code still computes the diff (nodes and links for CMMN; decisions and rules for DMN), so the review-before-accept step is unchanged, and an edit is still rejected only for errors it introduces. Edits keep the DMN file&rsquo;s identity and decision-table ids.</p>
+        <h3>In the Designer</h3>
+        <ul>
+            <li>The <strong>AI Designer</strong> button now appears for all three notations.</li>
+            <li><strong>CMMN</strong> works on the canvas like BPMN: generated cases are laid out automatically; edits are previewed with highlights (links described by their kind and event, e.g. &ldquo;(on complete)&rdquo;, &ldquo;(entry)&rdquo;).</li>
+            <li><strong>DMN</strong> has no canvas. Generate replaces the decision tables (keeping or deriving the file&rsquo;s DMN id and namespace). Edit lists the proposed changes (&ldquo;added rule 5&rdquo;, &ldquo;changed rule 2&rdquo;) and applies nothing until Accept, so Reject has nothing to undo. Review findings open the decision they concern. Applying a result marks the workflow as having unsaved changes (the store&rsquo;s <code>setDmnModel</code> doesn&rsquo;t do that by itself).</li>
+        </ul>
+        <h3>Live results (Kimi K3 on NVIDIA)</h3>
+        <table class="stack-table">
+            <thead><tr><th>Step</th><th>Outcome</th><th>Time</th></tr></thead>
+            <tbody>
+                <tr><td>Generate CMMN (fraud investigation)</td><td>Valid after one repair: a wrong link direction was sent back as <code>CD004</code> and fixed. 8 plan items and sentries, 4 onParts, 3 entries</td><td>77 s</td></tr>
+                <tr><td>Generate DMN (loan risk tier)</td><td>Valid on the last of 3 attempts (two empty or malformed replies). A correct FIRST table: Low for 750+ and DTI &lt; 0.35, Medium for the middle bands, otherwise High with manual review</td><td>124 s</td></tr>
+                <tr><td>Edit CMMN (legal review before the determination)</td><td>Added the task and its sentry and made the determination wait for it</td><td>122 s</td></tr>
+                <tr><td>Edit DMN (Operations rule)</td><td>First attempt; only that rule added</td><td>42 s</td></tr>
+                <tr><td>Review DMN (the Designer&rsquo;s own sample)</td><td>Real findings: a department with few incidents matches no rule; &ldquo;Sanction Severity&rdquo; uses PRIORITY with no output value ordering; overlapping rules double-count under COLLECT</td><td>74 s</td></tr>
+                <tr><td>Review CMMN (the Designer&rsquo;s own sample)</td><td>Real findings: an exit criterion targets &ldquo;Evidence Collection&rdquo; after it has completed; sentries depend on <code>determinationOutcome</code>, which nothing in the case sets; &ldquo;Close Case&rdquo; is modelled as a system task</td><td>36 s</td></tr>
+            </tbody>
+        </table>
+        <p>The first CMMN review hit an NVIDIA 429 (free-tier rate limit after a burst of calls) and succeeded when rerun. Generate DMN used its full attempt budget; a faster or paid provider (e.g. Gemini once its cap is raised) should need fewer retries.</p>
+        <h3>Verified</h3>
+        <ul>
+            <li>168 agent tests (46 new): every CMMN and DMN rule fails for exactly its reason; valid milestone and multi-match cases stay clean; real samples convert, validate clean and round-trip; Generate, Edit and Review through each spec (repair feedback, code-computed diffs, uniqueness enforced on edits, no-op edits refused, DMN findings grounded in rule ids, notation-specific review prompts); the API&rsquo;s <code>spec</code> field, DMN metadata and table ids kept on edit, and a BPMN canvas sent as CMMN refused before any model call. Three deliberately introduced bugs were each caught.</li>
+            <li>UI with Playwright against the running app, using the real sample files: CMMN edit preview (17 &rarr; 19 nodes, four changes listed, Reject restores 17); DMN edit (changes listed, Accept takes the table from 4 to 5 rules and marks the workflow changed). No console errors.</li>
+            <li><strong>Not yet verified:</strong> these flows by a real logged-in user, and saving and deploying an AI-made CMMN or DMN model to Flowable.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
         <h2 id="sec-5">5. Phases &amp; Status</h2>
         <table class="stack-table">
             <thead><tr><th>Phase</th><th>Deliverable</th><th>Done when</th><th>Status</th></tr></thead>
@@ -380,7 +447,7 @@
                 <tr><td>A1</td><td><code>/generate</code> for BPMN with the repair loop, plus the Designer side panel</td><td>A prompt becomes a valid draft on the canvas, saves, and can be submitted for approval</td><td><span class="badge badge-design">Built; live-verified on NVIDIA; browser run pending</span> (Section 4a)</td></tr>
                 <tr><td>A2</td><td><code>/edit</code> with patch operations and a diff preview on the canvas</td><td>Accept and reject work; undo restores the prior graph</td><td><span class="badge badge-built">Built; live-verified on NVIDIA</span> (Section 4b)</td></tr>
                 <tr><td>A3</td><td><code>/review</code> findings linked to nodes</td><td>Seeded defects in sample workflows are all reported</td><td><span class="badge badge-built">Done: 10/10 seeded defects caught live</span> (Section 4c)</td></tr>
-                <tr><td>A4</td><td>CMMN and DMN support</td><td>The same checks pass for the CMMN and DMN samples in <code>Designer/samples</code></td><td><span class="badge badge-future">Not started</span></td></tr>
+                <tr><td>A4</td><td>CMMN and DMN support</td><td>The same checks pass for the CMMN and DMN samples in <code>Designer/samples</code></td><td><span class="badge badge-built">Done: both samples clean; live-verified</span> (Section 4d)</td></tr>
                 <tr><td>A5</td><td>Grounding in the tenant's existing workflows (pgvector + embeddings) and an eval harness (golden prompts &rarr; validity rate and structure checks, per provider)</td><td>Scores reported per provider</td><td><span class="badge badge-future">Not started</span></td></tr>
             </tbody>
         </table>
@@ -403,6 +470,7 @@
         <h2 id="sec-7">7. Change Log</h2>
         <ul id="changelog">
             <li><strong>September 27, 2026:</strong> design approved; document created.</li>
+            <li><strong>September 27, 2026 (A4):</strong> CMMN and DMN: contracts matched to the Designer&rsquo;s adapters and anchored on its real sample files, validator rules <code>CD001</code>&ndash;<code>CD011</code> and <code>DM001</code>&ndash;<code>DM012</code>, Generate/Edit/Review through one spec interface, and the AI Designer panel for all three notations. All six live steps verified on Kimi K3; 168 tests.</li>
             <li><strong>September 27, 2026 (A3):</strong> Review mode: code checks (new <code>AD017</code>, unassigned user task) plus grounded AI judgement in fixed categories; seeded-defect evaluation caught 10 of 10 live on Kimi K3; 122 tests.</li>
             <li><strong>September 27, 2026 (A2):</strong> Edit mode: patch-op proposals against the current canvas, validated so an edit can only be rejected for problems it introduces, previewed with highlights and accepted or rejected. Live on Kimi K3: 4 of 4 edits valid in 28&ndash;48 s with empty-reply retries. Keepalive, retry and timeout hardening; 108 tests.</li>
             <li><strong>September 27, 2026 (later):</strong> OpenAI-compatible provider added (NVIDIA, OpenRouter) with <code>AGENT_PROVIDER</code> selection; live generation verified on three NVIDIA-hosted models, all valid on the first attempt; 79 tests.</li>
