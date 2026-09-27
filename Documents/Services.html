@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CWP Services &amp; Edge Gateway</title>
+    <style>
+        :root {
+            --citi-blue-dark: #003B70;
+            --citi-blue: #0066B2;
+            --citi-blue-light: #56A0D3;
+            --bg-primary: #FFFFFF;
+            --bg-panel: #EAF3FB;
+            --bg-panel-deep: #D6E7F5;
+            --code-bg: #F4F8FC;
+            --text-primary: #16212E;
+            --text-secondary: #44566B;
+            --border-color: #C2D8EC;
+            --accent-green: #1E7E34;
+            --accent-amber: #A85E00;
+            --accent-red: #C4262E;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { border-bottom: 4px solid var(--citi-blue); padding-bottom: 2rem; margin-bottom: 2.5rem; }
+        h1 { font-size: 2.25rem; color: var(--citi-blue-dark); margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1.1rem; color: var(--text-secondary); }
+        .meta-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-top: 1.5rem; background: var(--bg-panel);
+            padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .meta-item strong { color: var(--citi-blue); display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        section { margin-bottom: 3rem; }
+        h2 { font-size: 1.5rem; color: var(--citi-blue-dark); border-bottom: 2px solid var(--bg-panel-deep); padding-bottom: 0.5rem; margin-bottom: 1.25rem; }
+        h3 { font-size: 1.15rem; color: var(--citi-blue); margin: 1.5rem 0 0.75rem 0; }
+        p { color: var(--text-secondary); margin-bottom: 1rem; }
+        ul, ol { color: var(--text-secondary); margin-left: 1.5rem; margin-bottom: 1rem; }
+        li { margin-bottom: 0.35rem; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background-color: var(--bg-panel); color: var(--citi-blue-dark);
+            padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.875rem;
+        }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background-color: var(--bg-primary); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { background-color: var(--citi-blue-dark); color: #FFFFFF; font-weight: 600; }
+        td { color: var(--text-secondary); }
+        tr:nth-child(even) td { background-color: var(--bg-panel); }
+        tr:last-child td { border-bottom: none; }
+        td a { color: var(--citi-blue); font-weight: 600; text-decoration: none; }
+        td a:hover { text-decoration: underline; }
+        .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .badge-built { background-color: #DDF0E2; color: var(--accent-green); }
+        .badge-design { background-color: var(--bg-panel-deep); color: var(--citi-blue-dark); }
+        .badge-future { background-color: #F5E4E4; color: var(--accent-red); }
+        .callout { background-color: var(--bg-panel); border-left: 4px solid var(--citi-blue); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; margin: 1.5rem 0; }
+        .callout-title { font-weight: 600; color: var(--citi-blue-dark); margin-bottom: 0.25rem; }
+        .decision { background-color: var(--bg-panel-deep); border: 1px solid var(--citi-blue-light); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+        .decision-title { font-weight: 700; color: var(--citi-blue-dark); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        h2, h3 { scroll-margin-top: 1.5rem; }
+        .toc { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem 1.75rem; margin-bottom: 3rem; }
+        .toc-title { font-size: 1.1rem; font-weight: 700; color: var(--citi-blue-dark); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .toc ol { list-style: none; margin-left: 0; }
+        .toc > ol > li { margin-bottom: 0.4rem; }
+        .toc a { color: var(--citi-blue-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+        .toc a:hover { color: var(--citi-blue); text-decoration: underline; }
+        .back-to-top { display: inline-block; margin-top: 0.5rem; font-size: 0.75rem; color: var(--citi-blue); text-decoration: none; }
+        .back-to-top:hover { text-decoration: underline; }
+        .doc-card {
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem;
+            margin-bottom: 1rem; background: var(--bg-primary);
+        }
+        .doc-card h3 { margin-top: 0; }
+        .doc-card a.doc-link { font-size: 0.85rem; font-weight: 600; color: var(--citi-blue); text-decoration: none; }
+        .doc-card a.doc-link:hover { text-decoration: underline; }
+        pre { background-color: var(--code-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+        pre code { background: none; padding: 0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Services &amp; Edge Gateway</h1>
+        <div class="subtitle">How CWP is split into services, how requests reach them, and how to run the stack locally.</div>
+        <div class="meta-grid">
+            <div class="meta-item"><strong>Status</strong>Built and running locally, September 27, 2026 (Docker Compose)</div>
+            <div class="meta-item"><strong>Entry Point</strong>nginx edge gateway, <code>gateway/</code></div>
+            <div class="meta-item"><strong>Document Version</strong>1.0.0 (Initial service split)</div>
+            <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
+            <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
+        </div>
+    </header>
+
+    <nav class="toc" id="top">
+        <div class="toc-title">Contents</div>
+        <ol>
+            <li><a href="#sec-0">0. Decision Summary</a></li>
+            <li><a href="#sec-1">1. Service Map</a></li>
+            <li><a href="#sec-2">2. Edge Gateway (nginx)</a></li>
+            <li><a href="#sec-3">3. Request Flow &amp; Auth</a></li>
+            <li><a href="#sec-4">4. Local Stack (Docker Compose)</a></li>
+            <li><a href="#sec-5">5. Deferred Services</a></li>
+            <li><a href="#sec-6">6. Change Log</a></li>
+        </ol>
+    </nav>
+
+    <section>
+        <h2 id="sec-0">0. Decision Summary</h2>
+        <p>The Java service formerly called the <strong>Runtime Gateway</strong> was never really a gateway: its job is to host the Flowable engine. The platform now has a real, standalone edge gateway (nginx) outside Java, and the Java service is renamed <strong>workflow-runtime</strong> and sits behind it.</p>
+        <div class="decision">
+            <div class="decision-title">What's Decided</div>
+            <ul>
+                <li><strong>nginx is the only public entry point.</strong> It serves the SPA and routes <code>/api/*</code> to services. It owns CORS, rate limits, request ids and access logs.</li>
+                <li><strong>nginx does not validate JWTs.</strong> Open-source nginx can't verify JWKS-signed tokens (only nginx Plus has <code>auth_jwt</code>). Every service verifies the Supabase JWT itself. If central checking is wanted later, add <code>auth_request</code> to a small token-verify endpoint.</li>
+                <li><strong>Supabase stays</strong> as the identity and design-time data backend. Rebuilding it as custom services is the separate "Supabase-free" track (<code>Database/SUPABASE_FREE_STACK_PROMPT.md</code>), deliberately deferred.</li>
+                <li><strong>Split only as far as the product needs today.</strong> New services are extracted when a concrete trigger shows up (Section 5), not up front.</li>
+                <li><strong>Database per service.</strong> workflow-runtime has its own Postgres locally; it no longer needs the Supabase database password to run.</li>
+            </ul>
+        </div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-1">1. Service Map</h2>
+        <table class="stack-table">
+            <thead><tr><th>Service</th><th>Tech</th><th>Owns</th><th>Location</th><th>Status</th></tr></thead>
+            <tbody>
+                <tr><td><strong>edge-gateway</strong></td><td>nginx 1.28</td><td>Routing, SPA hosting, CORS, rate limits, request ids, JSON access logs</td><td><code>gateway/</code></td><td><span class="badge badge-built">Built</span></td></tr>
+                <tr><td><strong>web-app</strong></td><td>React 19 + Vite SPA</td><td>All UI. Built into the gateway image</td><td><code>Designer/</code></td><td><span class="badge badge-built">Built</span></td></tr>
+                <tr><td><strong>identity &amp; tenancy</strong></td><td>Supabase Auth + Edge Functions <code>admin-set-role</code>, <code>invite-user</code></td><td>Users, JWTs, roles, invites</td><td>Hosted</td><td><span class="badge badge-built">Unchanged</span></td></tr>
+                <tr><td><strong>design-time data</strong></td><td>Supabase Postgres + PostgREST + RLS</td><td><code>workflows</code>, <code>workflow_versions</code>, <code>approval_requests</code>, <code>audit_logs</code>, ...</td><td>Hosted; schema in <code>Database/</code></td><td><span class="badge badge-built">Unchanged</span></td></tr>
+                <tr><td><strong>workflow-runtime</strong></td><td>Java 21, Spring Boot 4, Flowable 8</td><td>Deployments, case instances, task history; its own <code>runtime</code> schema and Flowable's <code>ACT_*</code> tables</td><td><code>services/workflow-runtime/</code></td><td><span class="badge badge-built">Built, first boot verified</span></td></tr>
+                <tr><td><strong>agentic-designer</strong></td><td>Python 3.12 + FastAPI</td><td>Natural language &rarr; workflow proposals, chat edits, review</td><td><code>services/agentic-designer/</code></td><td><span class="badge badge-design">In progress</span> &mdash; see <a href="AgenticDesigner.html">AgenticDesigner.html</a></td></tr>
+            </tbody>
+        </table>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-2">2. Edge Gateway (nginx)</h2>
+        <p>Config lives in <code>gateway/templates/cwp.conf.template</code> (rendered by the nginx image's envsubst step at start) and <code>gateway/snippets/cwp-api.conf</code> (shared by every API route). The gateway image is built from the repo root: stage 1 runs <code>npm run build</code> in <code>Designer/</code> with <code>VITE_API_BASE_URL=/api</code>; stage 2 is nginx serving that build.</p>
+        <table class="stack-table">
+            <thead><tr><th>Route</th><th>Goes to</th><th>Notes</th></tr></thead>
+            <tbody>
+                <tr><td><code>/</code></td><td>SPA</td><td>Unknown paths fall back to <code>index.html</code> for client-side routing; <code>/assets/</code> is cached for a year (hashed filenames)</td></tr>
+                <tr><td><code>/healthz</code></td><td>nginx itself</td><td><code>{"status":"ok"}</code></td></tr>
+                <tr><td><code>/api/runtime/**</code></td><td>workflow-runtime <code>/runtime/**</code></td><td>Rate limit 20 req/s per IP, burst 40</td></tr>
+                <tr><td><code>/api/agent/**</code></td><td>agentic-designer <code>/**</code></td><td>Rate limit 2 req/s per IP, burst 5; response buffering off for server-sent events; 300s read timeout</td></tr>
+                <tr><td>any other <code>/api/*</code></td><td>nginx</td><td>JSON 404</td></tr>
+            </tbody>
+        </table>
+        <ul>
+            <li><strong>CORS:</strong> the request's <code>Origin</code> is echoed back only when it matches the <code>CORS_ALLOWED_ORIGINS</code> regex (default <code>^http://localhost:5173$</code>, for Vite dev). Preflight <code>OPTIONS</code> requests are answered by nginx with 204 and never reach a service, since they carry no <code>Authorization</code> header and every service would reject them with 401. Services must not set their own CORS headers; nginx hides any they send.</li>
+            <li><strong>Why a snippet instead of a parent location:</strong> an <code>if</code> in a parent <code>location</code> does not run for requests matched by a nested one, so preflights would have leaked through to the services.</li>
+            <li><strong>Request ids:</strong> a caller-supplied <code>X-Request-Id</code> is kept, otherwise nginx mints one. It is forwarded to the service, returned to the client, and written to the JSON access log.</li>
+            <li><strong>Upstreams resolve per request</strong> (Docker's embedded DNS, <code>resolver 127.0.0.11</code>), so the gateway starts even when a service isn't running; that route returns 502 instead of nginx refusing to boot.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-3">3. Request Flow &amp; Auth</h2>
+        <ol>
+            <li>The browser signs in with Supabase Auth directly and receives a JWT (unchanged).</li>
+            <li>Design-time reads and writes go straight to Supabase PostgREST, governed by RLS (unchanged).</li>
+            <li>Calls to CWP's own services go through <code>Designer/src/lib/apiClient.ts</code> (<code>apiFetch</code>), which prefixes <code>VITE_API_BASE_URL</code> and attaches the Supabase JWT as a Bearer token.</li>
+            <li>nginx routes by path prefix and forwards the token untouched.</li>
+            <li>Each service verifies the JWT against Supabase's JWKS endpoint and reads <code>app_metadata.role</code> and the tenant id from its claims.</li>
+        </ol>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-4">4. Local Stack (Docker Compose)</h2>
+        <pre><code>cp .env.example .env        # set WORKFLOW_RUNTIME_DB_PASSWORD (any value)
+docker compose up -d --build
+open http://localhost:8080  # or GATEWAY_PORT from .env</code></pre>
+        <table class="stack-table">
+            <thead><tr><th>Compose service</th><th>Image</th><th>Notes</th></tr></thead>
+            <tbody>
+                <tr><td><code>gateway</code></td><td>built from <code>gateway/Dockerfile</code></td><td>Only service published to the host (<code>GATEWAY_PORT</code>, default 8080). The SPA build reads Supabase settings from <code>Designer/.env.local</code>, which must exist before building</td></tr>
+                <tr><td><code>workflow-runtime</code></td><td>built from <code>services/workflow-runtime/Dockerfile</code></td><td>Multi-stage Maven build &rarr; JRE 21. Waits for <code>runtime-db</code> to be healthy</td></tr>
+                <tr><td><code>runtime-db</code></td><td><code>postgres:16-alpine</code></td><td>Volume <code>runtime-db-data</code>. Init script creates the <code>runtime</code> schema so Liquibase's tracking tables have somewhere to live</td></tr>
+            </tbody>
+        </table>
+        <table class="stack-table">
+            <thead><tr><th>Variable (<code>.env</code>)</th><th>Purpose</th></tr></thead>
+            <tbody>
+                <tr><td><code>GATEWAY_PORT</code></td><td>Host port for the gateway</td></tr>
+                <tr><td><code>WORKFLOW_RUNTIME_DB_PASSWORD</code></td><td>Password for the local <code>runtime-db</code> (required)</td></tr>
+                <tr><td><code>SUPABASE_JWKS_URL</code></td><td>JWKS endpoint services verify JWTs against (required)</td></tr>
+                <tr><td><code>SUPABASE_JWT_MODE</code> / <code>SUPABASE_JWT_HS256_SECRET</code></td><td><code>jwks</code> (default) or <code>hs256</code> for legacy projects</td></tr>
+                <tr><td><code>CORS_ALLOWED_ORIGINS</code></td><td>Regex of browser origins allowed to call <code>/api/*</code> cross-origin</td></tr>
+            </tbody>
+        </table>
+        <div class="callout">
+            <div class="callout-title">Vite dev against the stack</div>
+            <p>Run <code>npm run dev</code> in <code>Designer/</code> with <code>VITE_API_BASE_URL=http://localhost:&lt;GATEWAY_PORT&gt;/api</code> in <code>Designer/.env.local</code>. Without it, Publish and the Workflow Wrapper screens show a "not configured" message rather than failing.</p>
+        </div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-5">5. Deferred Services</h2>
+        <p>Not built. Each gets extracted only when its trigger shows up:</p>
+        <table class="stack-table">
+            <thead><tr><th>Service</th><th>Extract when</th></tr></thead>
+            <tbody>
+                <tr><td>notification-service</td><td>Email or in-app notifications need retries or queues</td></tr>
+                <tr><td>audit-service</td><td><code>audit_logs</code> needs writers other than Postgres triggers</td></tr>
+                <tr><td>search-service</td><td>Workbench global search outgrows a SQL <code>ilike</code></td></tr>
+                <tr><td>identity / data services of our own</td><td>The Supabase-free track is picked up</td></tr>
+            </tbody>
+        </table>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-6">6. Change Log</h2>
+        <ul>
+            <li><strong>September 27, 2026:</strong> nginx edge gateway added; <code>Workflow-Wrapper/</code> moved to <code>services/workflow-runtime/</code> and renamed (package <code>com.waas.workflowruntime</code>, env vars <code>WORKFLOW_RUNTIME_DB_*</code>); Docker Compose stack with a dedicated <code>runtime-db</code>; frontend client renamed <code>runtimeGatewayClient.ts</code> &rarr; <code>apiClient.ts</code> with <code>VITE_API_BASE_URL</code>. Verified: gateway health, SPA serving and deep links, 401 from workflow-runtime for missing and malformed tokens, CORS preflight allow/deny, request-id passthrough, JSON access log. Not yet verified: an authenticated Publish through the gateway.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+</div>
+
+</body>
+</html>

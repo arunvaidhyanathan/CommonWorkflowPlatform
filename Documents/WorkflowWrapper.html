@@ -97,9 +97,9 @@
         <h1>Workflow Wrapper: Runtime Gateway Architecture</h1>
         <div class="subtitle">Component design doc within the Common Workflow Platform (CWP)</div>
         <div class="meta-grid">
-            <div class="meta-item"><strong>Status</strong>Phases 1, 2, and 7 built on August 3, 2026 -- Flowable 8.0.0 is now embedded for real (Section 5), targeting Java 21 (corrected from 25, Section 3). Code exists at <code>WaaS/Workflow-Wrapper</code>, but is <strong>uncompiled/unverified</strong> (written in an environment with no JDK 21, no Maven, no network). Needs <code>mvn clean verify</code> on a real machine before trusting it further.</div>
+            <div class="meta-item"><strong>Status</strong>Phases 1, 2, and 7 built on August 3, 2026. <strong>September 27, 2026: renamed <code>workflow-runtime</code>, moved to <code>services/workflow-runtime/</code>, compiled and booted for the first time</strong> (Docker Compose, behind the nginx edge gateway; Section 11). Authenticated Publish through the gateway not yet verified.</div>
             <div class="meta-item"><strong>Trigger</strong>A Flowable-capability brief covering Designer/Workbench/Onboarding/Governance improvements, all of which need a real backend service to land</div>
-            <div class="meta-item"><strong>Document Version</strong>1.2.0 (Flowable 8 Embedded -- Compatibility Correction)</div>
+            <div class="meta-item"><strong>Document Version</strong>1.3.0 (Renamed Workflow Runtime -- First Boot Behind nginx)</div>
             <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
             <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
         </div>
@@ -119,6 +119,7 @@
             <li><a href="#sec-8">8. API Contract Sketch (Provisional)</a></li>
             <li><a href="#sec-9">9. Full Phased Roadmap</a></li>
             <li><a href="#sec-10">10. Risks &amp; Open Questions</a></li>
+            <li><a href="#sec-11">11. September 27, 2026: Renamed, Containerized, First Boot</a></li>
         </ol>
     </nav>
 
@@ -132,6 +133,10 @@
         <div class="callout">
             <div class="callout-title">Update, August 3, 2026: Phase 1 Scaffolded</div>
             <p>Phase 1 and Governance's Phase 4 deploy-authority check (Section 9) have been scaffolded at <code>WaaS/Workflow-Wrapper</code>: the Maven project, JWT-to-Spring-Security wiring against the auth service's JWKS endpoint (Section 7), Liquibase migrations for the <code>runtime</code> schema (already applied to the live PostgreSQL database), a working <code>/runtime/deployments</code> API gated by a <code>tenant_admin</code>-only deploy-authority check, and stub controllers for the three not-yet-real endpoints in Section 8. See that project's <code>README.md</code> for exact status, configuration, and the one thing this update cannot claim: the code has not been compiled or run anywhere, since this was written in a sandbox without a JDK/Maven/network environment to verify it in.</p>
+        </div>
+        <div class="callout">
+            <div class="callout-title">Update, September 27, 2026: No Longer Called a Gateway</div>
+            <p>The "Runtime Gateway" name is retired. Its real job is hosting Flowable, so it is now <strong>workflow-runtime</strong> (<code>services/workflow-runtime/</code>), and a standalone nginx edge gateway sits in front of it and every other CWP service. It compiled and booted for the first time on this date. See Section 11 and <a href="Services.html">Services.html</a>. Older text below keeps the old name for historical accuracy.</p>
         </div>
         <div class="callout">
             <div class="callout-title">Update, same day: Phase 2 (Designer Publish) Also Built</div>
@@ -224,10 +229,11 @@
             <tbody>
                 <tr><td>Identity, tenancy, roles, RLS</td><td>PostgreSQL database (unchanged)</td><td>Already proven, already the single source of truth for <code>tenant_id</code>/role claims every other layer reads</td></tr>
                 <tr><td>Design-time workflow CRUD (<code>workflows</code>, <code>workflow_versions</code>, approvals, audit log)</td><td>PostgreSQL database (unchanged)</td><td>Nothing about these features needs a running engine -- they're pure data, already working end to end</td></tr>
-                <tr><td>Deployment / packaging (<code>.bar</code>), historic instances, CMMN plan-item state</td><td>Runtime Gateway (embeds Flowable 8)</td><td>These are workflow-<em>runtime</em>-shaped concerns, now backed by the real embedded engine (Section 5)</td></tr>
+                <tr><td>Deployment / packaging (<code>.bar</code>), historic instances, CMMN plan-item state</td><td>workflow-runtime, formerly Runtime Gateway (embeds Flowable 8)</td><td>These are workflow-<em>runtime</em>-shaped concerns, now backed by the real embedded engine (Section 5)</td></tr>
                 <tr><td>Actual process/case execution</td><td>Flowable 8.0.0, embedded in the Runtime Gateway</td><td>No longer deferred -- Section 4's compatibility blocker is resolved</td></tr>
                 <tr><td>Dynamic form rendering contracts</td><td>Unresolved -- needs its own design pass</td><td>Flowable's standalone Form Engine is deprecated (Section 4); the Process/CMMN engine's own <code>FormService</code> has a different shape than what was originally scoped</td></tr>
-                <tr><td>Agent-assisted authoring</td><td>Python service, future, Agentic Designer</td><td>Out of scope per CWP.html Section 3; unaffected by this document</td></tr>
+                <tr><td>Routing, CORS, rate limits, request ids (edge concerns)</td><td>nginx edge gateway (<code>gateway/</code>), added September 27, 2026</td><td>Kept out of the Java service; the service still verifies JWTs itself. See <a href="Services.html">Services.html</a></td></tr>
+                <tr><td>Agent-assisted authoring</td><td>agentic-designer (Python / FastAPI), in progress</td><td>See <a href="AgenticDesigner.html">AgenticDesigner.html</a>; it proposes workflows, it never deploys them</td></tr>
             </tbody>
         </table>
     </section>
@@ -292,12 +298,44 @@
         <h2 id="sec-10">10. Risks &amp; Open Questions</h2>
         <ul>
             <li><strong>Dynamic form rendering has no clear target API anymore.</strong> The standalone Flowable Form Engine (<code>FormRepositoryService</code>) that Section 8's original sketch and Workbench.html 2B were scoped against was deprecated as of Flowable 7.0.1. The Process/CMMN engine's own <code>FormService</code> is the current mechanism, but it's tied to a specific process/case definition's embedded form key rather than an independently browsable, versioned repository -- Designer.html Section 23.2 and Workbench.html Section 7.2 need a real redesign pass against Flowable 8's actual API before this is buildable, not just a "wire it up" task.</li>
-            <li><strong>Embedding Flowable is new, uncompiled surface area on top of an already-uncompiled service.</strong> The Process/CMMN/DMN engine wiring in <code>DeploymentService</code>, <code>CaseInstanceController</code>, and <code>TaskInstanceHistoryController</code> was written against Flowable's documented public API (<code>RepositoryService</code>, <code>CmmnRepositoryService</code>, <code>DmnRepositoryService</code>, <code>CmmnRuntimeService</code>, <code>HistoryService</code>) but has never been compiled -- this is a materially bigger and riskier piece of uncompiled code than Phase 1's original thin layer. Treat <code>mvn clean verify</code> as non-optional before deploying this anywhere.</li>
-            <li><strong>Flowable's own Liquibase usage vs. this project's Liquibase usage.</strong> Flowable 8 uses Liquibase internally to manage its own engine tables and sets <code>spring.liquibase.enabled=false</code> by default specifically so a host app's own Liquibase setup doesn't collide with it. This project already sets <code>spring.liquibase.enabled: true</code> explicitly for the <code>runtime</code> schema changelog (Section 3) -- per Flowable's own docs this should only affect our changelog, not Flowable's internal one, but this interaction has not been observed running and is worth confirming on first real boot.</li>
+            <li><strong>[Resolved September 27, 2026: compiles and boots; see Section 11.]</strong> <strong>Embedding Flowable is new, uncompiled surface area on top of an already-uncompiled service.</strong> The Process/CMMN/DMN engine wiring in <code>DeploymentService</code>, <code>CaseInstanceController</code>, and <code>TaskInstanceHistoryController</code> was written against Flowable's documented public API (<code>RepositoryService</code>, <code>CmmnRepositoryService</code>, <code>DmnRepositoryService</code>, <code>CmmnRuntimeService</code>, <code>HistoryService</code>) but has never been compiled -- this is a materially bigger and riskier piece of uncompiled code than Phase 1's original thin layer. Treat <code>mvn clean verify</code> as non-optional before deploying this anywhere.</li>
+            <li><strong>[Resolved September 27, 2026: observed on first boot. Our changelog ran all 8 changesets and Flowable created its own tables alongside; see Section 11.]</strong> <strong>Flowable's own Liquibase usage vs. this project's Liquibase usage.</strong> Flowable 8 uses Liquibase internally to manage its own engine tables and sets <code>spring.liquibase.enabled=false</code> by default specifically so a host app's own Liquibase setup doesn't collide with it. This project already sets <code>spring.liquibase.enabled: true</code> explicitly for the <code>runtime</code> schema changelog (Section 3) -- per Flowable's own docs this should only affect our changelog, not Flowable's internal one, but this interaction has not been observed running and is worth confirming on first real boot.</li>
             <li><strong>Application-level tenant isolation is a new risk category.</strong> Every Runtime Gateway handler is hand-responsible for tenant scoping (Section 7) -- worth a dedicated test suite the same way Designer.html Section 20.4 calls for one for RLS, but for this service instead. This now also covers the tenant ID passed into Flowable's own multi-tenancy (Section 5), which is a second place tenant scoping can silently go wrong.</li>
-            <li><strong>Java 21 / Spring Boot 4 in this project's actual dev/deploy environment hasn't been validated.</strong> This session's sandbox has neither (Java 11 only, no Docker, no Maven) -- this scaffold needs to be built and verified somewhere that has them, which is an environment decision outside this document's scope.</li>
+            <li><strong>[Resolved September 27, 2026: builds in Docker with Maven + Temurin 21.]</strong> <strong>Java 21 / Spring Boot 4 in this project's actual dev/deploy environment hasn't been validated.</strong> This session's sandbox has neither (Java 11 only, no Docker, no Maven) -- this scaffold needs to be built and verified somewhere that has them, which is an environment decision outside this document's scope.</li>
         </ul>
 
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-11">11. September 27, 2026: Renamed, Containerized, First Boot</h2>
+        <p>The service was renamed and put behind a standalone nginx edge gateway (<a href="Services.html">Services.html</a>). Its HTTP paths did not change: the gateway maps <code>/api/runtime/**</code> to the service's <code>/runtime/**</code>.</p>
+        <table class="stack-table">
+            <thead><tr><th>What</th><th>Before</th><th>After</th></tr></thead>
+            <tbody>
+                <tr><td>Location</td><td><code>Workflow-Wrapper/</code></td><td><code>services/workflow-runtime/</code></td></tr>
+                <tr><td>Maven artifact / app name</td><td><code>runtime-gateway</code></td><td><code>workflow-runtime</code></td></tr>
+                <tr><td>Java package / main class</td><td><code>com.waas.runtimegateway</code> / <code>RuntimeGatewayApplication</code></td><td><code>com.waas.workflowruntime</code> / <code>WorkflowRuntimeApplication</code></td></tr>
+                <tr><td>DB env vars</td><td><code>RUNTIME_GATEWAY_DB_*</code></td><td><code>WORKFLOW_RUNTIME_DB_*</code> (default role name <code>runtime_gateway_service</code> kept, since it names a real database object)</td></tr>
+                <tr><td>Local database</td><td>Shared Supabase Postgres (password required)</td><td>Own <code>runtime-db</code> container (postgres:16) in Docker Compose; production can still point at Supabase's <code>runtime</code> schema via env vars</td></tr>
+                <tr><td>Frontend client</td><td><code>lib/runtimeGatewayClient.ts</code>, <code>VITE_RUNTIME_GATEWAY_URL</code></td><td><code>lib/apiClient.ts</code> (<code>apiFetch</code>), <code>VITE_API_BASE_URL</code></td></tr>
+            </tbody>
+        </table>
+        <h3>Fixes needed for the first compile and boot</h3>
+        <p>The code had never been compiled. Getting it to boot took five fixes:</p>
+        <ul>
+            <li><strong><code>pom.xml</code> was not valid XML:</strong> its comments contained <code>--</code>, which XML forbids inside comments.</li>
+            <li><strong>Jackson 3:</strong> Spring Boot 4 ships Jackson 3, so <code>com.fasterxml.jackson.*</code> imports became <code>tools.jackson.*</code>, and <code>JsonProcessingException</code> became <code>JacksonException</code> (in <code>DeploymentService</code>).</li>
+            <li><strong>Moved classes:</strong> <code>MacAlgorithm</code> is in <code>org.springframework.security.oauth2.jose.jws</code> (Spring Security 7); <code>HistoricTaskInstance</code> is in <code>org.flowable.task.api.history</code>.</li>
+            <li><strong>Roles were never mapped (a real bug):</strong> <code>SecurityConfig</code> used the no-argument <code>jwt()</code> configurer, which Spring Security 7 removed. Even before that, the <code>SupabaseJwtAuthenticationConverter</code> bean was never applied, because Spring only auto-detects a bean of type <code>JwtAuthenticationConverter</code>. It is now wired explicitly, so <code>app_metadata.role</code> becomes <code>ROLE_*</code> authorities as Section 7 intended.</li>
+            <li><strong>Liquibase never ran:</strong> Spring Boot 4 moved Liquibase auto-configuration into its own module, so <code>liquibase-core</code> alone did nothing and Hibernate's <code>validate</code> failed on the missing <code>runtime.deployments</code> table. Replaced with <code>spring-boot-starter-liquibase</code>.</li>
+        </ul>
+        <h3>Verified</h3>
+        <ul>
+            <li>Boots in about 5 seconds; all 8 Liquibase changesets apply to a fresh database; Flowable creates its engine tables in the <code>runtime</code> schema (65 tables in total there).</li>
+            <li>Through the gateway: <code>GET /api/runtime/deployments</code> returns 401 with no token and with a malformed one.</li>
+            <li><strong>Not yet verified:</strong> an authenticated call and a Publish from the SPA through the gateway. There are still no automated tests in this service.</li>
+        </ul>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
     </section>
 </div>

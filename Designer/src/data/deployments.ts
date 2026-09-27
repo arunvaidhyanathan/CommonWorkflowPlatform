@@ -2,8 +2,8 @@
 // Gateway, not Supabase -- the "second backend" described in CWP.html
 // Section 2. Modeled after data/workflows.ts and data/approvals.ts for
 // consistency, but every function here goes through
-// lib/runtimeGatewayClient.ts instead of the Supabase client.
-import { runtimeGatewayFetch } from '../lib/runtimeGatewayClient'
+// lib/apiClient.ts instead of the Supabase client.
+import { apiFetch } from '../lib/apiClient'
 
 export interface ManifestArtifact {
   definitionKey: string
@@ -52,7 +52,7 @@ export async function createDeployment(params: {
   description?: string
   manifest: ManifestArtifact[]
 }): Promise<Deployment> {
-  return runtimeGatewayFetch<Deployment>('/runtime/deployments', {
+  return apiFetch<Deployment>('/runtime/deployments', {
     method: 'POST',
     body: JSON.stringify({
       name: params.name,
@@ -64,9 +64,9 @@ export async function createDeployment(params: {
 }
 
 export async function listDeployments(): Promise<Deployment[]> {
-  return runtimeGatewayFetch<Deployment[]>('/runtime/deployments')
+  return apiFetch<Deployment[]>('/runtime/deployments')
 }
 
 export async function getDeployment(id: string): Promise<Deployment> {
-  return runtimeGatewayFetch<Deployment>(`/runtime/deployments/${id}`)
+  return apiFetch<Deployment>(`/runtime/deployments/${id}`)
 }

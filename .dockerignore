@@ -1,0 +1,8 @@
+# Gateway image build context is the repo root; keep it small.
+**/node_modules
+**/dist
+**/target
+.git
+Documents
+Database
+services

@@ -19,6 +19,9 @@ target/
 .idea/
 *.sw?
 
+# Local secrets for docker compose (template: .env.example)
+.env
+
 # Logs
 *.log
 npm-debug.log*

@@ -2,7 +2,7 @@
 // Phase 8; Workbench.html Section 7.1's Case Instance View). Calls the
 // Runtime Gateway's real, embedded CmmnRuntimeService -- not a stub, as of
 // Phase 7's Flowable 8.0.0 engine embedding.
-import { runtimeGatewayFetch } from '../lib/runtimeGatewayClient'
+import { apiFetch } from '../lib/apiClient'
 
 export interface CaseInstance {
   id: string
@@ -15,5 +15,5 @@ export interface CaseInstance {
 }
 
 export async function listCaseInstances(): Promise<CaseInstance[]> {
-  return runtimeGatewayFetch<CaseInstance[]>('/runtime/case-instances')
+  return apiFetch<CaseInstance[]>('/runtime/case-instances')
 }

@@ -32,7 +32,7 @@ import { applyAutoLayout, needsAutoLayout } from '../adapters/autoLayout'
 import { downloadTextFile, exportFileName } from '../lib/download'
 import { submitForApproval } from '../data/approvals'
 import { createDeployment } from '../data/deployments'
-import { RuntimeGatewayNotConfiguredError, RuntimeGatewayError } from '../lib/runtimeGatewayClient'
+import { ApiNotConfiguredError, ApiError } from '../lib/apiClient'
 
 type ViewMode = 'list' | 'editor'
 
@@ -391,14 +391,14 @@ export function DesignerPage() {
       setPublishStatus('published')
       setTimeout(() => setPublishStatus('idle'), 3000)
       // eslint-disable-next-line no-console
-      console.info('Runtime Gateway deployment created:', deployment.id)
+      console.info('Workflow runtime deployment created:', deployment.id)
     } catch (err) {
       setPublishStatus('error')
-      if (err instanceof RuntimeGatewayNotConfiguredError) {
+      if (err instanceof ApiNotConfiguredError) {
         setPublishError(
-          'Publish is not available yet -- the Runtime Gateway has not been deployed anywhere (VITE_RUNTIME_GATEWAY_URL unset). See WaaS/Workflow-Wrapper/README.md.',
+          'Publish is not available -- the CWP API is not configured (VITE_API_BASE_URL unset). Run `docker compose up` at the repo root; see README.md.',
         )
-      } else if (err instanceof RuntimeGatewayError) {
+      } else if (err instanceof ApiError) {
         setPublishError(err.message)
       } else {
         setPublishError(err instanceof Error ? err.message : 'Publish failed.')

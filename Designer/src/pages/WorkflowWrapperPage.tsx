@@ -20,7 +20,7 @@ import { useEffect, useState } from 'react'
 import { listDeployments, type Deployment } from '../data/deployments'
 import { listCaseInstances, type CaseInstance } from '../data/caseInstances'
 import { listHistoricTaskInstances, type HistoricTaskInstance } from '../data/historicTasks'
-import { RuntimeGatewayNotConfiguredError, RuntimeGatewayError } from '../lib/runtimeGatewayClient'
+import { ApiNotConfiguredError, ApiError } from '../lib/apiClient'
 
 type LoadState<T> =
   | { status: 'loading' }
@@ -40,9 +40,9 @@ function useRuntimeGatewayList<T>(loader: () => Promise<T[]>): LoadState<T> {
       })
       .catch((err) => {
         if (cancelled) return
-        if (err instanceof RuntimeGatewayNotConfiguredError) {
+        if (err instanceof ApiNotConfiguredError) {
           setState({ status: 'not-configured' })
-        } else if (err instanceof RuntimeGatewayError) {
+        } else if (err instanceof ApiError) {
           setState({ status: 'error', message: err.message })
         } else {
           setState({ status: 'error', message: err instanceof Error ? err.message : 'Load failed.' })
@@ -82,8 +82,8 @@ function SectionShell({
       {state.status === 'loading' && <p className="text-sm text-slate-500">Loading...</p>}
       {state.status === 'not-configured' && (
         <p className="rounded bg-amber-50 p-2 text-xs text-amber-700">
-          The Runtime Gateway isn&apos;t configured yet (<code>VITE_RUNTIME_GATEWAY_URL</code> unset). See
-          <code className="ml-1">WaaS/Workflow-Wrapper/README.md</code>.
+          The CWP API isn&apos;t configured yet (<code>VITE_API_BASE_URL</code> unset). Run
+          <code className="mx-1">docker compose up</code>at the repo root; see <code className="ml-1">README.md</code>.
         </p>
       )}
       {state.status === 'error' && <p className="text-xs text-red-600">{state.message}</p>}

@@ -1,0 +1,90 @@
+# CWP edge gateway. Rendered by the nginx image's envsubst step at container
+# start (only ${VARS} that exist in the environment are substituted; nginx's
+# own $variables are left alone).
+#
+# Responsibilities: single entry point, SPA hosting, routing to services,
+# CORS, rate limits, request ids, JSON access logs.
+# NOT a responsibility: JWT validation. Open-source nginx can't verify
+# JWKS-signed tokens, so every service verifies the Supabase JWT itself.
+
+log_format cwp_json escape=json
+  '{"time":"$time_iso8601","request_id":"$cwp_request_id","remote_addr":"$remote_addr",'
+  '"method":"$request_method","uri":"$request_uri","status":$status,'
+  '"bytes":$body_bytes_sent,"duration_s":$request_time,'
+  '"upstream":"$upstream_addr","upstream_status":"$upstream_status"}';
+access_log /dev/stdout cwp_json;
+
+# Keep a caller-supplied request id, otherwise mint one.
+map $http_x_request_id $cwp_request_id {
+  default $http_x_request_id;
+  ""      $request_id;
+}
+
+# Echo the Origin back only when it matches the allow-list regex.
+map $http_origin $cwp_cors_origin {
+  default "";
+  "~${CORS_ALLOWED_ORIGINS}" $http_origin;
+}
+
+limit_req_zone $binary_remote_addr zone=cwp_api:10m   rate=20r/s;
+limit_req_zone $binary_remote_addr zone=cwp_agent:10m rate=2r/s;
+limit_req_status 429;
+
+server {
+  listen 8080;
+  server_name _;
+
+  client_max_body_size 10m;
+  # Docker's embedded DNS. Upstreams are resolved per request (via variables
+  # below), so the gateway still starts when a service isn't running -- that
+  # route just returns 502 instead of nginx refusing to boot.
+  resolver 127.0.0.11 valid=10s ipv6=off;
+
+  add_header X-Request-Id $cwp_request_id always;
+
+  location = /healthz {
+    access_log off;
+    default_type application/json;
+    return 200 '{"status":"ok"}';
+  }
+
+  # Each API route includes snippets/cwp-api.conf (CORS, preflight, proxy
+  # headers). It can't live in a shared parent location: an `if` in a parent
+  # location doesn't run for requests matched by a nested one.
+  location /api/runtime/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_api burst=40 nodelay;
+    set $workflow_runtime ${WORKFLOW_RUNTIME_UPSTREAM};
+    rewrite ^/api(/runtime/.*)$ $1 break;
+    proxy_pass http://$workflow_runtime;
+  }
+
+  location /api/agent/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_agent burst=5 nodelay;
+    set $agentic_designer ${AGENTIC_DESIGNER_UPSTREAM};
+    rewrite ^/api/agent(/.*)$ $1 break;
+    proxy_pass http://$agentic_designer;
+    # Server-sent events: stream model progress instead of buffering it.
+    proxy_buffering off;
+    proxy_read_timeout 300s;
+  }
+
+  location /api/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    default_type application/json;
+    return 404 '{"message":"No CWP service is routed at this path."}';
+  }
+
+  # The SPA. Unknown paths fall back to index.html for client-side routing.
+  location / {
+    root /usr/share/nginx/html;
+    try_files $uri $uri/ /index.html;
+  }
+
+  location /assets/ {
+    root /usr/share/nginx/html;
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+  }
+}
