@@ -5,7 +5,7 @@ import time
 import jwt
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from agentic_designer.llm import Turn
+from agentic_designer.llm import Completion, Turn
 
 
 class ScriptedProvider:
@@ -13,14 +13,25 @@ class ScriptedProvider:
     can assert on what the model was told."""
 
     name = "scripted"
+    model = "scripted-model"
+    key_alias = "SCRIPTED_API_KEY"
 
-    def __init__(self, *responses: str):
+    def __init__(self, *responses: str, input_tokens: int = 1000, output_tokens: int = 500):
         self._responses = list(responses)
+        self._tokens = (input_tokens, output_tokens)
         self.calls: list[list[Turn]] = []
 
     async def generate_json(self, system, turns, schema):
         self.calls.append(list(turns))
-        return self._responses.pop(0)
+        return Completion(self._responses.pop(0), *self._tokens)
+
+
+class RecordingSink:
+    def __init__(self):
+        self.events = []
+
+    def record(self, event):
+        self.events.append(event)
 
 
 class LocalVerifier:

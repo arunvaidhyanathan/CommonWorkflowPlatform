@@ -99,7 +99,7 @@ async def generate_workflow(
 
     for attempt in range(1, max_repairs + 2):
         yield GenerateEvent("attempt", attempt)
-        text = await provider.generate_json(SYSTEM_PROMPT, turns, schema)
+        text = (await provider.generate_json(SYSTEM_PROMPT, turns, schema)).text
         graph, issues = _parse(text)
         if graph is not None:
             issues = validate(graph)

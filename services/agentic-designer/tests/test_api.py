@@ -112,6 +112,8 @@ def test_unconfigured_provider_is_503_not_a_crash(verifier):
 def test_provider_failure_mid_stream_becomes_an_error_event(verifier):
     class Exploding:
         name = "exploding"
+        model = "m"
+        key_alias = "K"
 
         async def generate_json(self, system, turns, schema):
             raise TimeoutError("upstream timed out")
@@ -127,6 +129,8 @@ def test_provider_quota_error_reaches_the_user_in_plain_words(verifier):
 
     class OverQuota:
         name = "over-quota"
+        model = "m"
+        key_alias = "K"
 
         async def generate_json(self, system, turns, schema):
             raise ProviderError("The AI provider refused the request: rate limit or quota reached.")

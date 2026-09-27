@@ -1,0 +1,32 @@
+{
+  "_comment": "USD per 1M tokens, reviewed by a person from each provider's pricing page. A model with no matching entry is 'unpriced', never $0. Output prices include thinking/reasoning tokens. Add a new entry with a later effective_from for a price change; don't edit old ones.",
+  "prices": [
+    {
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "effective_from": "2026-01-01",
+      "input_per_mtok": "0.75",
+      "output_per_mtok": "3.75",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "reviewed_on": "2026-09-27"
+    },
+    {
+      "provider": "gemini",
+      "model": "gemini-3.8-flash",
+      "effective_from": "2027-01-01",
+      "input_per_mtok": "1.50",
+      "output_per_mtok": "7.50",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "reviewed_on": "2026-09-27"
+    },
+    {
+      "provider": "gemini",
+      "model": "gemini-3.5-flash-lite",
+      "effective_from": "2026-01-01",
+      "input_per_mtok": "0.30",
+      "output_per_mtok": "2.50",
+      "source": "https://ai.google.dev/gemini-api/docs/pricing",
+      "reviewed_on": "2026-09-27"
+    }
+  ]
+}

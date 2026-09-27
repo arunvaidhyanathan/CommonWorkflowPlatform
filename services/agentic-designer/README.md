@@ -22,6 +22,7 @@ A0 (contract) done; A1 (Generate) built and live-verified on NVIDIA-hosted model
 | `generate.py` | Generate mode: prompt, repair loop (max 2 repairs), server-sent event payloads |
 | `auth.py` | Supabase JWT check (JWKS, ES256); only `designer` / `tenant_admin` may author |
 | `app.py` | FastAPI: `GET /healthz`, `POST /generate` (streamed), per-tenant rate limit |
+| `usage.py` + `prices.json` | Spend metering: one usage event per model call (tokens, estimated cost or "unpriced", outcome); dated price table |
 
 Configuration: `AGENT_PROVIDER` (`gemini` | `nvidia` | `openrouter`), that provider's key
 (`GEMINI_API_KEY`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`), `AGENT_MODEL` (empty = provider

@@ -92,9 +92,9 @@
         <h1>API Spend Tracker</h1>
         <div class="subtitle">What the platform's paid API calls cost, live, and whether every API key in use still works.</div>
         <div class="meta-grid">
-            <div class="meta-item"><strong>Status</strong>Designed September 27, 2026. Keys verified; nothing built yet.</div>
+            <div class="meta-item"><strong>Status</strong>S0 (metering in the agent service) built and live-verified September 27, 2026. S1 next.</div>
             <div class="meta-item"><strong>Planned Service</strong><code>services/spend-tracker/</code> (Python / FastAPI), behind the gateway at <code>/api/spend/**</code></div>
-            <div class="meta-item"><strong>Document Version</strong>1.0.0 (Design)</div>
+            <div class="meta-item"><strong>Document Version</strong>1.1.0 (S0: Metering)</div>
             <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
             <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
         </div>
@@ -107,6 +107,7 @@
             <li><a href="#sec-1">1. Keys In Use (Verified September 27, 2026)</a></li>
             <li><a href="#sec-2">2. What Each Provider Can Report</a></li>
             <li><a href="#sec-3">3. v1 Design</a></li>
+            <li><a href="#sec-3a">3a. S0 as Built: Metering in the Agent Service</a></li>
             <li><a href="#sec-4">4. Phases</a></li>
             <li><a href="#sec-5">5. Risks &amp; Open Questions</a></li>
         </ol>
@@ -194,11 +195,39 @@
     </section>
 
     <section>
+        <h2 id="sec-3a">3a. S0 as Built: Metering in the Agent Service</h2>
+        <p>Built September 27, 2026 in <code>services/agentic-designer/src/agentic_designer/usage.py</code> and <code>prices.json</code>.</p>
+        <ul>
+            <li><strong>Providers report usage.</strong> <code>generate_json</code> now returns a <code>Completion</code> (text, input tokens, output tokens). Gemini: <code>prompt_token_count</code> in, <code>candidates_token_count</code> + <code>thoughts_token_count</code> out (thinking is billed as output). OpenAI-compatible: <code>prompt_tokens</code> / <code>completion_tokens</code>. Provider errors carry a kind: <code>rate_limited</code>, <code>error</code> or <code>empty</code>.</li>
+            <li><strong><code>MeteredProvider</code></strong> wraps the provider for each <code>/generate</code> request and records exactly one event per model call, including every repair attempt and every failure, then returns or re-raises exactly what the provider did. A failing sink is logged and never breaks generation.</li>
+            <li><strong>Context</strong> comes from the request: feature <code>generate</code>, tenant and user from the JWT, and the gateway's <code>X-Request-Id</code>, so an event can be matched to the nginx access log line.</li>
+            <li><strong>Sink:</strong> for S0, one JSON line per event in the service log (<code>agentic_designer.usage</code>). S1 swaps in a sink that posts to the spend-tracker service; the event is already JSON-serializable as-is.</li>
+        </ul>
+        <h3>Price table (<code>prices.json</code>)</h3>
+        <table class="stack-table">
+            <thead><tr><th>Provider / model</th><th>Effective from</th><th>Input $/1M</th><th>Output $/1M</th></tr></thead>
+            <tbody>
+                <tr><td>gemini / <code>gemini-3.8-flash</code></td><td>2026-01-01*</td><td>0.75</td><td>3.75</td></tr>
+                <tr><td>gemini / <code>gemini-3.8-flash</code></td><td>2027-01-01</td><td>1.50</td><td>7.50</td></tr>
+                <tr><td>gemini / <code>gemini-3.5-flash-lite</code></td><td>2026-01-01*</td><td>0.30</td><td>2.50</td></tr>
+                <tr><td>nvidia / any</td><td colspan="3">Unpriced: the hosted catalog runs on developer credits with no published per-token price</td></tr>
+            </tbody>
+        </table>
+        <p>Source: the Gemini API pricing page, reviewed September 27, 2026. *2026-01-01 marks when tracking starts, not when that price began. A price change is a new entry with a later date; old entries are never edited, so past events can be re-costed correctly. Prices are matched on provider <em>and</em> model, because the same model on another host costs something else.</p>
+        <h3>Verified</h3>
+        <ul>
+            <li>90 tests (11 new), including a check that the 2027 price change applies from its date, and three deliberately introduced bugs, each caught: ignoring effective dates, not recording failed calls, a sink error breaking generation.</li>
+            <li>Live, in the running container: an NVIDIA generation recorded <code>outcome=ok</code>, 1,051 input and 366 output tokens, <code>cost_usd=null</code> (unpriced), with tenant, user and request id. A Gemini call recorded <code>outcome=rate_limited</code> (the spend cap) with the error still reaching the caller.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
         <h2 id="sec-4">4. Phases</h2>
         <table class="stack-table">
             <thead><tr><th>Phase</th><th>Deliverable</th><th>Done when</th><th>Status</th></tr></thead>
             <tbody>
-                <tr><td>S0</td><td>Usage capture in agentic-designer's LLM layer + price table</td><td>Each model call (success or failure) yields one event with correct tokens; unpriced models are flagged</td><td><span class="badge badge-future">Not started</span></td></tr>
+                <tr><td>S0</td><td>Usage capture in agentic-designer's LLM layer + price table</td><td>Each model call (success or failure) yields one event with correct tokens; unpriced models are flagged</td><td><span class="badge badge-built">Done</span> (Section 3a)</td></tr>
                 <tr><td>S1</td><td><code>spend-tracker</code> service: event ingestion, storage, summary API, scheduled key health checks</td><td>A live generation shows up in <code>/summary</code>; <code>/keys</code> reports the statuses in Section 1</td><td><span class="badge badge-future">Not started</span></td></tr>
                 <tr><td>S2</td><td>API Spend dashboard page in the SPA</td><td>Spend and key status visible and refreshing through the gateway</td><td><span class="badge badge-future">Not started</span></td></tr>
                 <tr><td>S3</td><td>Provider-reported totals (OpenRouter; AWS Cost Explorer if approved), budgets and alerts</td><td>Budget warnings fire at a configured threshold</td><td><span class="badge badge-future">Not started</span></td></tr>

@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from .auth import JwtVerifier, Principal, authoring_principal
 from .generate import MAX_DESCRIPTION_CHARS, event_payload, generate_workflow
 from .llm import GeminiProvider, LLMProvider, OpenAICompatibleProvider, ProviderError
+from .usage import LogSink, MeteredProvider, PriceTable, UsageContext, UsageSink
 
 log = logging.getLogger("agentic_designer")
 
@@ -44,10 +45,14 @@ def create_app(
     provider: LLMProvider | None = None,
     verifier: JwtVerifier | None = None,
     tenant_rpm: int | None = None,
+    usage_sink: UsageSink | None = None,
+    prices: PriceTable | None = None,
 ) -> FastAPI:
     app = FastAPI(title="CWP Agentic Designer")
     app.state.provider = provider if provider is not None else _provider_from_env()
     app.state.verifier = verifier or JwtVerifier(os.environ["SUPABASE_JWKS_URL"])
+    app.state.usage_sink = usage_sink or LogSink()
+    app.state.prices = prices or PriceTable.bundled()
     app.state.limiter = TenantRateLimiter(tenant_rpm or int(os.environ.get("AGENT_TENANT_RPM", "10")))
 
     @app.get("/healthz")
@@ -64,12 +69,23 @@ def create_app(
         if provider is None:
             raise HTTPException(503, "No LLM provider is configured (set AGENT_PROVIDER and its API key).")
         request.app.state.limiter.check(principal.tenant_id)
+        metered = MeteredProvider(
+            provider,
+            request.app.state.usage_sink,
+            request.app.state.prices,
+            UsageContext(
+                feature="generate",
+                tenant_id=principal.tenant_id,
+                user_id=principal.user_id,
+                request_id=request.headers.get("x-request-id"),
+            ),
+        )
 
         async def stream():
             started = time.monotonic()
             outcome = "error"
             try:
-                async for event in generate_workflow(provider, body.description):
+                async for event in generate_workflow(metered, body.description):
                     if event.type in ("result", "failed"):
                         outcome = f"{event.type} after {event.attempt} attempt(s)"
                     yield event_payload(event)
@@ -118,7 +134,7 @@ def _provider_from_env() -> LLMProvider | None:
     log.info("LLM provider %s, model %s", name, model)
     if base_url is None:
         return GeminiProvider(api_key=api_key, model=model, max_output_tokens=max_tokens)
-    return OpenAICompatibleProvider(name, api_key, base_url, model, max_tokens)
+    return OpenAICompatibleProvider(name, key_var, api_key, base_url, model, max_tokens)
 
 
 logging.basicConfig(level=logging.INFO)
