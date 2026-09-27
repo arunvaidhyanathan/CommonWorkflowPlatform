@@ -138,6 +138,11 @@
 
     <section>
         <h2 id="sec-0">0. Decision Summary</h2>
+        <div class="callout">
+            <div class="callout-title">Current State, September 27, 2026</div>
+            <p><strong>Names changed on this date.</strong> The Java "Runtime Gateway" is now the <strong>workflow-runtime</strong> service (<code>services/workflow-runtime/</code>, formerly <code>WaaS/Workflow-Wrapper</code>). A standalone nginx <strong>edge gateway</strong> (<code>gateway/</code>) now fronts every CWP service: <code>/api/runtime/**</code> goes to workflow-runtime and <code>/api/agent/**</code> to the new agentic-designer. In the SPA, <code>lib/runtimeGatewayClient.ts</code> is now <code>lib/apiClient.ts</code>, and <code>VITE_RUNTIME_GATEWAY_URL</code> is now <code>VITE_API_BASE_URL</code> (the gateway's <code>/api</code> prefix). Older text below keeps the old names for historical accuracy. See <a href="Services.html">Services.html</a>.</p>
+            <p><strong>Governance-relevant changes:</strong> workflow-runtime's JWT role mapping never actually worked before this date (the converter was never applied); it now maps <code>app_metadata.role</code> to Spring authorities as Section 11.3's deploy-authority check assumes (<a href="WorkflowWrapper.html">WorkflowWrapper.html</a> Section 11). The new Agentic Designer only lets <code>designer</code> and <code>tenant_admin</code> generate workflows, and its output is always a draft that goes through the normal approval flow (<a href="AgenticDesigner.html">AgenticDesigner.html</a>).</p>
+        </div>
         <p>The Administration and Approvals screens built in the last session work, but the role model underneath them is deliberately minimal: three flat, mutually exclusive, tenant-scoped roles (<code>designer</code>, <code>admin</code>, <code>viewer</code>). That was the right call to ship something real quickly. It is not the right long-term model for a platform meant to govern workflow changes across an organization. This document brainstorms what the model should grow into, and in what order -- no schema or code changes are made here.</p>
         <div class="decision">
             <div class="decision-title">Central Tension</div>

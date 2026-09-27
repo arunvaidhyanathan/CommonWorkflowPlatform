@@ -9,6 +9,7 @@ import { useWorkbenchStore, type SpecType } from '../store/useWorkbenchStore'
 import { Palette } from '../components/Palette'
 import { Canvas } from '../components/Canvas'
 import { PropertiesPanel } from '../components/PropertiesPanel'
+import { AgentPanel } from '../components/AgentPanel'
 import { DmnEditor } from '../components/DmnEditor'
 import { GettingStartedPanel } from '../components/GettingStartedPanel'
 import {
@@ -32,7 +33,7 @@ import { applyAutoLayout, needsAutoLayout } from '../adapters/autoLayout'
 import { downloadTextFile, exportFileName } from '../lib/download'
 import { submitForApproval } from '../data/approvals'
 import { createDeployment } from '../data/deployments'
-import { ApiNotConfiguredError, ApiError } from '../lib/apiClient'
+import { ApiNotConfiguredError, ApiError, isApiConfigured } from '../lib/apiClient'
 
 type ViewMode = 'list' | 'editor'
 
@@ -120,6 +121,8 @@ export function DesignerPage() {
   // deploy it." Mirrored client-side purely so the button doesn't invite a
   // 403; the Runtime Gateway enforces this for real.
   const canDeploy = role === 'tenant_admin'
+  // Agentic Designer Generate mode (AgenticDesigner.html): BPMN only until A4.
+  const [showAgent, setShowAgent] = useState(false)
 
   const refreshList = useCallback(async () => {
     if (!tenantId) return
@@ -646,6 +649,16 @@ export function DesignerPage() {
           {isDirty && <span className="text-xs text-amber-600">Unsaved changes</span>}
           {saveStatus === 'saved' && <span className="text-xs text-emerald-600">Saved</span>}
           {saveError && <span className="text-xs text-red-600">{saveError}</span>}
+          {activeSpec === 'BPMN' && canWrite && isApiConfigured() && (
+            <button
+              type="button"
+              onClick={() => setShowAgent((v) => !v)}
+              title="Draft this workflow from a plain-language description (Agentic Designer)"
+              className="rounded border border-indigo-300 bg-white px-3 py-1.5 text-sm text-indigo-700 hover:bg-indigo-50"
+            >
+              Generate with AI
+            </button>
+          )}
           {activeSpec !== 'DMN' && (
             <button
               type="button"
@@ -782,7 +795,11 @@ export function DesignerPage() {
             }}
           />
           <Canvas />
-          <PropertiesPanel />
+          {showAgent && activeSpec === 'BPMN' ? (
+            <AgentPanel onClose={() => setShowAgent(false)} />
+          ) : (
+            <PropertiesPanel />
+          )}
         </div>
       )}
     </div>

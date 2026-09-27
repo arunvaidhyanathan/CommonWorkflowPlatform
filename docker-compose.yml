@@ -2,7 +2,7 @@
 # are CWP's own services. Entry point: http://localhost:${GATEWAY_PORT:-8080}
 #   /            -> SPA (built from Designer/)
 #   /api/runtime -> workflow-runtime (Flowable engine host)
-#   /api/agent   -> agentic-designer (not built yet; returns 502 until it is)
+#   /api/agent   -> agentic-designer (LLM-assisted authoring)
 name: cwp
 
 services:
@@ -16,6 +16,7 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-^http://localhost:5173$$}
     depends_on:
       - workflow-runtime
+      - agentic-designer
 
   workflow-runtime:
     build: services/workflow-runtime
@@ -29,6 +30,19 @@ services:
     depends_on:
       runtime-db:
         condition: service_healthy
+
+  agentic-designer:
+    build: services/agentic-designer
+    environment:
+      SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:?set SUPABASE_JWKS_URL in .env}
+      # gemini | nvidia | openrouter. Without the chosen provider's key the
+      # service still starts and /generate returns 503.
+      AGENT_PROVIDER: ${AGENT_PROVIDER:-gemini}
+      AGENT_MODEL: ${AGENT_MODEL:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      AGENT_TENANT_RPM: ${AGENT_TENANT_RPM:-10}
 
   # The workflow runtime's own database (database-per-service). Holds the
   # `runtime` schema and Flowable's ACT_* tables. Not exposed to the host.

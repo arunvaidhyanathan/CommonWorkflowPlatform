@@ -130,6 +130,11 @@
 
     <section>
         <h2 id="sec-0">0. Decision Summary</h2>
+        <div class="callout">
+            <div class="callout-title">Current State, September 27, 2026</div>
+            <p><strong>Names changed on this date.</strong> The Java "Runtime Gateway" is now the <strong>workflow-runtime</strong> service (<code>services/workflow-runtime/</code>, formerly <code>WaaS/Workflow-Wrapper</code>). A standalone nginx <strong>edge gateway</strong> (<code>gateway/</code>) now fronts every CWP service: <code>/api/runtime/**</code> goes to workflow-runtime and <code>/api/agent/**</code> to the new agentic-designer. In the SPA, <code>lib/runtimeGatewayClient.ts</code> is now <code>lib/apiClient.ts</code>, and <code>VITE_RUNTIME_GATEWAY_URL</code> is now <code>VITE_API_BASE_URL</code> (the gateway's <code>/api</code> prefix). Older text below keeps the old names for historical accuracy. See <a href="Services.html">Services.html</a>.</p>
+            <p>The Workflow Wrapper operator page (Section 7.1) now reads through the edge gateway; its behavior is unchanged.</p>
+        </div>
         <p>Workbench exists as a nav entry and a placeholder route today, nothing more. This document brainstorms what should actually live there, and argues for a specific distinction that keeps it from turning into a second, redundant copy of either Designer or Administration.</p>
         <div class="decision">
             <div class="decision-title">Framing</div>

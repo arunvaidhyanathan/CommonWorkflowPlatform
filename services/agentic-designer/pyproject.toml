@@ -4,11 +4,17 @@ version = "0.1.0"
 description = "CWP Agentic Designer: LLM-proposed workflow changes, validated by code"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.141.1",
+    "google-genai>=2.25.0",
+    "openai>=3.19.2",
     "pydantic>=2.8",
+    "pyjwt[crypto]>=2.15.0",
+    "uvicorn>=0.54.0",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=8",
 ]
 

@@ -9,7 +9,7 @@ Platform docs start at [`Documents/CWP.html`](Documents/CWP.html).
 | `Designer/` | The React SPA (app shell: Designer, Workbench, Approvals, Administration, Workflow Wrapper screens) |
 | `gateway/` | nginx edge gateway: serves the SPA, routes `/api/*` to services, owns CORS / rate limits / request ids |
 | `services/workflow-runtime/` | Java 21 / Spring Boot 4 / Flowable 8 engine host |
-| `services/agentic-designer/` | Agentic Designer service (not built yet) |
+| `services/agentic-designer/` | Agentic Designer: LLM-assisted workflow authoring (Python / FastAPI) |
 | `Database/` | Portable schema + RLS for the Supabase design-time data |
 
 Supabase (hosted) stays the identity and design-time data backend.
@@ -17,7 +17,7 @@ Supabase (hosted) stays the identity and design-time data backend.
 ## Run the stack
 
 ```
-cp .env.example .env        # then set WORKFLOW_RUNTIME_DB_PASSWORD (any value)
+cp .env.example .env        # set WORKFLOW_RUNTIME_DB_PASSWORD (any value) and GEMINI_API_KEY
 docker compose up -d --build
 ```
 
@@ -30,7 +30,7 @@ built into the gateway image and reads its Supabase settings from
 | `/` | SPA |
 | `/healthz` | Gateway health |
 | `/api/runtime/**` | workflow-runtime (`/runtime/**`) |
-| `/api/agent/**` | agentic-designer (502 until it exists) |
+| `/api/agent/**` | agentic-designer (`/**`) |
 
 Every service verifies the Supabase JWT itself; nginx does not.
 

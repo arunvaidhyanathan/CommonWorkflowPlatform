@@ -510,6 +510,11 @@
 
     <section>
         <h2 id="sec-0">0. Architecture Decision Summary</h2>
+        <div class="callout">
+            <div class="callout-title">Current State, September 27, 2026</div>
+            <p><strong>Names changed on this date.</strong> The Java "Runtime Gateway" is now the <strong>workflow-runtime</strong> service (<code>services/workflow-runtime/</code>, formerly <code>WaaS/Workflow-Wrapper</code>). A standalone nginx <strong>edge gateway</strong> (<code>gateway/</code>) now fronts every CWP service: <code>/api/runtime/**</code> goes to workflow-runtime and <code>/api/agent/**</code> to the new agentic-designer. In the SPA, <code>lib/runtimeGatewayClient.ts</code> is now <code>lib/apiClient.ts</code>, and <code>VITE_RUNTIME_GATEWAY_URL</code> is now <code>VITE_API_BASE_URL</code> (the gateway's <code>/api</code> prefix). Older text below keeps the old names for historical accuracy. See <a href="Services.html">Services.html</a>.</p>
+            <p><strong>New in the editor:</strong> a <strong>Generate with AI</strong> toolbar button (BPMN only, for designers and tenant admins) opens the Agentic Designer panel in place of the properties panel. It drafts a workflow from a plain-language description and places it on the canvas as unsaved changes; saving and approval work as before. See <a href="AgenticDesigner.html">AgenticDesigner.html</a> Section 4a. The workflow-runtime service also compiled and booted for the first time on this date (<a href="WorkflowWrapper.html">WorkflowWrapper.html</a> Section 11).</p>
+        </div>
         <div class="decision">
             <div class="decision-title">Decision Log</div>
             <ul>

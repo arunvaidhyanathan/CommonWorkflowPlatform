@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Spend Tracker</title>
+    <style>
+        :root {
+            --citi-blue-dark: #003B70;
+            --citi-blue: #0066B2;
+            --citi-blue-light: #56A0D3;
+            --bg-primary: #FFFFFF;
+            --bg-panel: #EAF3FB;
+            --bg-panel-deep: #D6E7F5;
+            --code-bg: #F4F8FC;
+            --text-primary: #16212E;
+            --text-secondary: #44566B;
+            --border-color: #C2D8EC;
+            --accent-green: #1E7E34;
+            --accent-amber: #A85E00;
+            --accent-red: #C4262E;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { border-bottom: 4px solid var(--citi-blue); padding-bottom: 2rem; margin-bottom: 2.5rem; }
+        h1 { font-size: 2.25rem; color: var(--citi-blue-dark); margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1.1rem; color: var(--text-secondary); }
+        .meta-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-top: 1.5rem; background: var(--bg-panel);
+            padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .meta-item strong { color: var(--citi-blue); display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        section { margin-bottom: 3rem; }
+        h2 { font-size: 1.5rem; color: var(--citi-blue-dark); border-bottom: 2px solid var(--bg-panel-deep); padding-bottom: 0.5rem; margin-bottom: 1.25rem; }
+        h3 { font-size: 1.15rem; color: var(--citi-blue); margin: 1.5rem 0 0.75rem 0; }
+        p { color: var(--text-secondary); margin-bottom: 1rem; }
+        ul, ol { color: var(--text-secondary); margin-left: 1.5rem; margin-bottom: 1rem; }
+        li { margin-bottom: 0.35rem; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background-color: var(--bg-panel); color: var(--citi-blue-dark);
+            padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.875rem;
+        }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background-color: var(--bg-primary); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { background-color: var(--citi-blue-dark); color: #FFFFFF; font-weight: 600; }
+        td { color: var(--text-secondary); }
+        tr:nth-child(even) td { background-color: var(--bg-panel); }
+        tr:last-child td { border-bottom: none; }
+        td a { color: var(--citi-blue); font-weight: 600; text-decoration: none; }
+        td a:hover { text-decoration: underline; }
+        .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .badge-built { background-color: #DDF0E2; color: var(--accent-green); }
+        .badge-design { background-color: var(--bg-panel-deep); color: var(--citi-blue-dark); }
+        .badge-future { background-color: #F5E4E4; color: var(--accent-red); }
+        .callout { background-color: var(--bg-panel); border-left: 4px solid var(--citi-blue); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; margin: 1.5rem 0; }
+        .callout-title { font-weight: 600; color: var(--citi-blue-dark); margin-bottom: 0.25rem; }
+        .decision { background-color: var(--bg-panel-deep); border: 1px solid var(--citi-blue-light); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+        .decision-title { font-weight: 700; color: var(--citi-blue-dark); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        h2, h3 { scroll-margin-top: 1.5rem; }
+        .toc { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem 1.75rem; margin-bottom: 3rem; }
+        .toc-title { font-size: 1.1rem; font-weight: 700; color: var(--citi-blue-dark); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .toc ol { list-style: none; margin-left: 0; }
+        .toc > ol > li { margin-bottom: 0.4rem; }
+        .toc a { color: var(--citi-blue-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+        .toc a:hover { color: var(--citi-blue); text-decoration: underline; }
+        .back-to-top { display: inline-block; margin-top: 0.5rem; font-size: 0.75rem; color: var(--citi-blue); text-decoration: none; }
+        .back-to-top:hover { text-decoration: underline; }
+        .doc-card {
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem;
+            margin-bottom: 1rem; background: var(--bg-primary);
+        }
+        .doc-card h3 { margin-top: 0; }
+        .doc-card a.doc-link { font-size: 0.85rem; font-weight: 600; color: var(--citi-blue); text-decoration: none; }
+        .doc-card a.doc-link:hover { text-decoration: underline; }
+        pre { background-color: var(--code-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+        pre code { background: none; padding: 0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>API Spend Tracker</h1>
+        <div class="subtitle">What the platform's paid API calls cost, live, and whether every API key in use still works.</div>
+        <div class="meta-grid">
+            <div class="meta-item"><strong>Status</strong>Designed September 27, 2026. Keys verified; nothing built yet.</div>
+            <div class="meta-item"><strong>Planned Service</strong><code>services/spend-tracker/</code> (Python / FastAPI), behind the gateway at <code>/api/spend/**</code></div>
+            <div class="meta-item"><strong>Document Version</strong>1.0.0 (Design)</div>
+            <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
+            <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
+        </div>
+    </header>
+
+    <nav class="toc" id="top">
+        <div class="toc-title">Contents</div>
+        <ol>
+            <li><a href="#sec-0">0. Decision Summary</a></li>
+            <li><a href="#sec-1">1. Keys In Use (Verified September 27, 2026)</a></li>
+            <li><a href="#sec-2">2. What Each Provider Can Report</a></li>
+            <li><a href="#sec-3">3. v1 Design</a></li>
+            <li><a href="#sec-4">4. Phases</a></li>
+            <li><a href="#sec-5">5. Risks &amp; Open Questions</a></li>
+        </ol>
+    </nav>
+
+    <section>
+        <h2 id="sec-0">0. Decision Summary</h2>
+        <p>Paid API keys are already causing silent failures: the Gemini project hit its monthly spend cap and the OpenRouter key expired, and both were only found by accident. The tracker makes spend and key health visible in the platform itself.</p>
+        <div class="decision">
+            <div class="decision-title">What's Decided (v1)</div>
+            <ul>
+                <li><strong>Metering first.</strong> Every paid call a CWP service makes is recorded: provider, model, tokens, estimated cost, tenant, feature, outcome. This is real-time and exact for CWP's own calls.</li>
+                <li><strong>Key health for every key.</strong> A scheduled, free, read-only check of each key (the same checks as Section 1): valid, expired, invalid, or capped.</li>
+                <li><strong>Provider-reported totals later.</strong> Only some providers expose spend by API (Section 2). Those totals include use of the same key by other projects, so they complement metering rather than replace it.</li>
+                <li><strong>Key values never leave the tracker.</strong> The UI shows an alias and status only.</li>
+            </ul>
+        </div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-1">1. Keys In Use (Verified September 27, 2026)</h2>
+        <p>From <code>~/Developer/.env</code>, shared across projects. Every check used a free, read-only endpoint; no key values were printed or stored in documents.</p>
+        <table class="stack-table">
+            <thead><tr><th>Provider</th><th>Variable</th><th>Check</th><th>Result</th><th>Used by CWP</th></tr></thead>
+            <tbody>
+                <tr><td>Google Gemini</td><td><code>GEMINI_API_KEY</code></td><td>List models</td><td><span class="badge badge-future">Valid but capped</span>: listing works; generation returns 429 "exceeded its monthly spending cap"</td><td>agentic-designer (when <code>AGENT_PROVIDER=gemini</code>)</td></tr>
+                <tr><td>NVIDIA API Catalog</td><td><code>NVIDIA_API_KEY</code></td><td>List models</td><td><span class="badge badge-built">Valid</span>: 82 models visible</td><td>agentic-designer (current provider)</td></tr>
+                <tr><td>OpenRouter</td><td><code>OPENROUTER_API_KEY</code></td><td>Key info</td><td><span class="badge badge-future">Expired</span> (401 "API key expired")</td><td>Not yet (adapter ready)</td></tr>
+                <tr><td>TypeSafe (Jev)</td><td><code>TYPESAFE_JEV_API_KEY</code></td><td>List models</td><td><span class="badge badge-built">Valid</span>: <code>jev-latest</code> available</td><td>Not yet</td></tr>
+                <tr><td>AWS</td><td><code>AWS_ACCESS_KEY_ID</code> / <code>AWS_SECRET_ACCESS_KEY</code></td><td>STS caller identity</td><td><span class="badge badge-built">Valid</span>: IAM user <code>officecollab-poc-s3</code> (another project)</td><td>No</td></tr>
+                <tr><td>Supabase</td><td><code>SUPABASE_PUBLISHABLE_KEY</code> (+ secret key)</td><td>Auth settings</td><td><span class="badge badge-built">Valid</span>: project <code>nrhsoabqeskybrznxfyi</code></td><td>Yes (identity and data); plan-priced, not per call</td></tr>
+                <tr><td>Camunda / Zeebe</td><td><code>ZEEBE_CLIENT_ID</code> / <code>ZEEBE_CLIENT_SECRET</code></td><td>Not checked</td><td>Belongs to another project; plan-priced</td><td>No</td></tr>
+            </tbody>
+        </table>
+        <p>Note: the <code>aws</code> CLI installed on the development Mac is an Intel build that won't run on this machine; the check used boto3 instead.</p>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-2">2. What Each Provider Can Report</h2>
+        <table class="stack-table">
+            <thead><tr><th>Provider</th><th>Spend by API?</th><th>How the tracker gets numbers</th></tr></thead>
+            <tbody>
+                <tr><td>Gemini (AI Studio key)</td><td>No</td><td>Metering (token counts from each response &times; price table). Account totals only in the AI Studio dashboard</td></tr>
+                <tr><td>NVIDIA</td><td>No</td><td>Metering. Credits only visible on build.nvidia.com</td></tr>
+                <tr><td>OpenRouter</td><td>Yes: per-key usage and limit (<code>/api/v1/key</code>)</td><td>Metering, plus provider-reported totals once the key is renewed</td></tr>
+                <tr><td>TypeSafe</td><td>No billing API; each response returns token usage</td><td>Metering</td></tr>
+                <tr><td>AWS</td><td>Yes: Cost Explorer (<code>GetCostAndUsage</code>)</td><td>Provider-reported, if wanted later. Costs $0.01 per query and needs <code>ce:GetCostAndUsage</code>, which the current IAM user likely lacks</td></tr>
+                <tr><td>Supabase</td><td>Plan usage via the Management API (needs a personal access token)</td><td>Out of v1</td></tr>
+            </tbody>
+        </table>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-3">3. v1 Design</h2>
+        <h3>3.1 Metering</h3>
+        <ul>
+            <li>The LLM layer in agentic-designer (<code>llm.py</code>) reads token usage from every response (Gemini <code>usage_metadata</code>; OpenAI-compatible <code>usage</code>) and records one usage event per model call, including failed ones (a 429 is exactly what should show up).</li>
+            <li><strong>Usage event:</strong> time, service, feature (e.g. <code>generate</code>), provider, model, key alias, tenant id, user id, input and output tokens, estimated cost, latency, outcome (<code>ok</code>, <code>rate_limited</code>, <code>error</code>), and the gateway's <code>X-Request-Id</code>.</li>
+            <li>Events go to the spend-tracker service over the internal Docker network (not through the public gateway), fire-and-forget, so a tracker outage never blocks generation. Dropped events are logged.</li>
+        </ul>
+        <h3>3.2 Price table</h3>
+        <ul>
+            <li>A versioned file of per-model prices (per million input and output tokens) with effective dates, reviewed by a person from each provider's pricing page.</li>
+            <li><strong>A model without a price shows as "unpriced", never as $0</strong>, so missing data can't masquerade as free usage. Free-credit hosts (NVIDIA) are recorded with their list price where one exists, or as unpriced.</li>
+        </ul>
+        <h3>3.3 Key health</h3>
+        <ul>
+            <li>The tracker holds the keys it checks in its own environment and runs the Section 1 checks on a schedule (hourly by default) and on demand.</li>
+            <li>Status per key: <code>valid</code>, <code>expired</code>, <code>invalid</code>, <code>capped</code> (inferred from recent metered 429s with a spend-cap message, since a free check can't detect it), <code>unchecked</code>.</li>
+        </ul>
+        <h3>3.4 Storage and API</h3>
+        <ul>
+            <li>Its own database (database per service): a <code>cwp_spend</code> database in the local Postgres container, with <code>usage_events</code> and <code>key_checks</code> tables.</li>
+            <li><code>POST /events</code> (internal only), <code>GET /summary</code> (spend by provider, model, feature and tenant for a period), <code>GET /keys</code> (status per key), <code>POST /keys/check</code> (run checks now).</li>
+        </ul>
+        <h3>3.5 Dashboard</h3>
+        <ul>
+            <li>An <strong>API Spend</strong> page in the SPA (next to Administration): month-to-date spend per provider, a daily chart, top models and features, and a key health table. It refreshes every 30 seconds.</li>
+            <li>Access: the keys are the platform operator's, not a tenant's, and CWP has no platform-level role yet (Governance.html Section 3.1). v1 restricts the page to <code>tenant_admin</code> and flags this as a known gap.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-4">4. Phases</h2>
+        <table class="stack-table">
+            <thead><tr><th>Phase</th><th>Deliverable</th><th>Done when</th><th>Status</th></tr></thead>
+            <tbody>
+                <tr><td>S0</td><td>Usage capture in agentic-designer's LLM layer + price table</td><td>Each model call (success or failure) yields one event with correct tokens; unpriced models are flagged</td><td><span class="badge badge-future">Not started</span></td></tr>
+                <tr><td>S1</td><td><code>spend-tracker</code> service: event ingestion, storage, summary API, scheduled key health checks</td><td>A live generation shows up in <code>/summary</code>; <code>/keys</code> reports the statuses in Section 1</td><td><span class="badge badge-future">Not started</span></td></tr>
+                <tr><td>S2</td><td>API Spend dashboard page in the SPA</td><td>Spend and key status visible and refreshing through the gateway</td><td><span class="badge badge-future">Not started</span></td></tr>
+                <tr><td>S3</td><td>Provider-reported totals (OpenRouter; AWS Cost Explorer if approved), budgets and alerts</td><td>Budget warnings fire at a configured threshold</td><td><span class="badge badge-future">Not started</span></td></tr>
+            </tbody>
+        </table>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-5">5. Risks &amp; Open Questions</h2>
+        <ul>
+            <li><strong>Metering only sees CWP's calls.</strong> The same keys are used by other projects in <code>~/Developer</code>. For Gemini and NVIDIA, which have no spend API, the tracker can't show total account spend.</li>
+            <li><strong>Estimated, not billed, cost.</strong> Prices change and providers round differently; the dashboard labels figures as estimates.</li>
+            <li><strong>Shared secrets file.</strong> <code>~/Developer/.env</code> holds keys for several projects, including AWS and database credentials. The tracker should receive only the keys it checks, not the whole file.</li>
+            <li><strong>No platform-level role.</strong> See 3.5.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+</div>
+
+</body>
+</html>

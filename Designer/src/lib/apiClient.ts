@@ -31,10 +31,15 @@ export class ApiError extends Error {
   body: unknown
 
   constructor(status: number, body: unknown) {
+    // workflow-runtime (Spring) errors carry `message`; agentic-designer
+    // (FastAPI) errors carry `detail`, a string for the errors it raises itself.
+    const fields = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
     const message =
-      body && typeof body === 'object' && 'message' in body
-        ? String((body as { message: unknown }).message)
-        : `CWP API request failed (HTTP ${status}).`
+      typeof fields.message === 'string'
+        ? fields.message
+        : typeof fields.detail === 'string'
+          ? fields.detail
+          : `CWP API request failed (HTTP ${status}).`
     super(message)
     this.name = 'ApiError'
     this.status = status
@@ -79,4 +84,60 @@ export async function apiFetch<T>(
 
 export function isApiConfigured(): boolean {
   return Boolean(API_BASE_URL)
+}
+
+export interface ServerSentEvent {
+  event: string
+  data: unknown
+}
+
+/**
+ * POSTs JSON and reads a text/event-stream response, calling onEvent for
+ * each event as it arrives. Not EventSource: that can't send the
+ * Authorization header. Non-2xx responses throw ApiError before any event.
+ */
+export async function apiStream(
+  path: string,
+  body: unknown,
+  onEvent: (event: ServerSentEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (!API_BASE_URL) throw new ApiNotConfiguredError()
+
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify(body),
+    signal,
+  })
+
+  if (!res.ok || !res.body) {
+    let errorBody: unknown = null
+    try {
+      errorBody = await res.json()
+    } catch {
+      // non-JSON error body -- fall through with null
+    }
+    throw new ApiError(res.status, errorBody)
+  }
+
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += value
+    let boundary: number
+    while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+      const block = buffer.slice(0, boundary)
+      buffer = buffer.slice(boundary + 2)
+      let event = 'message'
+      let data = ''
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event: ')) event = line.slice(7)
+        else if (line.startsWith('data: ')) data += line.slice(6)
+      }
+      onEvent({ event, data: data ? JSON.parse(data) : null })
+    }
+  }
 }
