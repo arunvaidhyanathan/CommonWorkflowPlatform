@@ -13,6 +13,7 @@ import { WorkbenchPage } from './pages/WorkbenchPage'
 import { AdministrationPage } from './pages/AdministrationPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
 import { WorkflowWrapperPage } from './pages/WorkflowWrapperPage'
+import { SpendPage } from './pages/SpendPage'
 
 function App() {
   const { session, loading } = useSession()
@@ -57,7 +58,7 @@ function App() {
             element={
               <StubPage
                 title="Agentic Designer"
-                description="An agent-assisted authoring mode, planned but not started."
+                description="Generate with AI now lives in the Designer: open a BPMN workflow and use the Generate with AI button in its toolbar. Chat-based editing and review are planned (AgenticDesigner.html)."
               />
             }
           />
@@ -74,6 +75,17 @@ function App() {
             element={
               <RequireRole allow={['tenant_admin', 'approver']}>
                 <ApprovalsPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/spend"
+            element={
+              // The service scopes what each viewer sees (own tenant vs
+              // platform-wide); this guard only hides the page from roles
+              // that would get nothing back.
+              <RequireRole allow={['tenant_admin']}>
+                <SpendPage />
               </RequireRole>
             }
           />

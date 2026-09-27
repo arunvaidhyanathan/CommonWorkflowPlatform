@@ -28,6 +28,7 @@ const PRIMARY_NAV: NavItem[] = [
 const GOVERNANCE_NAV: NavItem[] = [
   { to: '/admin', label: 'Administration', allow: ['tenant_admin'] },
   { to: '/approvals', label: 'Approvals', allow: ['tenant_admin', 'approver'] },
+  { to: '/spend', label: 'API Spend', allow: ['tenant_admin'] },
 ]
 
 function NavSection({
