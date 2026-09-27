@@ -20,9 +20,11 @@ class ScriptedProvider:
         self._responses = list(responses)
         self._tokens = (input_tokens, output_tokens)
         self.calls: list[list[Turn]] = []
+        self.systems: list[str] = []
 
     async def generate_json(self, system, turns, schema):
         self.calls.append(list(turns))
+        self.systems.append(system)
         return Completion(self._responses.pop(0), *self._tokens)
 
 

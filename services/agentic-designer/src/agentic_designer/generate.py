@@ -107,19 +107,22 @@ def parse_model(model_cls, text: str):
 
 
 async def generate_workflow(
-    provider: LLMProvider, description: str, max_repairs: int = 2, spec=None
+    provider: LLMProvider, description: str, max_repairs: int = 2, spec=None, examples: str = ""
 ) -> AsyncIterator[GenerateEvent]:
-    """``spec`` (specs.py) picks the notation: BPMN (default), CMMN or DMN."""
+    """``spec`` (specs.py) picks the notation: BPMN (default), CMMN or DMN.
+    ``examples`` is a fenced <tenant_examples> block from grounding.py."""
+    from .grounding import GROUNDING_RULE
     from .specs import BPMN
 
     spec = spec or BPMN
+    system = spec.generate_prompt + (f"\n{GROUNDING_RULE}\n" if examples else "")
     schema = spec.model.model_json_schema(by_alias=True)
-    turns = [user_turn(description)]
+    turns = [Turn("user", user_turn(description).text + examples)]
     issues: list[Issue] = []
 
     for attempt in range(1, max_repairs + 2):
         yield GenerateEvent("attempt", attempt)
-        text, empty = await _call(provider, spec.generate_prompt, turns, schema)
+        text, empty = await _call(provider, system, turns, schema)
         if empty:
             issues = [empty]
             yield GenerateEvent("invalid", attempt, issues=issues)

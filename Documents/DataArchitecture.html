@@ -100,7 +100,7 @@
         <div class="meta-grid">
             <div class="meta-item"><strong>Scope</strong>The design-time PostgreSQL schema (9 tables) -- CWP.html's "single PostgreSQL database" plane, not the Runtime Gateway's own <code>runtime</code> schema or Flowable's engine tables</div>
             <div class="meta-item"><strong>Source</strong>Live schema introspection (columns, FKs, indexes, functions, triggers) cross-checked against a schema-visualizer export, August 4, 2026</div>
-            <div class="meta-item"><strong>Document Version</strong>1.0.0</div>
+            <div class="meta-item"><strong>Document Version</strong>1.1.0 (workflow_embeddings)</div>
             <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
             <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
         </div>
@@ -123,6 +123,7 @@
                     <li><a href="#sec-3-7">3.7 approval_requests</a></li>
                     <li><a href="#sec-3-8">3.8 audit_logs</a></li>
                     <li><a href="#sec-3-9">3.9 invites</a></li>
+                    <li><a href="#sec-3-10">3.10 workflow_embeddings</a></li>
                 </ol>
             </li>
             <li><a href="#sec-4">4. Functions &amp; Triggers Catalog</a></li>
@@ -449,6 +450,26 @@ erDiagram
         </table>
         <p><strong>Indexes:</strong> PK on <code>id</code>; <code>(tenant_id, created_at desc)</code> for the Invites tab's default sort. No unique constraint on <code>(tenant_id, email)</code> today -- re-inviting the same address creates a second row rather than upserting; not currently a reported problem, flagged in Section 7 as worth a decision if it ever is.</p>
 
+        <h3 id="sec-3-10">3.10 <code>workflow_embeddings</code> (added September 27, 2026)</h3>
+        <p>Embeddings of each workflow&rsquo;s current version, used by the Agentic Designer to show the model the tenant&rsquo;s own similar workflows as examples (<a href="AgenticDesigner.html">AgenticDesigner.html</a> Section 4e). Written lazily by the agent service, <em>as the logged-in user</em>, when grounding runs; requires the <code>vector</code> extension (pgvector 0.8, installed in the <code>extensions</code> schema). Live migrations: <code>agentic_designer_workflow_embeddings</code>, <code>agentic_designer_workflow_embeddings_revoke_anon</code>.</p>
+        <table class="stack-table">
+            <thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Default</th></tr></thead>
+            <tbody>
+                <tr><td><code>id</code></td><td><code>uuid</code></td><td>PK, NN</td><td><code>gen_random_uuid()</code></td></tr>
+                <tr><td><code>tenant_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>tenants.id</code> (cascade)</td><td>--</td></tr>
+                <tr><td><code>workflow_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>workflows.id</code> (cascade)</td><td>--</td></tr>
+                <tr><td><code>workflow_version_id</code></td><td><code>uuid</code></td><td>NN, FK &rarr; <code>workflow_versions.id</code> (cascade)</td><td>--</td></tr>
+                <tr><td><code>spec_type</code></td><td><code>text</code></td><td>NN, check: <code>BPMN</code> / <code>CMMN</code> / <code>DMN</code></td><td>--</td></tr>
+                <tr><td><code>model</code></td><td><code>text</code></td><td>NN (the embedding model, e.g. <code>nvidia/nemotron-3-embed-1b</code>)</td><td>--</td></tr>
+                <tr><td><code>content_hash</code></td><td><code>text</code></td><td>NN (hash of <code>summary</code>)</td><td>--</td></tr>
+                <tr><td><code>summary</code></td><td><code>text</code></td><td>NN (the condensed text that was embedded; also what the model is shown)</td><td>--</td></tr>
+                <tr><td><code>embedding</code></td><td><code>vector</code></td><td>NN; no fixed dimension (models differ; searches filter by model)</td><td>--</td></tr>
+                <tr><td><code>created_at</code></td><td><code>timestamptz</code></td><td>NN</td><td><code>now()</code></td></tr>
+            </tbody>
+        </table>
+        <p><strong>Constraints &amp; indexes:</strong> unique <code>(workflow_version_id, model)</code> (one embedding per version per model; the agent upserts on it); <code>(tenant_id, spec_type, model)</code>. No vector index: per-tenant row counts are small, so exact search is fine; add HNSW per model if that changes.</p>
+        <p><strong>Search:</strong> <code>match_workflow_embeddings(query_embedding, match_spec, match_model, match_count, exclude_workflow)</code> returns the nearest non-archived <em>current</em> versions by cosine similarity (at most 10). <code>SECURITY INVOKER</code>, so RLS applies to the caller; executable by <code>authenticated</code> only.</p>
+
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
     </section>
 
@@ -567,6 +588,17 @@ erDiagram
             </tbody>
         </table>
         <p>No client-facing INSERT policy -- rows are created by the <code>invite-user</code> serverless function using its service-role credential, not by a direct authenticated write (Onboarding.html Section 2.2).</p>
+
+        <h3><code>workflow_embeddings</code></h3>
+        <table class="stack-table">
+            <thead><tr><th>Policy</th><th>Command</th><th>USING</th><th>WITH CHECK</th></tr></thead>
+            <tbody>
+                <tr><td><code>embeddings tenant read</code></td><td>SELECT</td><td><code>tenant_id = current_tenant_id()</code></td><td>--</td></tr>
+                <tr><td><code>embeddings designer insert</code></td><td>INSERT</td><td>--</td><td><code>tenant_id = current_tenant_id() AND current_role_claim() IN ('designer','tenant_admin') AND is_current_user_active() AND workflow_id IN (the tenant's workflows)</code></td></tr>
+                <tr><td><code>embeddings designer update</code></td><td>UPDATE</td><td><code>tenant_id = current_tenant_id() AND role IN ('designer','tenant_admin') AND is_current_user_active()</code></td><td><code>tenant_id = current_tenant_id() AND workflow_id IN (the tenant's workflows)</code></td></tr>
+            </tbody>
+        </table>
+        <p>No DELETE policy: rows go when their workflow or version is deleted (cascade). <code>anon</code> has no access at all. <strong>Verified on the live database</strong> (September 27, 2026) with synthetic rows rolled back: as tenant A, the table showed 1 row (A&rsquo;s) and 0 of tenant B&rsquo;s, and search returned only A&rsquo;s workflow although B&rsquo;s embedding was nearly identical to the query. Anonymous read, search and insert are all refused.</p>
 
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
     </section>

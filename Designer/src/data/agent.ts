@@ -16,7 +16,15 @@ export interface AgentIssue {
   edgeIds: string[]
 }
 
+/** Sent first: which of the tenant's own workflows the agent used as examples. */
+export type GroundingEvent = {
+  type: 'grounding'
+  enabled: boolean
+  examples: { workflowId: string; name: string; similarity: number }[]
+}
+
 export type GenerateEvent =
+  | GroundingEvent
   | { type: 'attempt'; attempt: number }
   | { type: 'invalid'; attempt: number; issues: AgentIssue[] }
   | { type: 'result'; attempt: number; issues: AgentIssue[]; graph: AgentGraph }
@@ -31,10 +39,11 @@ export async function generateWorkflow(
   description: string,
   onEvent: (event: GenerateEvent) => void,
   signal?: AbortSignal,
+  workflowId?: string | null,
 ): Promise<void> {
   await apiStream(
     '/agent/generate',
-    { spec, description },
+    { spec, description, workflowId: workflowId ?? null },
     ({ event, data }) => {
       const body = (data ?? {}) as Record<string, unknown>
       // Trusted shape: the service builds these events from its own validated models.
@@ -47,6 +56,7 @@ export async function generateWorkflow(
 type CanvasGraph = AgentGraph
 
 export type EditEvent =
+  | GroundingEvent
   | { type: 'attempt'; attempt: number }
   | { type: 'invalid'; attempt: number; issues: AgentIssue[] }
   | {
@@ -69,10 +79,11 @@ export async function editWorkflow(
   graph: CanvasGraph,
   onEvent: (event: EditEvent) => void,
   signal?: AbortSignal,
+  workflowId?: string | null,
 ): Promise<void> {
   await apiStream(
     '/agent/edit',
-    { spec, instruction, graph: { nodes: graph.nodes, edges: graph.edges, dmnModel: graph.dmnModel ?? null } },
+    { spec, instruction, graph: { nodes: graph.nodes, edges: graph.edges, dmnModel: graph.dmnModel ?? null }, workflowId: workflowId ?? null },
     ({ event, data }) => {
       const body = (data ?? {}) as Record<string, unknown>
       // Trusted shape: the service builds these events from its own validated models.

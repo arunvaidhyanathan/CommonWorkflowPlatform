@@ -1,0 +1,102 @@
+{
+ "provider": "nvidia",
+ "model": "moonshotai/kimi-k3",
+ "started": "2026-09-27T20:45:46+00:00",
+ "finished": "2026-09-27T20:47:48+00:00",
+ "summary": {
+  "generate/BPMN": {
+   "cases": 2,
+   "valid": 2,
+   "errors": 0,
+   "checks_passed": 3,
+   "checks_total": 6,
+   "mean_seconds": 41.0,
+   "mean_attempts": 2.0,
+   "empty_replies": 2,
+   "no_answer": 0,
+   "tokens": 2856,
+   "cost_usd": null
+  },
+  "all": {
+   "cases": 2,
+   "valid": 2,
+   "errors": 0,
+   "checks_passed": 3,
+   "checks_total": 6,
+   "mean_seconds": 41.0,
+   "mean_attempts": 2.0,
+   "empty_replies": 2,
+   "no_answer": 0,
+   "tokens": 2856,
+   "cost_usd": null
+  }
+ },
+ "cases": [
+  {
+   "id": "ground-bpmn-with-tenant",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 3,
+   "seconds": 66.6,
+   "calls": 3,
+   "input_tokens": 1221,
+   "output_tokens": 272,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "userTask mentioning credit_committee",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "condition mentioning loanAmount",
+     "passed": true,
+     "detail": "${loanamount>250000}"
+    },
+    {
+     "name": "a delegate expression mentioning loanCore",
+     "passed": true,
+     "detail": "${loanCore.disburse}"
+    }
+   ],
+   "error": null,
+   "grounded_on": [
+    "Mortgage approval"
+   ],
+   "empty_replies": 2
+  },
+  {
+   "id": "ground-bpmn-baseline",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 15.5,
+   "calls": 1,
+   "input_tokens": 1062,
+   "output_tokens": 301,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "userTask mentioning credit_committee",
+     "passed": false,
+     "detail": ""
+    },
+    {
+     "name": "condition mentioning loanAmount",
+     "passed": false,
+     "detail": "${amount>committeelimit}"
+    },
+    {
+     "name": "a delegate expression mentioning loanCore",
+     "passed": false,
+     "detail": "${payOutDelegate}"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  }
+ ]
+}

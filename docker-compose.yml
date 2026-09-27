@@ -47,6 +47,13 @@ services:
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       AGENT_TENANT_RPM: ${AGENT_TENANT_RPM:-10}
+      # Grounding in the tenant's own workflows (AgenticDesigner.html A5). The
+      # agent reads Supabase as the logged-in user, so RLS scopes every query.
+      AGENT_GROUNDING: ${AGENT_GROUNDING:-off}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      AGENT_EMBED_PROVIDER: ${AGENT_EMBED_PROVIDER:-nvidia}
+      AGENT_EMBED_MODEL: ${AGENT_EMBED_MODEL:-}
       # Usage events go here over the internal network (SpendTracker.html S1).
       SPEND_TRACKER_URL: http://spend-tracker:8095
       SPEND_INGEST_TOKEN: ${SPEND_INGEST_TOKEN:?set SPEND_INGEST_TOKEN in .env}

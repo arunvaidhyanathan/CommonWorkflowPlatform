@@ -283,6 +283,71 @@ create policy "invites tenant_admin revoke" on public.invites
   );
 
 -- ----------------------------------------------------------------------------
+-- 11b. Policies -- workflow_embeddings (Agentic Designer grounding)
+-- ----------------------------------------------------------------------------
+-- The agent reads and writes these through PostgREST *as the user*, so these
+-- policies, not the agent, keep tenants apart. Verified on the live database
+-- (September 27, 2026): a tenant sees only its own rows and search results.
+alter table public.workflow_embeddings enable row level security;
+
+drop policy if exists "embeddings tenant read" on public.workflow_embeddings;
+create policy "embeddings tenant read" on public.workflow_embeddings
+  for select using (tenant_id = current_tenant_id());
+
+drop policy if exists "embeddings designer insert" on public.workflow_embeddings;
+create policy "embeddings designer insert" on public.workflow_embeddings
+  for insert
+  with check (
+    tenant_id = current_tenant_id()
+    and current_role_claim() in ('designer', 'tenant_admin')
+    and is_current_user_active()
+    and workflow_id in (select id from public.workflows where tenant_id = current_tenant_id())
+  );
+
+drop policy if exists "embeddings designer update" on public.workflow_embeddings;
+create policy "embeddings designer update" on public.workflow_embeddings
+  for update
+  using (
+    tenant_id = current_tenant_id()
+    and current_role_claim() in ('designer', 'tenant_admin')
+    and is_current_user_active()
+  )
+  with check (
+    tenant_id = current_tenant_id()
+    and workflow_id in (select id from public.workflows where tenant_id = current_tenant_id())
+  );
+
+-- No access without a login (Supabase grants new tables to anon by default).
+revoke all on public.workflow_embeddings from anon;
+
+-- Nearest workflows among the caller's tenant's non-archived current
+-- versions. SECURITY INVOKER, so the policies above apply to the caller.
+create or replace function public.match_workflow_embeddings(
+  query_embedding  vector,
+  match_spec       text,
+  match_model      text,
+  match_count      int default 3,
+  exclude_workflow uuid default null
+)
+returns table (workflow_id uuid, workflow_version_id uuid, name text, summary text, similarity double precision)
+language sql
+stable
+security invoker
+as $$
+  select e.workflow_id, e.workflow_version_id, w.name, e.summary,
+         1 - (e.embedding <=> query_embedding) as similarity
+  from public.workflow_embeddings e
+  join public.workflows w on w.id = e.workflow_id and w.current_version_id = e.workflow_version_id
+  where e.spec_type = match_spec
+    and e.model = match_model
+    and w.status <> 'archived'
+    and (exclude_workflow is null or e.workflow_id <> exclude_workflow)
+    and vector_dims(e.embedding) = vector_dims(query_embedding)
+  order by e.embedding <=> query_embedding
+  limit least(greatest(match_count, 1), 10)
+$$;
+
+-- ----------------------------------------------------------------------------
 -- 12. Audit-trail trigger functions
 -- ----------------------------------------------------------------------------
 create or replace function public.audit_approval_decision()

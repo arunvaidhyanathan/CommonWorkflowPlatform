@@ -1,0 +1,615 @@
+{
+ "provider": "nvidia",
+ "model": "moonshotai/kimi-k3",
+ "started": "2026-09-27T20:22:40+00:00",
+ "finished": "2026-09-27T20:45:19+00:00",
+ "summary": {
+  "generate/BPMN": {
+   "cases": 3,
+   "valid": 3,
+   "errors": 0,
+   "checks_passed": 8,
+   "checks_total": 8,
+   "mean_seconds": 38.6,
+   "mean_attempts": 1.0,
+   "tokens": 4284,
+   "cost_usd": null
+  },
+  "all": {
+   "cases": 20,
+   "valid": 16,
+   "errors": 0,
+   "checks_passed": 34,
+   "checks_total": 39,
+   "mean_seconds": 42.3,
+   "mean_attempts": 1.5,
+   "tokens": 26184,
+   "cost_usd": null
+  },
+  "generate/CMMN": {
+   "cases": 2,
+   "valid": 2,
+   "errors": 0,
+   "checks_passed": 5,
+   "checks_total": 5,
+   "mean_seconds": 47.5,
+   "mean_attempts": 1.5,
+   "tokens": 2809,
+   "cost_usd": null
+  },
+  "generate/DMN": {
+   "cases": 2,
+   "valid": 2,
+   "errors": 0,
+   "checks_passed": 8,
+   "checks_total": 8,
+   "mean_seconds": 43.6,
+   "mean_attempts": 1.0,
+   "tokens": 2957,
+   "cost_usd": null
+  },
+  "edit/BPMN": {
+   "cases": 2,
+   "valid": 2,
+   "errors": 0,
+   "checks_passed": 5,
+   "checks_total": 5,
+   "mean_seconds": 22.8,
+   "mean_attempts": 1.0,
+   "tokens": 4395,
+   "cost_usd": null
+  },
+  "edit/CMMN": {
+   "cases": 1,
+   "valid": 0,
+   "errors": 0,
+   "checks_passed": 0,
+   "checks_total": 2,
+   "mean_seconds": 103.3,
+   "mean_attempts": 3.0,
+   "tokens": 0,
+   "cost_usd": null
+  },
+  "edit/DMN": {
+   "cases": 1,
+   "valid": 1,
+   "errors": 0,
+   "checks_passed": 2,
+   "checks_total": 2,
+   "mean_seconds": 48.6,
+   "mean_attempts": 1.0,
+   "tokens": 2470,
+   "cost_usd": null
+  },
+  "review/BPMN": {
+   "cases": 6,
+   "valid": 4,
+   "errors": 0,
+   "checks_passed": 4,
+   "checks_total": 6,
+   "mean_seconds": 37.2,
+   "mean_attempts": 1.67,
+   "tokens": 5068,
+   "cost_usd": null
+  },
+  "review/DMN": {
+   "cases": 2,
+   "valid": 1,
+   "errors": 0,
+   "checks_passed": 1,
+   "checks_total": 2,
+   "mean_seconds": 51.9,
+   "mean_attempts": 2.5,
+   "tokens": 1936,
+   "cost_usd": null
+  },
+  "review/CMMN": {
+   "cases": 1,
+   "valid": 1,
+   "errors": 0,
+   "checks_passed": 1,
+   "checks_total": 1,
+   "mean_seconds": 24.5,
+   "mean_attempts": 1.0,
+   "tokens": 2265,
+   "cost_usd": null
+  }
+ },
+ "cases": [
+  {
+   "id": "gen-bpmn-loan",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 47.5,
+   "calls": 1,
+   "input_tokens": 1090,
+   "output_tokens": 493,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "userTask mentioning manager",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "condition mentioning 10000 or 10k",
+     "passed": true,
+     "detail": "${amount>10000}; ${approved}"
+    },
+    {
+     "name": "serviceTask mentioning disburs",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "gen-bpmn-parallel-onboarding",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 37.7,
+   "calls": 1,
+   "input_tokens": 1065,
+   "output_tokens": 238,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "parallelGateway mentioning anything",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "userTask mentioning contract",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "userTask mentioning welcome",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "gen-bpmn-expense",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 30.7,
+   "calls": 1,
+   "input_tokens": 1063,
+   "output_tokens": 335,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "condition mentioning 5000 or 5k",
+     "passed": true,
+     "detail": "${amount>5000}"
+    },
+    {
+     "name": "userTask mentioning finance",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "gen-cmmn-fraud",
+   "mode": "generate",
+   "spec": "CMMN",
+   "outcome": "valid",
+   "attempts": 2,
+   "seconds": 67.2,
+   "calls": 2,
+   "input_tokens": 1013,
+   "output_tokens": 553,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "cmmnHumanTask mentioning evidence",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "cmmnHumanTask mentioning interview",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "a sentry waits for evidence and interview",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "gen-cmmn-claim",
+   "mode": "generate",
+   "spec": "CMMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 27.8,
+   "calls": 1,
+   "input_tokens": 1013,
+   "output_tokens": 230,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "cmmnHumanTask mentioning assess",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "condition mentioning fraudSuspected",
+     "passed": true,
+     "detail": "${fraudsuspected==true}"
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "gen-dmn-loan-tier",
+   "mode": "generate",
+   "spec": "DMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 56.0,
+   "calls": 1,
+   "input_tokens": 1249,
+   "output_tokens": 202,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "{'creditScore': 780, 'dti': 0.2} -> riskTier='Low'",
+     "passed": true,
+     "detail": "got 'Low'"
+    },
+    {
+     "name": "{'creditScore': 700, 'dti': 0.5} -> riskTier='Medium'",
+     "passed": true,
+     "detail": "got 'Medium'"
+    },
+    {
+     "name": "{'creditScore': 800, 'dti': 0.4} -> riskTier='Medium'",
+     "passed": true,
+     "detail": "got 'Medium'"
+    },
+    {
+     "name": "{'creditScore': 600, 'dti': 0.6} -> riskTier='High'",
+     "passed": true,
+     "detail": "got 'High'"
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "gen-dmn-shipping",
+   "mode": "generate",
+   "spec": "DMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 31.2,
+   "calls": 1,
+   "input_tokens": 1235,
+   "output_tokens": 271,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "{'zone': 'domestic', 'weightKg': 1} -> cost=5",
+     "passed": true,
+     "detail": "got 5"
+    },
+    {
+     "name": "{'zone': 'domestic', 'weightKg': 5} -> cost=12",
+     "passed": true,
+     "detail": "got 12"
+    },
+    {
+     "name": "{'zone': 'international', 'weightKg': 2} -> cost=20",
+     "passed": true,
+     "detail": "got 20"
+    },
+    {
+     "name": "{'zone': 'international', 'weightKg': 10} -> cost=45",
+     "passed": true,
+     "detail": "got 45"
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "edit-bpmn-compliance",
+   "mode": "edit",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 26.4,
+   "calls": 1,
+   "input_tokens": 2005,
+   "output_tokens": 251,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "userTask mentioning compliance",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "condition mentioning 50000 or 50k",
+     "passed": true,
+     "detail": "${amount>10000}; ${amount>50000}"
+    },
+    {
+     "name": "kept the untouched nodes",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "edit-bpmn-remove-manager",
+   "mode": "edit",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 19.1,
+   "calls": 1,
+   "input_tokens": 1999,
+   "output_tokens": 140,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "no node mentioning manager",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "kept the untouched nodes",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "edit-cmmn-legal",
+   "mode": "edit",
+   "spec": "CMMN",
+   "outcome": "failed",
+   "attempts": 3,
+   "seconds": 103.3,
+   "calls": 3,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "PI_Determination waits for a new legal item",
+     "passed": false,
+     "detail": "no valid result"
+    },
+    {
+     "name": "kept the untouched nodes",
+     "passed": false,
+     "detail": "no valid result"
+    }
+   ],
+   "error": "AD000: The model returned an empty reply; retrying."
+  },
+  {
+   "id": "edit-dmn-operations",
+   "mode": "edit",
+   "spec": "DMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 48.6,
+   "calls": 1,
+   "input_tokens": 1813,
+   "output_tokens": 657,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "{'department': 'Operations', 'priorIncidentCount': 3} -> riskPoints=12",
+     "passed": true,
+     "detail": "got 12"
+    },
+    {
+     "name": "{'department': 'Trading', 'priorIncidentCount': 6} -> riskPoints=45",
+     "passed": true,
+     "detail": "got 45"
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "review-seeded-unassigned_task",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 24.3,
+   "calls": 1,
+   "input_tokens": 1013,
+   "output_tokens": 275,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'check', 'categories': ['AD017'], 'node': 'manager'}",
+     "passed": true,
+     "detail": "ai:incomplete_conditions, ai:missing_path, check:AD017"
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "review-seeded-dead_end",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 22.1,
+   "calls": 1,
+   "input_tokens": 1061,
+   "output_tokens": 332,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'check', 'categories': ['AD010'], 'node': 'hold'}",
+     "passed": true,
+     "detail": "ai:incomplete_conditions, ai:overlapping_conditions, ai:unclear_label, check:AD010"
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "review-seeded-no_rejection_path",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 20.3,
+   "calls": 1,
+   "input_tokens": 884,
+   "output_tokens": 157,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['missing_path'], 'node': 'approve'}",
+     "passed": true,
+     "detail": "ai:assignment, ai:missing_path"
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "review-seeded-overlapping_conditions",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 25.5,
+   "calls": 1,
+   "input_tokens": 1002,
+   "output_tokens": 344,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['overlapping_conditions'], 'node': 'amount_check'}",
+     "passed": true,
+     "detail": "ai:incomplete_conditions, ai:missing_path, ai:overlapping_conditions, ai:unclear_label"
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "review-seeded-unclear_label",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "failed",
+   "attempts": 3,
+   "seconds": 67.9,
+   "calls": 3,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['unclear_label'], 'node': 'review'}",
+     "passed": false,
+     "detail": ""
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "review-seeded-wrong_order",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "failed",
+   "attempts": 3,
+   "seconds": 63.1,
+   "calls": 3,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['ordering'], 'node': 'disburse'}",
+     "passed": false,
+     "detail": ""
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "review-dmn-sample-gap",
+   "mode": "review",
+   "spec": "DMN",
+   "outcome": "valid",
+   "attempts": 2,
+   "seconds": 43.0,
+   "calls": 2,
+   "input_tokens": 1327,
+   "output_tokens": 609,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['rule_gap'], 'node': 'Decision_RiskScoreAggregation'}",
+     "passed": true,
+     "detail": "ai:rule_gap, ai:rule_overlap"
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "review-dmn-sample-priority",
+   "mode": "review",
+   "spec": "DMN",
+   "outcome": "failed",
+   "attempts": 3,
+   "seconds": 60.7,
+   "calls": 3,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['hit_policy'], 'node': 'Decision_SanctionSeverity'}",
+     "passed": false,
+     "detail": ""
+    }
+   ],
+   "error": null
+  },
+  {
+   "id": "review-cmmn-sample",
+   "mode": "review",
+   "spec": "CMMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 24.5,
+   "calls": 1,
+   "input_tokens": 1760,
+   "output_tokens": 505,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['missing_path', 'ordering', 'incomplete_conditions'], 'node': None}",
+     "passed": true,
+     "detail": "ai:assignment, ai:incomplete_conditions, ai:ordering"
+    }
+   ],
+   "error": null
+  }
+ ]
+}

@@ -97,8 +97,12 @@ export function AgentPanel({ spec, onClose }: { spec: SpecType; onClose: () => v
   const max = mode === 'generate' ? MAX_DESCRIPTION : mode === 'edit' ? MAX_INSTRUCTION : MAX_FOCUS
   const minLength = mode === 'generate' ? 10 : mode === 'edit' ? 5 : 0
 
-  const progress = (e: { type: string; attempt?: number; issues?: AgentIssue[] }) => {
-    if (e.type === 'attempt') {
+  const progress = (e: { type: string; attempt?: number; issues?: AgentIssue[]; examples?: { name: string }[] }) => {
+    if (e.type === 'grounding') {
+      // Say which of the tenant's workflows shaped the result, so it isn't hidden influence.
+      const names = (e.examples ?? []).map((x) => `“${x.name}”`)
+      if (names.length > 0) setLog((l) => [...l, `Following the conventions of your workflow${names.length > 1 ? 's' : ''} ${names.join(', ')}.`])
+    } else if (e.type === 'attempt') {
       const first =
         mode === 'generate' ? 'Drafting the workflow...' : mode === 'edit' ? 'Working out the changes...' : 'Reviewing the workflow...'
       setLog((l) => [...l, e.attempt === 1 ? first : `Trying again (attempt ${e.attempt})...`])
@@ -221,12 +225,12 @@ export function AgentPanel({ spec, onClose }: { spec: SpecType; onClose: () => v
     const signal = abortRef.current.signal
     try {
       if (mode === 'generate') {
-        await generateWorkflow(spec, text.trim(), (e) => void onGenerateEvent(e), signal)
+        await generateWorkflow(spec, text.trim(), (e) => void onGenerateEvent(e), signal, state.workflowId)
       } else if (mode === 'review') {
         await reviewWorkflow(spec, current, text.trim(), onReviewEvent, signal)
       } else {
         const before = { nodes: state.nodes, edges: state.edges, isDirty: state.isDirty }
-        await editWorkflow(spec, text.trim(), current, (e) => onEditEvent(e, before), signal)
+        await editWorkflow(spec, text.trim(), current, (e) => onEditEvent(e, before), signal, state.workflowId)
       }
       // A stream that ends without a final event (e.g. the connection dropped).
       setStatus((s) => (s === 'running' ? 'failed' : s))

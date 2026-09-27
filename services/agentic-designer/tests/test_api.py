@@ -40,7 +40,9 @@ def test_designer_gets_a_streamed_canvas_graph(verifier):
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("text/event-stream")
     events = sse_events(resp.text)
-    assert [name for name, _ in events] == ["attempt", "result"]
+    # Grounding announces itself first (off here: not configured in tests).
+    assert [name for name, _ in events] == ["grounding", "attempt", "result"]
+    assert events[0][1] == {"enabled": False, "examples": []}
     assert len(events[-1][1]["graph"]["nodes"]) == len(loan_approval().nodes)
 
 

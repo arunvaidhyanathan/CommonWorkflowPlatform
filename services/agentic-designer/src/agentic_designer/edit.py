@@ -144,19 +144,21 @@ def replace_prompt(current, instruction: str) -> Turn:
 
 
 async def edit_workflow(
-    provider: LLMProvider, current, instruction: str, max_repairs: int = 2, spec=None
+    provider: LLMProvider, current, instruction: str, max_repairs: int = 2, spec=None, examples: str = ""
 ) -> AsyncIterator[EditEvent]:
     """BPMN edits come back as patch operations; CMMN and DMN edits as the
     complete updated model (specs.py), diffed here so the user still sees
     exactly what changed. Either way an edit may not add new errors."""
+    from .grounding import GROUNDING_RULE
     from .specs import BPMN
 
     spec = spec or BPMN
     patch_mode = spec.edit_prompt is None
-    system = EDIT_SYSTEM_PROMPT if patch_mode else spec.edit_prompt
+    system = (EDIT_SYSTEM_PROMPT if patch_mode else spec.edit_prompt) + (f"\n{GROUNDING_RULE}\n" if examples else "")
     schema = (PatchProposal if patch_mode else spec.model).model_json_schema(by_alias=True)
     before = {_key(i): i for i in errors(spec.validate(current))}
-    turns = [edit_prompt(current, instruction) if patch_mode else replace_prompt(current, instruction)]
+    first = edit_prompt(current, instruction) if patch_mode else replace_prompt(current, instruction)
+    turns = [Turn("user", first.text + examples)]
     problems: list[Issue] = []
 
     for attempt in range(1, max_repairs + 2):

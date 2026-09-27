@@ -10,7 +10,7 @@ always goes through the SPA's normal draft and approval flow.
 
 ## Status
 
-A0–A4 done: Generate, Edit and Review for BPMN, CMMN and DMN, live-verified on NVIDIA-hosted models.
+A0–A5 done: Generate, Edit and Review for BPMN, CMMN and DMN, an evaluation harness, and grounding in the tenant's own workflows.
 
 | Module | What it is |
 |---|---|
@@ -19,6 +19,8 @@ A0–A4 done: Generate, Edit and Review for BPMN, CMMN and DMN, live-verified on
 | `validator.py` | Structural rules `AD001`–`AD017` (errors block, warnings don't) |
 | `cmmn.py` | CMMN case contract, rules `CD001`–`CD011`, canvas conversion (mirrors `cmmnAdapter.ts`) |
 | `dmn.py` | DMN decision-table contract, rules `DM001`–`DM012`, conversion to the Designer's `DmnModel` |
+| `embeddings.py` / `grounding.py` | Embedding providers (NVIDIA, Gemini) and grounding in the tenant's workflows via Supabase |
+| `evaluation/` | Evaluation harness: cases, FEEL evaluator for DMN, runner (`scripts/eval.py`) |
 | `specs.py` | One `Spec` per notation (model, validator, conversion, prompts) that Generate/Edit/Review run against |
 | `canvas.py` | `to_canvas` / `from_canvas`: conversion to the SPA's `GraphSnapshot` |
 | `llm.py` | `LLMProvider` interface (`generate_json`); Gemini adapter and an OpenAI-compatible adapter (NVIDIA, OpenRouter) |
@@ -44,8 +46,26 @@ uv run uvicorn agentic_designer.app:create_app --factory --port 8090   # needs S
 
 In the full stack it runs from `docker compose up` behind `/api/agent/**`.
 
-## Evaluate Review against a live model
+## Evaluate
 
 ```
-uv run python scripts/review_eval.py 2    # runs each seeded defect twice; real, metered calls
+uv run python scripts/eval.py run --provider nvidia --model moonshotai/kimi-k3 --pause 10 --env-file ../../.env
+uv run python scripts/eval.py run ... --modes review --specs DMN        # a subset
+uv run python scripts/eval.py compare evals/reports/A.json evals/reports/B.json
 ```
+
+Real, metered model calls. Cases live in `src/agentic_designer/evaluation/cases.py` (Generate,
+Edit and grounding) and `tests/review_samples.py` (seeded review defects). DMN results are judged
+by *executing* the generated table (`evaluation/feel.py`). A case with no valid result fails every
+check; "no answer" (every attempt empty) is counted separately from a wrong answer. Reports go to
+`evals/reports/`.
+
+## Grounding
+
+With `AGENT_GROUNDING=on`, Generate and Edit first look up the tenant's most similar workflows
+(`grounding.py`) and show the model condensed summaries of them, so results follow the tenant's
+conventions. Embeddings live in Supabase (`public.workflow_embeddings`, pgvector, RLS) and are read
+and written through PostgREST *as the user*, so the database keeps tenants apart. Settings:
+`SUPABASE_URL`, `SUPABASE_ANON_KEY` (the browser app's public key), `AGENT_EMBED_PROVIDER`
+(`nvidia` or `gemini`), `AGENT_EMBED_MODEL`. Best-effort: any grounding failure means no examples,
+never a failed request. The stream's first event, `grounding`, names the workflows used.

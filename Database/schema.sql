@@ -210,4 +210,30 @@ create index if not exists idx_form_schemas_tenant        on public.form_schemas
 create index if not exists audit_logs_tenant_occurred_idx on public.audit_logs (tenant_id, occurred_at desc);
 create index if not exists invites_tenant_idx             on public.invites (tenant_id, created_at desc);
 
+-- ----------------------------------------------------------------------------
+-- 12. workflow_embeddings (Agentic Designer grounding, AgenticDesigner.html A5)
+-- ----------------------------------------------------------------------------
+-- Needs pgvector. On Supabase it lives in the `extensions` schema (live
+-- migration agentic_designer_workflow_embeddings); on plain Postgres the
+-- default schema is fine. The embedding column has no fixed dimension:
+-- different embedding models produce different sizes, and searches filter
+-- by model.
+create extension if not exists vector;
+
+create table if not exists public.workflow_embeddings (
+  id                   uuid primary key default gen_random_uuid(),
+  tenant_id            uuid not null references public.tenants(id) on delete cascade,
+  workflow_id          uuid not null references public.workflows(id) on delete cascade,
+  workflow_version_id  uuid not null references public.workflow_versions(id) on delete cascade,
+  spec_type            text not null check (spec_type in ('BPMN', 'CMMN', 'DMN')),
+  model                text not null,
+  content_hash         text not null,
+  summary              text not null,
+  embedding            vector not null,
+  created_at           timestamptz not null default now(),
+  unique (workflow_version_id, model)
+);
+create index if not exists workflow_embeddings_tenant_spec_model
+  on public.workflow_embeddings (tenant_id, spec_type, model);
+
 commit;

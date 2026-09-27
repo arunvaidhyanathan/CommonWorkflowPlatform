@@ -4,6 +4,8 @@
 import asyncio
 import json
 import logging
+from collections.abc import Callable
+from dataclasses import dataclass
 import os
 import time
 from collections import defaultdict, deque
@@ -18,6 +20,8 @@ from .edit import MAX_GRAPH_NODES, MAX_INSTRUCTION_CHARS, edit_event_payload, ed
 from .generate import MAX_DESCRIPTION_CHARS, event_payload, generate_workflow
 from .review import MAX_FOCUS_CHARS, review_event_payload, review_workflow
 from .specs import SPECS, SpecName
+from .embeddings import GeminiEmbedder, MeteredEmbedder, NvidiaEmbedder
+from .grounding import Example, SupabaseStore, examples_block, ground
 from .llm import GeminiProvider, LLMProvider, OpenAICompatibleProvider, ProviderError
 from .usage import FanoutSink, HttpSink, LogSink, MeteredProvider, PriceTable, UsageContext, UsageSink
 
@@ -27,6 +31,8 @@ log = logging.getLogger("agentic_designer")
 class GenerateRequest(BaseModel):
     description: str = Field(min_length=10, max_length=MAX_DESCRIPTION_CHARS)
     spec: SpecName = "BPMN"
+    # The open workflow, so grounding never offers it as an example of itself.
+    workflowId: str | None = None
 
 
 class EditRequest(BaseModel):
@@ -35,6 +41,7 @@ class EditRequest(BaseModel):
     # {"dmnModel": ...} (DMN), i.e. its GraphSnapshot.
     graph: dict
     spec: SpecName = "BPMN"
+    workflowId: str | None = None
 
 
 class ReviewRequest(BaseModel):
@@ -61,12 +68,37 @@ class TenantRateLimiter:
         hits.append(now)
 
 
+@dataclass
+class GroundingConfig:
+    """How to reach the tenant's workflows (as the user) and embed text."""
+
+    store_for: Callable[[str, str], object]  # (user token, tenant id) -> GroundingStore
+    embedder: object
+
+
+@dataclass(frozen=True)
+class GroundingNotice:
+    """First streamed event: which of the tenant's workflows are used as examples."""
+
+    examples: list[Example]
+    enabled: bool
+    type: str = "grounding"
+    attempt: int = 0
+
+
+def grounding_payload(notice: GroundingNotice) -> str:
+    body = {"enabled": notice.enabled, "examples": [
+        {"workflowId": e.workflow_id, "name": e.name, "similarity": round(e.similarity, 3)} for e in notice.examples]}
+    return f"event: grounding\ndata: {json.dumps(body)}\n\n"
+
+
 def create_app(
     provider: LLMProvider | None = None,
     verifier: JwtVerifier | None = None,
     tenant_rpm: int | None = None,
     usage_sink: UsageSink | None = None,
     prices: PriceTable | None = None,
+    grounding: GroundingConfig | None = None,
 ) -> FastAPI:
     app = FastAPI(title="CWP Agentic Designer")
     app.state.provider = provider if provider is not None else _provider_from_env()
@@ -78,6 +110,7 @@ def create_app(
     )
     app.state.verifier = verifier or JwtVerifier(os.environ["SUPABASE_JWKS_URL"])
     app.state.usage_sink = usage_sink or _usage_sink_from_env()
+    app.state.grounding = grounding if grounding is not None else (_grounding_from_env() if provider is None else None)
     app.state.prices = prices or PriceTable.bundled()
     app.state.limiter = TenantRateLimiter(tenant_rpm or int(os.environ.get("AGENT_TENANT_RPM", "10")))
 
@@ -152,6 +185,23 @@ def create_app(
             raise HTTPException(422, f"Models over {MAX_GRAPH_NODES} {unit} can't be sent to the agent yet.")
         return current
 
+    async def with_grounding(request: Request, principal: Principal, spec, query: str, exclude: str | None, run):
+        """Grounding first (best-effort), announced as an event, then the mode's own events."""
+        cfg: GroundingConfig | None = request.app.state.grounding
+        examples: list[Example] = []
+        if cfg is not None:
+            token = request.headers.get("authorization", "").partition(" ")[2]
+            embedder = MeteredEmbedder(cfg.embedder, request.app.state.usage_sink, request.app.state.prices,
+                                       UsageContext("embed", principal.tenant_id, principal.user_id,
+                                                    request.headers.get("x-request-id")))
+            examples = await ground(cfg.store_for(token, principal.tenant_id), embedder, spec, query, exclude)
+        yield GroundingNotice(examples, enabled=cfg is not None)
+        async for event in run(examples_block(examples)):
+            yield event
+
+    def payload(spec, to_payload):
+        return lambda e: grounding_payload(e) if e.type == "grounding" else to_payload(e)
+
     @app.post("/generate")
     async def generate(
         body: GenerateRequest,
@@ -160,8 +210,9 @@ def create_app(
     ) -> StreamingResponse:
         spec = SPECS[body.spec]
         metered = metered_for(request, principal, "generate")
-        return sse("generate", generate_workflow(metered, body.description, spec=spec),
-                   lambda e: event_payload(e, spec), principal, len(body.description))
+        events = with_grounding(request, principal, spec, body.description, body.workflowId,
+                                lambda ex: generate_workflow(metered, body.description, spec=spec, examples=ex))
+        return sse("generate", events, payload(spec, lambda e: event_payload(e, spec)), principal, len(body.description))
 
     @app.post("/edit")
     async def edit(
@@ -172,8 +223,10 @@ def create_app(
         spec = SPECS[body.spec]
         current = canvas_or_422(body.graph, spec)
         metered = metered_for(request, principal, "edit")
-        return sse("edit", edit_workflow(metered, current, body.instruction, spec=spec),
-                   lambda e: edit_event_payload(e, spec, body.graph), principal, len(body.instruction))
+        events = with_grounding(request, principal, spec, body.instruction, body.workflowId,
+                                lambda ex: edit_workflow(metered, current, body.instruction, spec=spec, examples=ex))
+        return sse("edit", events, payload(spec, lambda e: edit_event_payload(e, spec, body.graph)),
+                   principal, len(body.instruction))
 
     @app.post("/review")
     async def review(
@@ -222,6 +275,22 @@ async def with_keepalive(events, every_s: float):
     finally:
         if not pending.done():
             pending.cancel()
+
+
+def _grounding_from_env() -> GroundingConfig | None:
+    if os.environ.get("AGENT_GROUNDING", "off").lower() not in ("on", "true", "1"):
+        return None
+    url, anon = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
+    provider = os.environ.get("AGENT_EMBED_PROVIDER", "nvidia")
+    key = os.environ.get("NVIDIA_API_KEY" if provider == "nvidia" else "GEMINI_API_KEY")
+    if not (url and anon and key):
+        log.warning("AGENT_GROUNDING=on but SUPABASE_URL, SUPABASE_ANON_KEY or the %s key is missing; grounding off.", provider)
+        return None
+    model = os.environ.get("AGENT_EMBED_MODEL")
+    embedder = NvidiaEmbedder(key, model or "nvidia/nemotron-3-embed-1b") if provider == "nvidia" \
+        else GeminiEmbedder(key, model or "gemini-embedding-001")
+    log.info("grounding on: %s %s", embedder.name, embedder.model)
+    return GroundingConfig(store_for=lambda token, tenant: SupabaseStore(url, anon, token, tenant), embedder=embedder)
 
 
 def _usage_sink_from_env() -> UsageSink:

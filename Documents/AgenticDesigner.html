@@ -92,9 +92,9 @@
         <h1>Agentic Designer</h1>
         <div class="subtitle">Agent-assisted workflow authoring: generate from a description, edit by chat, review for defects.</div>
         <div class="meta-grid">
-            <div class="meta-item"><strong>Status</strong><span id="status-text">A0&ndash;A4 done: Generate, Edit and Review for BPMN, CMMN and DMN, verified with a live model (NVIDIA-hosted Kimi K3). The in-browser run by a logged-in user is still to do. A5 next.</span></div>
+            <div class="meta-item"><strong>Status</strong><span id="status-text">A0&ndash;A5 done: Generate, Edit and Review for BPMN, CMMN and DMN; an evaluation harness (baseline 34/34 checks when the model answers); grounding in the tenant&rsquo;s own workflows. The in-browser run by a logged-in user is still to do.</span></div>
             <div class="meta-item"><strong>Service</strong><code>services/agentic-designer/</code> (Python / FastAPI), behind the edge gateway at <code>/api/agent/**</code></div>
-            <div class="meta-item"><strong>Document Version</strong>1.6.0 (A4: CMMN &amp; DMN)</div>
+            <div class="meta-item"><strong>Document Version</strong>1.7.0 (A5: Evaluation &amp; Grounding)</div>
             <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
             <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
         </div>
@@ -112,6 +112,7 @@
             <li><a href="#sec-4b">4b. Edit Mode as Built (Phase A2)</a></li>
             <li><a href="#sec-4c">4c. Review Mode as Built (Phase A3)</a></li>
             <li><a href="#sec-4d">4d. CMMN and DMN as Built (Phase A4)</a></li>
+            <li><a href="#sec-4e">4e. Evaluation and Grounding as Built (Phase A5)</a></li>
             <li><a href="#sec-5">5. Phases &amp; Status</a></li>
             <li><a href="#sec-6">6. Risks &amp; Open Questions</a></li>
             <li><a href="#sec-7">7. Change Log</a></li>
@@ -350,7 +351,7 @@
         <h3>In the panel</h3>
         <p>Findings are grouped as Problems, Warnings and Suggestions, each labelled <em>Check</em> or <em>AI</em> with its code. Clicking one selects its nodes and flows on the canvas (selection only; the workflow isn&rsquo;t changed).</p>
         <h3>Seeded-defect evaluation (A3&rsquo;s completion criterion)</h3>
-        <p><code>tests/review_samples.py</code> plants one defect per sample in the loan process; <code>scripts/review_eval.py</code> runs them all against the configured model and reports which were caught. It is the first piece of A5&rsquo;s evaluation harness.</p>
+        <p><code>tests/review_samples.py</code> plants one defect per sample in the loan process; <code>scripts/review_eval.py</code> runs them all against the configured model and reports which were caught. It is the first piece of A5&rsquo;s evaluation harness (superseded in A5 by <code>scripts/eval.py</code>, Section 4e).</p>
         <table class="stack-table">
             <thead><tr><th>Seeded defect</th><th>Caught by</th><th>Live result (Kimi K3, 2 runs each)</th></tr></thead>
             <tbody>
@@ -439,6 +440,53 @@
     </section>
 
     <section>
+        <h2 id="sec-4e">4e. Evaluation and Grounding as Built (Phase A5)</h2>
+        <h3>Evaluation harness</h3>
+        <p><code>scripts/eval.py run --provider &hellip; --model &hellip;</code> runs every case through the real Generate, Edit and Review loops (metered like production) and writes a JSON report to <code>evals/reports/</code>; <code>scripts/eval.py compare</code> puts reports side by side. It supersedes A3&rsquo;s <code>review_eval.py</code>.</p>
+        <ul>
+            <li><strong>22 cases</strong> across all three modes and notations: 7 Generate, 4 Edit, 9 Review (6 seeded BPMN defects, plus real defects in the Designer&rsquo;s DMN and CMMN samples), and a grounding pair.</li>
+            <li><strong>Checks judge what a process owner cares about</strong>, not exact shapes: the steps, conditions and gates the request implies (who does a step counts as much as its label); for Edit, that the asked-for change is there and nothing else was lost.</li>
+            <li><strong>DMN is judged by execution:</strong> a small FEEL evaluator (<code>evaluation/feel.py</code>: literals, comparisons, ranges, lists, <code>not()</code>, every hit policy) runs the generated table on test inputs and compares the answers. Checked against the Designer&rsquo;s sample, where it also confirmed the gap Review reported in A4 (department &ldquo;HR&rdquo; with 1 incident matches no rule).</li>
+            <li><strong>Honest scoring:</strong> a case with no valid result, or a provider error, fails every one of its checks (never &ldquo;0/0&rdquo;); a check that crashes fails itself without stopping the run; unpriced calls leave cost unknown, never $0; &ldquo;no answer&rdquo; (every attempt empty) is counted separately from a wrong answer.</li>
+        </ul>
+        <h3>Baseline: Kimi K3 on NVIDIA (September 27, 2026)</h3>
+        <table class="stack-table">
+            <thead><tr><th>Group</th><th>Valid</th><th>Checks</th><th>Mean time</th></tr></thead>
+            <tbody>
+                <tr><td>Generate BPMN / CMMN / DMN</td><td>3/3, 2/2, 2/2</td><td>8/8, 5/5, 8/8 (DMN by execution)</td><td>39 s, 48 s, 44 s</td></tr>
+                <tr><td>Edit BPMN / CMMN / DMN</td><td>2/2, 0/1, 1/1</td><td>5/5, 0/2, 2/2</td><td>23 s, 103 s, 49 s</td></tr>
+                <tr><td>Review BPMN / CMMN / DMN</td><td>4/6, 1/1, 1/2</td><td>4/6, 1/1, 1/2</td><td>37 s, 25 s, 52 s</td></tr>
+                <tr><td><strong>All</strong></td><td><strong>16/20</strong></td><td><strong>34/39</strong></td><td>42 s</td></tr>
+            </tbody>
+        </table>
+        <p><strong>Reading it:</strong> all four failures were <em>no answer</em>: three calls, zero tokens, every reply empty. Whenever the model did answer, every check passed (34 of 34). Quality isn&rsquo;t the limit on this provider; reliability is. That is the case for comparing providers once Gemini&rsquo;s cap is raised or OpenRouter is renewed (the harness takes <code>--provider gemini</code> or <code>openrouter</code> unchanged). A first run also exposed three harness bugs (a crash on CMMN condition checks, provider errors scored as 0/0, one broken check aborting the run) and one check that was too literal; all fixed with tests before the baseline above.</p>
+
+        <h3>Grounding in the tenant&rsquo;s own workflows</h3>
+        <ul>
+            <li><strong>What it does:</strong> before Generate and Edit, the agent finds the tenant&rsquo;s most similar existing workflows (same notation, current versions, not archived, never the open workflow itself) and shows the model condensed summaries of them, fenced as data, with an instruction to follow their conventions (group and assignee names, condition variables, delegate expressions, labelling style) where they fit. The stream&rsquo;s first event, <code>grounding</code>, names the workflows used, and the Designer panel shows them (&ldquo;Following the conventions of your workflow &lsquo;Mortgage approval&rsquo;&rdquo;).</li>
+            <li><strong>Storage (decided with the product owner):</strong> pgvector in the Supabase design-time database, table <code>workflow_embeddings</code> and search function <code>match_workflow_embeddings</code> (<a href="DataArchitecture.html">DataArchitecture.html</a> Section 3.10). The agent reads and writes them through PostgREST <strong>as the logged-in user</strong>; there is no service key in the agent, so RLS keeps tenants apart. Verified on the live database with synthetic rows (rolled back): tenant A sees only its own rows and search results; anonymous access is refused.</li>
+            <li><strong>Embeddings:</strong> configurable (<code>AGENT_EMBED_PROVIDER</code>); NVIDIA <code>nvidia/nemotron-3-embed-1b</code> now (2048 dimensions; chosen over the other callable NVIDIA model for speed and clearer separation), Gemini <code>gemini-embedding-001</code> once its cap allows. The column has no fixed dimension and searches filter by model, so switching re-embeds rather than breaking. Several listed NVIDIA embedding models return 404.</li>
+            <li><strong>Written lazily:</strong> when grounding runs, current versions without an embedding for the configured model are summarized, embedded and upserted (at most 20 per request). Embedding calls are metered in the spend tracker as feature <code>embed</code>.</li>
+            <li><strong>Best-effort:</strong> any grounding failure (Supabase, embeddings, rate limits) means no examples, never a failed request. Matches below similarity 0.25 are ignored.</li>
+        </ul>
+        <h3>Does it help? (live, Kimi K3, two runs each)</h3>
+        <p>A tenant with a &ldquo;Mortgage approval&rdquo; workflow (group <code>credit_committee</code>, condition variable <code>loanAmount</code>, delegate <code>${loanCore.disburse}</code>) and an unrelated onboarding workflow asks for a car-loan process.</p>
+        <table class="stack-table">
+            <thead><tr><th></th><th>With grounding</th><th>Without</th></tr></thead>
+            <tbody>
+                <tr><td>Example chosen</td><td>&ldquo;Mortgage approval&rdquo; (not the onboarding workflow)</td><td>&mdash;</td></tr>
+                <tr><td>Uses <code>credit_committee</code>, <code>loanAmount</code>, <code>loanCore</code></td><td><strong>3/3 and 3/3</strong></td><td><strong>0/3 and 0/3</strong> (invented <code>${amount &gt; committeeLimit}</code>, <code>${payOutDelegate}</code>)</td></tr>
+            </tbody>
+        </table>
+        <h3>Verified</h3>
+        <ul>
+            <li>211 agent tests (43 new): the FEEL evaluator (unary tests, the sample&rsquo;s hand-worked answers, UNIQUE violations, unsupported expressions not guessed), checks, honest failure accounting, rate-limit retry, summaries, grounding summaries per notation, lazy and capped indexing, exclusion of the open workflow, the similarity floor, best-effort failure, examples and the grounding rule added only when present, the Supabase store sending the user&rsquo;s token (never a service key) with the right upsert and search calls, and the API streaming the examples used and metering embeddings. Six deliberately introduced bugs were each caught.</li>
+            <li><strong>Not yet verified:</strong> grounding end to end through the running app with a real login (it needs a user token, and the tenant&rsquo;s saved workflows to embed).</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
         <h2 id="sec-5">5. Phases &amp; Status</h2>
         <table class="stack-table">
             <thead><tr><th>Phase</th><th>Deliverable</th><th>Done when</th><th>Status</th></tr></thead>
@@ -448,7 +496,7 @@
                 <tr><td>A2</td><td><code>/edit</code> with patch operations and a diff preview on the canvas</td><td>Accept and reject work; undo restores the prior graph</td><td><span class="badge badge-built">Built; live-verified on NVIDIA</span> (Section 4b)</td></tr>
                 <tr><td>A3</td><td><code>/review</code> findings linked to nodes</td><td>Seeded defects in sample workflows are all reported</td><td><span class="badge badge-built">Done: 10/10 seeded defects caught live</span> (Section 4c)</td></tr>
                 <tr><td>A4</td><td>CMMN and DMN support</td><td>The same checks pass for the CMMN and DMN samples in <code>Designer/samples</code></td><td><span class="badge badge-built">Done: both samples clean; live-verified</span> (Section 4d)</td></tr>
-                <tr><td>A5</td><td>Grounding in the tenant's existing workflows (pgvector + embeddings) and an eval harness (golden prompts &rarr; validity rate and structure checks, per provider)</td><td>Scores reported per provider</td><td><span class="badge badge-future">Not started</span></td></tr>
+                <tr><td>A5</td><td>Grounding in the tenant&rsquo;s existing workflows (pgvector + embeddings) and an eval harness (golden prompts &rarr; validity rate and structure checks, per provider)</td><td>Scores reported per provider</td><td><span class="badge badge-built">Done</span> (Section 4e; one provider scored so far: the others are capped or expired)</td></tr>
             </tbody>
         </table>
         <p><strong>Optional later:</strong> TypeSafe / Jev for cheap typed judgments, such as routing a chat message to Generate, Edit or Review, or confidence-gated review findings. Not needed for v1.</p>
@@ -470,6 +518,7 @@
         <h2 id="sec-7">7. Change Log</h2>
         <ul id="changelog">
             <li><strong>September 27, 2026:</strong> design approved; document created.</li>
+            <li><strong>September 27, 2026 (A5):</strong> evaluation harness (22 cases, DMN judged by execution, honest scoring; baseline on Kimi K3: 16/20 valid, 34/39 checks, every failure a no-answer) and grounding in the tenant&rsquo;s workflows via pgvector in Supabase, read as the user under RLS (live-verified isolation); grounded generation used the tenant&rsquo;s conventions 3/3 vs 0/3 without. 211 tests.</li>
             <li><strong>September 27, 2026 (A4):</strong> CMMN and DMN: contracts matched to the Designer&rsquo;s adapters and anchored on its real sample files, validator rules <code>CD001</code>&ndash;<code>CD011</code> and <code>DM001</code>&ndash;<code>DM012</code>, Generate/Edit/Review through one spec interface, and the AI Designer panel for all three notations. All six live steps verified on Kimi K3; 168 tests.</li>
             <li><strong>September 27, 2026 (A3):</strong> Review mode: code checks (new <code>AD017</code>, unassigned user task) plus grounded AI judgement in fixed categories; seeded-defect evaluation caught 10 of 10 live on Kimi K3; 122 tests.</li>
             <li><strong>September 27, 2026 (A2):</strong> Edit mode: patch-op proposals against the current canvas, validated so an edit can only be rejected for problems it introduces, previewed with highlights and accepted or rejected. Live on Kimi K3: 4 of 4 edits valid in 28&ndash;48 s with empty-reply retries. Keepalive, retry and timeout hardening; 108 tests.</li>
