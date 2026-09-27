@@ -70,6 +70,21 @@ server {
     proxy_read_timeout 300s;
   }
 
+  # Usage ingest is service-to-service only (internal network, with its own
+  # token); it is never reachable from outside.
+  location = /api/spend/events {
+    default_type application/json;
+    return 404 '{"message":"No CWP service is routed at this path."}';
+  }
+
+  location /api/spend/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_api burst=40 nodelay;
+    set $spend_tracker ${SPEND_TRACKER_UPSTREAM};
+    rewrite ^/api/spend(/.*)$ $1 break;
+    proxy_pass http://$spend_tracker;
+  }
+
   location /api/ {
     include /etc/nginx/snippets/cwp-api.conf;
     default_type application/json;

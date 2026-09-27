@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from .auth import JwtVerifier, Principal, authoring_principal
 from .generate import MAX_DESCRIPTION_CHARS, event_payload, generate_workflow
 from .llm import GeminiProvider, LLMProvider, OpenAICompatibleProvider, ProviderError
-from .usage import LogSink, MeteredProvider, PriceTable, UsageContext, UsageSink
+from .usage import FanoutSink, HttpSink, LogSink, MeteredProvider, PriceTable, UsageContext, UsageSink
 
 log = logging.getLogger("agentic_designer")
 
@@ -51,7 +51,7 @@ def create_app(
     app = FastAPI(title="CWP Agentic Designer")
     app.state.provider = provider if provider is not None else _provider_from_env()
     app.state.verifier = verifier or JwtVerifier(os.environ["SUPABASE_JWKS_URL"])
-    app.state.usage_sink = usage_sink or LogSink()
+    app.state.usage_sink = usage_sink or _usage_sink_from_env()
     app.state.prices = prices or PriceTable.bundled()
     app.state.limiter = TenantRateLimiter(tenant_rpm or int(os.environ.get("AGENT_TENANT_RPM", "10")))
 
@@ -117,6 +117,14 @@ PROVIDERS = {
     "nvidia": ("NVIDIA_API_KEY", "https://integrate.api.nvidia.com/v1", "moonshotai/kimi-k3"),
     "openrouter": ("OPENROUTER_API_KEY", "https://openrouter.ai/api/v1", "google/gemini-3.8-flash"),
 }
+
+
+def _usage_sink_from_env() -> UsageSink:
+    url = os.environ.get("SPEND_TRACKER_URL")
+    if not url:
+        log.warning("SPEND_TRACKER_URL is not set; usage events go to the log only.")
+        return LogSink()
+    return FanoutSink(LogSink(), HttpSink(url.rstrip("/") + "/events", os.environ.get("SPEND_INGEST_TOKEN", "")))
 
 
 def _provider_from_env() -> LLMProvider | None:

@@ -10,6 +10,7 @@ Platform docs start at [`Documents/CWP.html`](Documents/CWP.html).
 | `gateway/` | nginx edge gateway: serves the SPA, routes `/api/*` to services, owns CORS / rate limits / request ids |
 | `services/workflow-runtime/` | Java 21 / Spring Boot 4 / Flowable 8 engine host |
 | `services/agentic-designer/` | Agentic Designer: LLM-assisted workflow authoring (Python / FastAPI) |
+| `services/spend-tracker/` | API spend tracker: usage events, spend summaries, API key health (Python / FastAPI) |
 | `Database/` | Portable schema + RLS for the Supabase design-time data |
 
 Supabase (hosted) stays the identity and design-time data backend.
@@ -31,6 +32,7 @@ built into the gateway image and reads its Supabase settings from
 | `/healthz` | Gateway health |
 | `/api/runtime/**` | workflow-runtime (`/runtime/**`) |
 | `/api/agent/**` | agentic-designer (`/**`) |
+| `/api/spend/**` | spend-tracker (`/**`); `/api/spend/events` is blocked (internal only) |
 
 Every service verifies the Supabase JWT itself; nginx does not.
 

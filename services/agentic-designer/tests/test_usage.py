@@ -135,3 +135,53 @@ def test_refused_requests_record_nothing():
         headers={"Authorization": f"Bearer {verifier.token(role='viewer')}"},
     )
     assert sink.events == []
+
+
+# --- delivery to the spend-tracker service (S1) ----------------------------------------
+
+def _event():
+    from agentic_designer.usage import UsageEvent
+
+    return UsageEvent(at="2026-09-27T12:00:00.000+00:00", service="agentic-designer", feature="generate",
+                      provider="nvidia", model="m", key_alias="NVIDIA_API_KEY", tenant_id="t1", user_id="u1",
+                      request_id="r1", outcome="ok", input_tokens=10, output_tokens=5, cost_usd=None, latency_ms=100)
+
+
+def test_http_sink_posts_the_event_with_the_ingest_token():
+    import httpx
+
+    from agentic_designer.usage import HttpSink
+
+    seen = []
+
+    def handler(request):
+        seen.append((request.headers.get("x-ingest-token"), json.loads(request.content)))
+        return httpx.Response(204)
+
+    async def go():
+        sink = HttpSink("http://spend-tracker:8095/events", "tok", client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+        sink.record(_event())
+        await sink.drain()
+
+    asyncio.run(go())
+    ((token, body),) = seen
+    assert token == "tok" and body["key_alias"] == "NVIDIA_API_KEY" and body["cost_usd"] is None
+
+
+def test_tracker_outage_is_logged_with_the_full_event_not_raised(caplog):
+    import httpx
+
+    from agentic_designer.usage import HttpSink
+
+    def handler(request):
+        raise httpx.ConnectError("tracker down")
+
+    async def go():
+        sink = HttpSink("http://spend-tracker:8095/events", "tok", client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+        sink.record(_event())
+        await sink.drain()
+
+    with caplog.at_level("WARNING", logger="agentic_designer.usage"):
+        asyncio.run(go())
+    # The log line is the replay source if the tracker was down.
+    assert any("not delivered" in r.message and '"request_id": "r1"' in r.message for r in caplog.records)

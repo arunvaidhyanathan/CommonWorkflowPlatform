@@ -3,6 +3,7 @@
 #   /            -> SPA (built from Designer/)
 #   /api/runtime -> workflow-runtime (Flowable engine host)
 #   /api/agent   -> agentic-designer (LLM-assisted authoring)
+#   /api/spend   -> spend-tracker (API spend and key health; POST /events is internal only)
 name: cwp
 
 services:
@@ -17,6 +18,7 @@ services:
     depends_on:
       - workflow-runtime
       - agentic-designer
+      - spend-tracker
 
   workflow-runtime:
     build: services/workflow-runtime
@@ -43,6 +45,41 @@ services:
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       AGENT_TENANT_RPM: ${AGENT_TENANT_RPM:-10}
+      # Usage events go here over the internal network (SpendTracker.html S1).
+      SPEND_TRACKER_URL: http://spend-tracker:8095
+      SPEND_INGEST_TOKEN: ${SPEND_INGEST_TOKEN:?set SPEND_INGEST_TOKEN in .env}
+
+  spend-tracker:
+    build: services/spend-tracker
+    environment:
+      SPEND_DATABASE_URL: postgresql://spend_tracker:${SPEND_DB_PASSWORD:?set SPEND_DB_PASSWORD in .env}@spend-db:5432/cwp_spend
+      SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:?set SUPABASE_JWKS_URL in .env}
+      SPEND_INGEST_TOKEN: ${SPEND_INGEST_TOKEN:?set SPEND_INGEST_TOKEN in .env}
+      # Comma-separated Supabase user ids allowed platform-wide spend and key health.
+      SPEND_ADMIN_USER_IDS: ${SPEND_ADMIN_USER_IDS:-}
+      SPEND_KEY_CHECK_INTERVAL_S: ${SPEND_KEY_CHECK_INTERVAL_S:-3600}
+      # Only the keys the tracker checks; never the whole secrets file.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      TYPESAFE_JEV_API_KEY: ${TYPESAFE_JEV_API_KEY:-}
+    depends_on:
+      spend-db:
+        condition: service_healthy
+
+  # The spend tracker's own database (database-per-service).
+  spend-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: cwp_spend
+      POSTGRES_USER: spend_tracker
+      POSTGRES_PASSWORD: ${SPEND_DB_PASSWORD:?set SPEND_DB_PASSWORD in .env}
+    volumes:
+      - spend-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spend_tracker -d cwp_spend"]
+      interval: 5s
+      retries: 10
 
   # The workflow runtime's own database (database-per-service). Holds the
   # `runtime` schema and Flowable's ACT_* tables. Not exposed to the host.
@@ -62,3 +99,4 @@ services:
 
 volumes:
   runtime-db-data:
+  spend-db-data:

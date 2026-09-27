@@ -26,7 +26,8 @@ A0 (contract) done; A1 (Generate) built and live-verified on NVIDIA-hosted model
 
 Configuration: `AGENT_PROVIDER` (`gemini` | `nvidia` | `openrouter`), that provider's key
 (`GEMINI_API_KEY`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`), `AGENT_MODEL` (empty = provider
-default), `AGENT_MAX_OUTPUT_TOKENS`, `AGENT_TENANT_RPM`, `SUPABASE_JWKS_URL`.
+default), `AGENT_MAX_OUTPUT_TOKENS`, `AGENT_TENANT_RPM`, `SUPABASE_JWKS_URL`; `SPEND_TRACKER_URL` and
+`SPEND_INGEST_TOKEN` send usage events to the spend tracker (without them, events go to the log only).
 
 ## Develop
 

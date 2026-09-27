@@ -139,6 +139,7 @@
                 <tr><td><strong>identity &amp; tenancy</strong></td><td>Supabase Auth + Edge Functions <code>admin-set-role</code>, <code>invite-user</code></td><td>Users, JWTs, roles, invites</td><td>Hosted</td><td><span class="badge badge-built">Unchanged</span></td></tr>
                 <tr><td><strong>design-time data</strong></td><td>Supabase Postgres + PostgREST + RLS</td><td><code>workflows</code>, <code>workflow_versions</code>, <code>approval_requests</code>, <code>audit_logs</code>, ...</td><td>Hosted; schema in <code>Database/</code></td><td><span class="badge badge-built">Unchanged</span></td></tr>
                 <tr><td><strong>workflow-runtime</strong></td><td>Java 21, Spring Boot 4, Flowable 8</td><td>Deployments, case instances, task history; its own <code>runtime</code> schema and Flowable's <code>ACT_*</code> tables</td><td><code>services/workflow-runtime/</code></td><td><span class="badge badge-built">Built, first boot verified</span></td></tr>
+                <tr><td><strong>spend-tracker</strong></td><td>Python 3.13 + FastAPI, own Postgres</td><td>Usage events from services, spend summaries, API key health checks</td><td><code>services/spend-tracker/</code></td><td><span class="badge badge-built">S1 built; live-verified</span> &mdash; see <a href="SpendTracker.html">SpendTracker.html</a></td></tr>
                 <tr><td><strong>agentic-designer</strong></td><td>Python 3.12 + FastAPI</td><td>Natural language &rarr; workflow proposals, chat edits, review</td><td><code>services/agentic-designer/</code></td><td><span class="badge badge-built">A1 built; live-verified</span> &mdash; see <a href="AgenticDesigner.html">AgenticDesigner.html</a></td></tr>
             </tbody>
         </table>
@@ -155,6 +156,7 @@
                 <tr><td><code>/healthz</code></td><td>nginx itself</td><td><code>{"status":"ok"}</code></td></tr>
                 <tr><td><code>/api/runtime/**</code></td><td>workflow-runtime <code>/runtime/**</code></td><td>Rate limit 20 req/s per IP, burst 40</td></tr>
                 <tr><td><code>/api/agent/**</code></td><td>agentic-designer <code>/**</code></td><td>Rate limit 2 req/s per IP, burst 5; response buffering off for server-sent events; 300s read timeout</td></tr>
+                <tr><td><code>/api/spend/**</code></td><td>spend-tracker <code>/**</code></td><td>Rate limit 20 req/s per IP, burst 40. <code>/api/spend/events</code> returns 404: usage ingest is internal only</td></tr>
                 <tr><td>any other <code>/api/*</code></td><td>nginx</td><td>JSON 404</td></tr>
             </tbody>
         </table>
@@ -190,6 +192,8 @@ open http://localhost:8080  # or GATEWAY_PORT from .env</code></pre>
                 <tr><td><code>gateway</code></td><td>built from <code>gateway/Dockerfile</code></td><td>Only service published to the host (<code>GATEWAY_PORT</code>, default 8080). The SPA build reads Supabase settings from <code>Designer/.env.local</code>, which must exist before building</td></tr>
                 <tr><td><code>workflow-runtime</code></td><td>built from <code>services/workflow-runtime/Dockerfile</code></td><td>Multi-stage Maven build &rarr; JRE 21. Waits for <code>runtime-db</code> to be healthy</td></tr>
                 <tr><td><code>agentic-designer</code></td><td>built from <code>services/agentic-designer/Dockerfile</code></td><td>Python 3.13 + uv, FastAPI on port 8090. Starts without the chosen provider's key; <code>/generate</code> then returns 503</td></tr>
+                <tr><td><code>spend-tracker</code></td><td>built from <code>services/spend-tracker/Dockerfile</code></td><td>FastAPI on port 8095. Receives only the four API keys it checks</td></tr>
+                <tr><td><code>spend-db</code></td><td><code>postgres:16-alpine</code></td><td>Database <code>cwp_spend</code>, volume <code>spend-db-data</code>. Not exposed to the host</td></tr>
                 <tr><td><code>runtime-db</code></td><td><code>postgres:16-alpine</code></td><td>Volume <code>runtime-db-data</code>. Init script creates the <code>runtime</code> schema so Liquibase's tracking tables have somewhere to live</td></tr>
             </tbody>
         </table>
@@ -201,6 +205,7 @@ open http://localhost:8080  # or GATEWAY_PORT from .env</code></pre>
                 <tr><td><code>SUPABASE_JWKS_URL</code></td><td>JWKS endpoint services verify JWTs against (required)</td></tr>
                 <tr><td><code>SUPABASE_JWT_MODE</code> / <code>SUPABASE_JWT_HS256_SECRET</code></td><td><code>jwks</code> (default) or <code>hs256</code> for legacy projects</td></tr>
                 <tr><td><code>CORS_ALLOWED_ORIGINS</code></td><td>Regex of browser origins allowed to call <code>/api/*</code> cross-origin</td></tr>
+                <tr><td><code>SPEND_DB_PASSWORD</code>, <code>SPEND_INGEST_TOKEN</code>, <code>SPEND_ADMIN_USER_IDS</code>, <code>SPEND_KEY_CHECK_INTERVAL_S</code>, <code>TYPESAFE_JEV_API_KEY</code></td><td>Spend tracker settings (SpendTracker.html Section 3b)</td></tr>
                 <tr><td><code>AGENT_PROVIDER</code>, <code>AGENT_MODEL</code>, <code>GEMINI_API_KEY</code>, <code>NVIDIA_API_KEY</code>, <code>OPENROUTER_API_KEY</code>, <code>AGENT_TENANT_RPM</code></td><td>Agentic Designer provider settings (AgenticDesigner.html Section 4a). A variable set in your shell overrides <code>.env</code> in Compose</td></tr>
             </tbody>
         </table>
@@ -220,7 +225,6 @@ open http://localhost:8080  # or GATEWAY_PORT from .env</code></pre>
                 <tr><td>notification-service</td><td>Email or in-app notifications need retries or queues</td></tr>
                 <tr><td>audit-service</td><td><code>audit_logs</code> needs writers other than Postgres triggers</td></tr>
                 <tr><td>search-service</td><td>Workbench global search outgrows a SQL <code>ilike</code></td></tr>
-                <tr><td>spend-tracker</td><td>Designed, next to build: <a href="SpendTracker.html">SpendTracker.html</a></td></tr>
                 <tr><td>identity / data services of our own</td><td>The Supabase-free track is picked up</td></tr>
             </tbody>
         </table>
@@ -230,6 +234,7 @@ open http://localhost:8080  # or GATEWAY_PORT from .env</code></pre>
     <section>
         <h2 id="sec-6">6. Change Log</h2>
         <ul>
+            <li><strong>September 27, 2026 (S1):</strong> <code>spend-tracker</code> and <code>spend-db</code> added; gateway routes <code>/api/spend/**</code> and blocks <code>/api/spend/events</code>. agentic-designer posts usage events to the tracker over the internal network.</li>
             <li><strong>September 27, 2026 (restart):</strong> full stack restarted (<code>docker compose down</code> / <code>up --build</code>) plus the Vite dev server on 5173, now started with <code>VITE_API_BASE_URL=http://localhost:8088/api</code>. All services verified healthy through the gateway. agentic-designer now runs with <code>AGENT_PROVIDER=nvidia</code>.</li>
             <li><strong>September 27, 2026 (later):</strong> <code>agentic-designer</code> added to the stack behind <code>/api/agent/**</code>. Verified through the gateway: health, 401 without a token, CORS preflight.</li>
             <li><strong>September 27, 2026:</strong> nginx edge gateway added; <code>Workflow-Wrapper/</code> moved to <code>services/workflow-runtime/</code> and renamed (package <code>com.waas.workflowruntime</code>, env vars <code>WORKFLOW_RUNTIME_DB_*</code>); Docker Compose stack with a dedicated <code>runtime-db</code>; frontend client renamed <code>runtimeGatewayClient.ts</code> &rarr; <code>apiClient.ts</code> with <code>VITE_API_BASE_URL</code>. Verified: gateway health, SPA serving and deep links, 401 from workflow-runtime for missing and malformed tokens, CORS preflight allow/deny, request-id passthrough, JSON access log. Not yet verified: an authenticated Publish through the gateway.</li>

@@ -7,6 +7,7 @@ missing data can't pass for free usage. Recording must never break the call
 it measures.
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -89,11 +90,52 @@ class UsageSink(Protocol):
 
 
 class LogSink:
-    """S0 sink: one JSON line per event in the service log. S1 replaces this
-    with a sink that posts to the spend-tracker service."""
+    """One JSON line per event in the service log. Kept alongside HttpSink,
+    so the log still has every event if the tracker is down."""
 
     def record(self, event: UsageEvent) -> None:
         log.info("usage %s", json.dumps(asdict(event)))
+
+
+class HttpSink:
+    """Posts each event to the spend-tracker service (SpendTracker.html S1)
+    on the internal network. Fire-and-forget on the running event loop: a
+    slow or down tracker never delays generation. Undelivered events are
+    logged in full so they can be replayed."""
+
+    def __init__(self, url: str, token: str, client=None):
+        import httpx
+
+        self._url = url
+        self._token = token
+        self._client = client or httpx.AsyncClient(timeout=5)
+        self._pending: set[asyncio.Task] = set()
+
+    def record(self, event: UsageEvent) -> None:
+        task = asyncio.get_running_loop().create_task(self._post(event))
+        self._pending.add(task)
+        task.add_done_callback(self._pending.discard)
+
+    async def _post(self, event: UsageEvent) -> None:
+        try:
+            resp = await self._client.post(self._url, json=asdict(event), headers={"X-Ingest-Token": self._token})
+            resp.raise_for_status()
+        except Exception as exc:
+            log.warning("usage event not delivered (%s): %s", type(exc).__name__, json.dumps(asdict(event)))
+
+    async def drain(self) -> None:
+        """Wait for in-flight posts (tests, shutdown)."""
+        if self._pending:
+            await asyncio.gather(*list(self._pending), return_exceptions=True)
+
+
+class FanoutSink:
+    def __init__(self, *sinks: "UsageSink"):
+        self._sinks = sinks
+
+    def record(self, event: UsageEvent) -> None:
+        for sink in self._sinks:
+            sink.record(event)
 
 
 class MeteredProvider:
