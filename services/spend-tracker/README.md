@@ -11,6 +11,10 @@ Design and status: [`Documents/SpendTracker.html`](../../Documents/SpendTracker.
 | `GET /keys` | platform admins | Latest check per key plus the outcome of the last metered call through it |
 | `POST /keys/check` | platform admins | Run the key checks now |
 | `POST /events` | services only (`X-Ingest-Token`); the gateway refuses it | Record one usage event |
+| `GET /budgets` | platform admins | Monthly budgets (per provider or `total`) with this month's priced spend |
+| `PUT /budgets/{subject}` / `DELETE` | platform admins | Set (`{"monthlyUsd": "50.00"}`) or remove a budget; setting one evaluates it immediately |
+| `GET /alerts?status=open\|all` | platform admins | Budget, key and provider-limit alerts |
+| `POST /alerts/{id}/ack` | platform admins | Dismiss an alert |
 
 Platform admins are the Supabase user ids in `SPEND_ADMIN_USER_IDS`.
 
@@ -22,6 +26,21 @@ Platform admins are the Supabase user ids in `SPEND_ADMIN_USER_IDS`.
   being `rate_limited`.
 - The tracker receives only the keys it checks (`GEMINI_API_KEY`, `NVIDIA_API_KEY`,
   `OPENROUTER_API_KEY`, `TYPESAFE_JEV_API_KEY`), never a whole secrets file.
+
+## Alerts
+
+Raised where the evidence arrives, at most once while open (budget thresholds
+once per month), and logged as `ALERT ...` lines:
+
+| Kind | When | Level | Clears |
+|---|---|---|---|
+| `budget` | this month's priced spend reaches 80% / 100% of a budget | warning / critical | dismissed; not re-raised this month |
+| `key_status` | a key check finds the key expired or invalid | critical | automatically when a check finds it valid |
+| `key_refused` | a real call through a key is refused (429: rate limit, quota, spend cap) | warning | automatically when a later call succeeds |
+| `provider_limit` | a provider-reported credit limit has under 20% left (OpenRouter) | warning | automatically when headroom returns |
+
+Delivery is in the app (API Spend page) and the service log only; email or
+Slack is not wired up.
 
 ## Develop
 

@@ -4,7 +4,21 @@
 // so this page just renders whatever scope comes back.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DailyBarChart, type DailyPoint } from '../components/DailyBarChart'
-import { getKeyStatus, getSpendSummary, runKeyChecks, type KeyStatus, type SpendMeasures, type SpendSummary } from '../data/spend'
+import {
+  acknowledgeAlert,
+  deleteBudget,
+  getBudgets,
+  getKeyStatus,
+  getOpenAlerts,
+  getSpendSummary,
+  runKeyChecks,
+  setBudget,
+  type Budget,
+  type KeyStatus,
+  type SpendAlert,
+  type SpendMeasures,
+  type SpendSummary,
+} from '../data/spend'
 import { ApiError, ApiNotConfiguredError } from '../lib/apiClient'
 
 const REFRESH_MS = 30_000
@@ -32,6 +46,9 @@ export function SpendPage() {
   const [error, setError] = useState<string | null>(null)
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
   const [checking, setChecking] = useState(false)
+  // Platform-admin only, like key health (SpendTracker.html Section 3d).
+  const [budgets, setBudgets] = useState<Budget[] | null>(null)
+  const [alerts, setAlerts] = useState<SpendAlert[]>([])
   // Once the service says this viewer isn't a platform admin, stop asking
   // for key health on every refresh.
   const keysForbidden = useRef(false)
@@ -44,8 +61,11 @@ export function SpendPage() {
         keysForbidden.current ? Promise.resolve(null) : getKeyStatus(),
       ])
       if (k === null) keysForbidden.current = true
+      const [b, a] = k === null ? [null, []] : await Promise.all([getBudgets(), getOpenAlerts()])
       setSummary(s)
       setKeys(k)
+      setBudgets(b)
+      setAlerts(a)
       setError(null)
       setUpdatedAt(new Date())
     } catch (err) {
@@ -124,6 +144,16 @@ export function SpendPage() {
 
       {error && <p className="rounded bg-red-50 p-2 text-xs text-red-700">{error}</p>}
 
+      {alerts.length > 0 && (
+        <AlertsBanner
+          alerts={alerts}
+          onDismiss={async (id) => {
+            await acknowledgeAlert(id)
+            await load()
+          }}
+        />
+      )}
+
       {summary && (
         <>
           <StatTiles total={summary.total} />
@@ -158,6 +188,21 @@ export function SpendPage() {
             )}
           </div>
         </>
+      )}
+
+      {budgets && (
+        <Budgets
+          budgets={budgets}
+          providers={Array.from(new Set([...(summary?.byProvider.map((p) => p.provider) ?? []), ...(keys ?? []).map((k) => k.provider)])).sort()}
+          onSave={async (subject, usd) => {
+            await setBudget(subject, usd)
+            await load()
+          }}
+          onDelete={async (subject) => {
+            await deleteBudget(subject)
+            await load()
+          }}
+        />
       )}
 
       <KeyHealth keys={keys} checking={checking} onCheckNow={onCheckNow} />
@@ -305,12 +350,151 @@ function KeyHealth({ keys, checking, onCheckNow }: { keys: KeyStatus[] | null | 
                 <td className="py-1.5 text-slate-500">{new Date(k.checkedAt).toLocaleString()}</td>
                 <td className="py-1.5 text-slate-500">
                   {k.lastCallAt ? `${k.lastCallOutcome?.replace('_', ' ')} · ${new Date(k.lastCallAt).toLocaleString()}` : '—'}
+                  {k.reportedUsageUsd !== null && (
+                    <div className="mt-0.5 text-slate-600" title="Reported by the provider; includes use of this key outside CWP">
+                      Provider-reported: {formatUsd(Number(k.reportedUsageUsd))} used
+                      {k.reportedLimitUsd !== null && ` of ${formatUsd(Number(k.reportedLimitUsd))} limit`}
+                    </div>
+                  )}
                 </td>
               </tr>
             )
           })}
         </tbody>
       </table>
+    </section>
+  )
+}
+
+const LEVEL: Record<SpendAlert['level'], { color: string; ink: string; icon: string; label: string }> = {
+  warning: { color: '#fab219', ink: '#0b0b0b', icon: '!', label: 'Warning' },
+  critical: { color: '#d03b3b', ink: '#ffffff', icon: '✕', label: 'Critical' },
+}
+
+function AlertsBanner({ alerts, onDismiss }: { alerts: SpendAlert[]; onDismiss: (id: number) => Promise<void> }) {
+  return (
+    <section className="space-y-2" aria-label="Open alerts">
+      {alerts.map((a) => {
+        const l = LEVEL[a.level]
+        return (
+          <div key={a.id} className="flex items-start gap-2 rounded border border-slate-200 bg-white p-3 text-xs">
+            <span
+              aria-hidden
+              className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+              style={{ backgroundColor: l.color, color: l.ink }}
+            >
+              {l.icon}
+            </span>
+            <div className="flex-1 text-slate-800">
+              <span className="font-semibold">{l.label}:</span> {a.message}
+              <div className="text-[11px] text-slate-500">Raised {new Date(a.raisedAt).toLocaleString()}</div>
+            </div>
+            <button type="button" onClick={() => void onDismiss(a.id)} className="text-sky-700 hover:underline">
+              Dismiss
+            </button>
+          </div>
+        )
+      })}
+    </section>
+  )
+}
+
+function Budgets({
+  budgets,
+  providers,
+  onSave,
+  onDelete,
+}: {
+  budgets: Budget[]
+  providers: string[]
+  onSave: (subject: string, usd: string) => Promise<void>
+  onDelete: (subject: string) => Promise<void>
+}) {
+  const [subject, setSubject] = useState('total')
+  const [amount, setAmount] = useState('')
+  const [formError, setFormError] = useState<string | null>(null)
+  const options = ['total', ...providers.filter((p) => p !== 'total')]
+
+  const submit = async () => {
+    setFormError(null)
+    try {
+      await onSave(subject, amount)
+      setAmount('')
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Could not save the budget.')
+    }
+  }
+
+  return (
+    <section className="rounded border border-sky-200 bg-white p-4">
+      <h2 className="text-sm font-bold text-[#003b70]">Monthly budgets</h2>
+      <p className="mb-3 text-xs text-slate-500">
+        Compared with this month&apos;s estimated spend (UTC). Alerts at 80% and 100%. Unpriced calls can&apos;t count
+        toward a budget.
+      </p>
+      {budgets.length === 0 && <p className="mb-3 text-xs text-slate-400">No budgets set.</p>}
+      <ul className="mb-4 space-y-3">
+        {budgets.map((b) => {
+          const pct = Number(b.monthlyUsd) > 0 ? (Number(b.spentUsd) / Number(b.monthlyUsd)) * 100 : 0
+          const tone = pct >= 100 ? 'critical' : pct >= 80 ? 'warning' : null
+          const fill = tone === 'critical' ? '#d03b3b' : tone === 'warning' ? '#fab219' : '#0066b2'
+          return (
+            <li key={b.subject}>
+              <div className="mb-1 flex items-baseline justify-between text-xs">
+                <span className="font-mono font-semibold text-slate-800">{b.subject}</span>
+                <span className="tabular-nums text-slate-600">
+                  {formatUsd(Number(b.spentUsd))} of {formatUsd(Number(b.monthlyUsd))} · {pct.toFixed(0)}%
+                  {tone && <span className="ml-1 font-semibold text-slate-800">{tone === 'critical' ? '✕ Over budget' : '! Near budget'}</span>}
+                  <button type="button" onClick={() => void onDelete(b.subject)} className="ml-3 text-sky-700 hover:underline">
+                    Remove
+                  </button>
+                </span>
+              </div>
+              <div
+                className="h-2 w-full overflow-hidden rounded-full bg-slate-100"
+                role="meter"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.min(100, Math.round(pct))}
+                aria-label={`${b.subject} budget used`}
+              >
+                <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct)}%`, backgroundColor: fill }} />
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      <div className="flex flex-wrap items-end gap-2 text-xs">
+        <label className="flex flex-col gap-1 text-slate-600">
+          Budget for
+          <select value={subject} onChange={(e) => setSubject(e.target.value)} className="rounded border border-sky-200 bg-white px-2 py-1">
+            {options.map((o) => (
+              <option key={o} value={o}>
+                {o === 'total' ? 'All providers (total)' : o}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-slate-600">
+          USD per month
+          <input
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            inputMode="decimal"
+            placeholder="50.00"
+            className="w-28 rounded border border-sky-200 px-2 py-1"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => void submit()}
+          disabled={!/^\d+(\.\d{1,2})?$/.test(amount) || Number(amount) <= 0}
+          className="rounded bg-[#0066b2] px-3 py-1.5 font-semibold text-white hover:bg-[#003b70] disabled:opacity-50"
+        >
+          Save budget
+        </button>
+        {formError && <span className="text-red-700">{formError}</span>}
+      </div>
     </section>
   )
 }

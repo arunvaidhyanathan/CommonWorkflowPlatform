@@ -40,6 +40,34 @@ export interface KeyStatus {
   lastCallOutcome: 'ok' | 'rate_limited' | 'error' | 'empty' | null
   lastCallAt: string | null
   lastOkCallAt: string | null
+  // Totals the provider itself reports (OpenRouter), including use of the
+  // key outside CWP. null when the provider has no such API.
+  reportedUsageUsd: string | null
+  reportedLimitUsd: string | null
+  reportedLimitRemainingUsd: string | null
+  reportedAt: string | null
+}
+
+export interface Budget {
+  subject: string // provider name or 'total'
+  monthlyUsd: string
+  spentUsd: string // this month's priced spend (UTC)
+  period: string // YYYY-MM
+  updatedAt: string
+  updatedBy: string
+}
+
+export interface SpendAlert {
+  id: number
+  raisedAt: string
+  kind: 'budget' | 'key_status' | 'key_refused' | 'provider_limit'
+  subject: string
+  level: 'warning' | 'critical'
+  message: string
+  period: string | null
+  threshold: number | null
+  acknowledgedAt: string | null
+  acknowledgedBy: string | null
 }
 
 export function getSpendSummary(from: Date, to: Date): Promise<SpendSummary> {
@@ -59,4 +87,28 @@ export async function getKeyStatus(): Promise<KeyStatus[] | null> {
 
 export function runKeyChecks(): Promise<{ keyAlias: string; status: string }[]> {
   return apiFetch('/spend/keys/check', { method: 'POST' })
+}
+
+// Budgets and alerts are platform-admin only, like key health.
+export function getBudgets(): Promise<Budget[]> {
+  return apiFetch<Budget[]>('/spend/budgets')
+}
+
+export function setBudget(subject: string, monthlyUsd: string): Promise<void> {
+  return apiFetch<void>(`/spend/budgets/${encodeURIComponent(subject)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ monthlyUsd }),
+  })
+}
+
+export function deleteBudget(subject: string): Promise<void> {
+  return apiFetch<void>(`/spend/budgets/${encodeURIComponent(subject)}`, { method: 'DELETE' })
+}
+
+export function getOpenAlerts(): Promise<SpendAlert[]> {
+  return apiFetch<SpendAlert[]>('/spend/alerts?status=open')
+}
+
+export function acknowledgeAlert(id: number): Promise<void> {
+  return apiFetch<void>(`/spend/alerts/${id}/ack`, { method: 'POST' })
 }

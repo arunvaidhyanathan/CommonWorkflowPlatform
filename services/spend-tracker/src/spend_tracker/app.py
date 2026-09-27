@@ -7,9 +7,11 @@ import contextlib
 import logging
 import os
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request
+from pydantic import BaseModel, Field
 
 from . import store
 from .auth import JwtVerifier, Viewer, ingest_caller, platform_admin, spend_viewer
@@ -24,9 +26,17 @@ async def run_key_checks(app: FastAPI) -> list[dict]:
     async with httpx.AsyncClient() as client:
         results = await asyncio.gather(*(check_key(client, spec, app.state.key_env) for spec in KEYS))
     for r in results:
-        await store.record_check(app.state.pool, r.key_alias, r.provider, r.status, r.http_status, r.detail)
+        await store.record_check(app.state.pool, r.key_alias, r.provider, r.status, r.http_status, r.detail, r.usage)
     log.info("key checks: %s", ", ".join(f"{r.key_alias}={r.status}" for r in results))
     return [{"keyAlias": r.key_alias, "status": r.status} for r in results]
+
+
+class BudgetIn(BaseModel):
+    monthly_usd: Decimal = Field(alias="monthlyUsd", gt=0, le=Decimal("1000000"), decimal_places=2)
+
+
+# 'total' or a provider name as it appears in usage events.
+SUBJECT = Path(pattern="^(total|[a-z0-9][a-z0-9_-]{0,39})$")
 
 
 def create_app(
@@ -112,6 +122,30 @@ def create_app(
     @app.post("/keys/check", dependencies=[Depends(platform_admin)])
     async def keys_check(request: Request) -> list[dict]:
         return await run_key_checks(request.app)
+
+    @app.get("/budgets")
+    async def budgets(request: Request, viewer: Viewer = Depends(platform_admin)) -> list[dict]:
+        return await store.list_budgets(request.app.state.pool)
+
+    @app.put("/budgets/{subject}", status_code=204)
+    async def put_budget(body: BudgetIn, request: Request, subject: str = SUBJECT,
+                         viewer: Viewer = Depends(platform_admin)) -> None:
+        await store.set_budget(request.app.state.pool, subject, body.monthly_usd, viewer.user_id)
+
+    @app.delete("/budgets/{subject}", status_code=204)
+    async def delete_budget(request: Request, subject: str = SUBJECT, viewer: Viewer = Depends(platform_admin)) -> None:
+        if not await store.delete_budget(request.app.state.pool, subject):
+            raise HTTPException(404, f"No budget for {subject}.")
+
+    @app.get("/alerts")
+    async def list_alerts(request: Request, status: str = Query(default="open", pattern="^(open|all)$"),
+                          viewer: Viewer = Depends(platform_admin)) -> list[dict]:
+        return await store.list_alerts(request.app.state.pool, open_only=status == "open")
+
+    @app.post("/alerts/{alert_id}/ack", status_code=204)
+    async def ack_alert(alert_id: int, request: Request, viewer: Viewer = Depends(platform_admin)) -> None:
+        if not await store.acknowledge_alert(request.app.state.pool, alert_id, viewer.user_id):
+            raise HTTPException(404, "No open alert with that id.")
 
     return app
 

@@ -98,3 +98,16 @@ def test_migrations_are_applied_once(client, database_url):
     from spend_tracker.db import migrate
 
     assert client.portal.call(migrate, client.app.state.pool) == []
+
+
+@pytest.mark.parametrize(
+    "body, detail",
+    [
+        ('{"error":{"message":"API key expired.","code":401,"metadata":{"headers":{}}}}', "API key expired."),
+        ('{"error":"Unauthorized"}', "Unauthorized"),
+        ("<html>502 Bad Gateway</html>", "<html>502 Bad Gateway</html>"),
+    ],
+)
+def test_detail_is_the_providers_message_not_the_raw_body(body, detail):
+    # This text lands in alerts people read; raw JSON is noise.
+    assert classify(401, body)[1] == detail

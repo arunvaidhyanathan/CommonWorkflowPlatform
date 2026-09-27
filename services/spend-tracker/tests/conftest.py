@@ -66,7 +66,7 @@ def signer():
 @pytest.fixture
 def client(database_url, signer):
     with psycopg.connect(database_url, autocommit=True) as conn:
-        conn.execute("drop table if exists usage_events, key_checks, schema_migrations")
+        conn.execute("drop table if exists usage_events, key_checks, budgets, alerts, provider_usage, schema_migrations")
     app = create_app(
         database_url=database_url, verifier=signer, ingest_token=INGEST_TOKEN,
         admin_user_ids={ADMIN_ID}, key_env={}, check_interval_s=0,

@@ -92,9 +92,9 @@
         <h1>API Spend Tracker</h1>
         <div class="subtitle">What the platform's paid API calls cost, live, and whether every API key in use still works.</div>
         <div class="meta-grid">
-            <div class="meta-item"><strong>Status</strong>S0, S1 and S2 built September 27, 2026 (S2 checked with fixture data; live check with a logged-in user pending). S3 next.</div>
+            <div class="meta-item"><strong>Status</strong>S0&ndash;S3 built September 27, 2026. Live alerts running. Pending: a logged-in check of the page, and email/Slack alert delivery.</div>
             <div class="meta-item"><strong>Planned Service</strong><code>services/spend-tracker/</code> (Python / FastAPI), behind the gateway at <code>/api/spend/**</code></div>
-            <div class="meta-item"><strong>Document Version</strong>1.3.0 (S2: API Spend Page)</div>
+            <div class="meta-item"><strong>Document Version</strong>1.4.0 (S3: Budgets &amp; Alerts)</div>
             <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
             <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
         </div>
@@ -110,6 +110,7 @@
             <li><a href="#sec-3a">3a. S0 as Built: Metering in the Agent Service</a></li>
             <li><a href="#sec-3b">3b. S1 as Built: The spend-tracker Service</a></li>
             <li><a href="#sec-3c">3c. S2 as Built: The API Spend Page</a></li>
+            <li><a href="#sec-3d">3d. S3 as Built: Budgets, Alerts and Provider-Reported Usage</a></li>
             <li><a href="#sec-4">4. Phases</a></li>
             <li><a href="#sec-5">5. Risks &amp; Open Questions</a></li>
         </ol>
@@ -280,6 +281,41 @@
     </section>
 
     <section>
+        <h2 id="sec-3d">3d. S3 as Built: Budgets, Alerts and Provider-Reported Usage</h2>
+        <p>Built September 27, 2026 in the spend-tracker service (migration <code>002_budgets_alerts.sql</code>, <code>alerts.py</code>) and the API Spend page.</p>
+        <h3>Budgets</h3>
+        <ul>
+            <li>One monthly USD budget per provider, or <code>total</code> for everything, set and removed on the API Spend page (platform admins). Compared with this month&rsquo;s priced spend (UTC). Unpriced calls can&rsquo;t count toward a budget, and the page says so.</li>
+            <li>Alerts at 80% (warning) and 100% (critical), each <strong>once per budget per month</strong>, even after it&rsquo;s dismissed. Setting or lowering a budget evaluates it immediately, so an overspend that already happened is reported now rather than at the next call. Last month&rsquo;s spend never counts.</li>
+            <li>The page shows each budget as a meter: normal, &ldquo;! Near budget&rdquo; or &ldquo;&times; Over budget&rdquo;, with text as well as color.</li>
+        </ul>
+        <h3>Alerts</h3>
+        <table class="stack-table">
+            <thead><tr><th>Kind</th><th>Raised when</th><th>Level</th><th>Clears</th></tr></thead>
+            <tbody>
+                <tr><td><code>budget</code></td><td>Priced spend reaches 80% / 100% of a budget</td><td>warning / critical</td><td>When dismissed; not re-raised that month</td></tr>
+                <tr><td><code>key_status</code></td><td>A key check finds the key expired or invalid (never for a network error)</td><td>critical</td><td>Automatically when a check finds it valid</td></tr>
+                <tr><td><code>key_refused</code></td><td>A real call through a key is refused (429: rate limit, quota, spend cap)</td><td>warning</td><td>Automatically when a later call succeeds</td></tr>
+                <tr><td><code>provider_limit</code></td><td>A provider-reported credit limit has under 20% left</td><td>warning</td><td>Automatically when headroom returns</td></tr>
+            </tbody>
+        </table>
+        <p>At most one open alert per kind and key, so a key that stays broken doesn&rsquo;t raise an alert per check. Alerts appear as a banner at the top of the API Spend page (with Dismiss) and as <code>ALERT</code> lines in the service log. <strong>Email or Slack delivery is not wired up</strong>; nothing in CWP sends notifications yet.</p>
+        <h3>Provider-reported usage</h3>
+        <p>OpenRouter&rsquo;s key check (<code>GET /api/v1/key</code>) already returns the provider&rsquo;s own usage, credit limit and remaining credit, so the check now stores them (<code>provider_usage</code>). The key health table shows them (&ldquo;Provider-reported: $18.50 used of $20.00 limit&rdquo;). These totals include use of the key outside CWP. <strong>Only verified with mocked responses</strong>: the real OpenRouter key is expired.</p>
+        <p><strong>Not built:</strong> AWS Cost Explorer (not requested; $0.01 per query; the IAM user lacks <code>ce:GetCostAndUsage</code>).</p>
+        <h3>A bug found on the way</h3>
+        <p>S1&rsquo;s read queries set <code>row_factory = dict_row</code> on pooled connections. That setting stayed with the connection after it went back to the pool, so the next borrower got dicts instead of tuples. It was harmless until the budget check unpacked rows, and a budget test caught it. Read queries now set the row factory on their own cursor only.</p>
+        <h3>Verified</h3>
+        <ul>
+            <li>52 spend-tracker tests (22 new) against real Postgres: thresholds once each, immediate evaluation on budget change, unpriced exclusion, total budgets, no re-raise after dismissal, month boundaries, validation, platform-admin-only access, refused-call alert and auto-clear (and a new alert after recovery), expired-key alert once across repeated checks and auto-clear, no alert for network errors, OpenRouter usage parsing, the low-credit alert, and provider messages instead of raw JSON in alert text. Three deliberately introduced bugs were each caught.</li>
+            <li>Live, on the real database: migration 002 applied; the first key check raised a critical alert for the expired OpenRouter key; a real Gemini call (refused by the spend cap) raised a <code>key_refused</code> warning through the full path (agent service &rarr; delivery &rarr; tracker). Those are the project&rsquo;s two real incidents.</li>
+            <li>The page&rsquo;s new parts (alert banner, budget meters and form, provider-reported line) rendered with fixture data at 1400px with no console errors.</li>
+            <li>The open OpenRouter alert was raised before provider error messages were cleaned up, so its text still includes the raw error body; new alerts use the clean message.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
         <h2 id="sec-4">4. Phases</h2>
         <table class="stack-table">
             <thead><tr><th>Phase</th><th>Deliverable</th><th>Done when</th><th>Status</th></tr></thead>
@@ -287,7 +323,7 @@
                 <tr><td>S0</td><td>Usage capture in agentic-designer's LLM layer + price table</td><td>Each model call (success or failure) yields one event with correct tokens; unpriced models are flagged</td><td><span class="badge badge-built">Done</span> (Section 3a)</td></tr>
                 <tr><td>S1</td><td><code>spend-tracker</code> service: event ingestion, storage, summary API, scheduled key health checks</td><td>A live generation shows up in <code>/summary</code>; <code>/keys</code> reports the statuses in Section 1</td><td><span class="badge badge-built">Done</span> (Section 3b)</td></tr>
                 <tr><td>S2</td><td>API Spend dashboard page in the SPA</td><td>Spend and key status visible and refreshing through the gateway</td><td><span class="badge badge-design">Built; live check pending</span> (Section 3c)</td></tr>
-                <tr><td>S3</td><td>Provider-reported totals (OpenRouter; AWS Cost Explorer if approved), budgets and alerts</td><td>Budget warnings fire at a configured threshold</td><td><span class="badge badge-future">Not started</span></td></tr>
+                <tr><td>S3</td><td>Provider-reported totals (OpenRouter; AWS Cost Explorer if approved), budgets and alerts</td><td>Budget warnings fire at a configured threshold</td><td><span class="badge badge-built">Done</span> (Section 3d; OpenRouter totals mock-verified only; AWS not built)</td></tr>
             </tbody>
         </table>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
