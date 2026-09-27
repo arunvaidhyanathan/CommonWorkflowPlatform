@@ -1,4 +1,4 @@
-// Workflow Wrapper: the Runtime Gateway's operator-facing surface
+// Workflow Wrapper: the workflow-runtime service's operator-facing surface
 // (WorkflowWrapper.html; Workbench.html Section 7.1's Case Instance View
 // lives here rather than inside WorkbenchPage.tsx -- this route already
 // existed as the reserved home for "the Flowable runtime wrapper's
@@ -206,7 +206,7 @@ export function WorkflowWrapperPage() {
       <div className="mb-4">
         <h1 className="text-lg font-bold text-[#003b70]">Workflow Wrapper</h1>
         <p className="text-sm text-slate-500">
-          The Runtime Gateway&apos;s operator-facing surface -- deployments, live case instances, and
+          The workflow runtime&apos;s operator view -- deployments, live case instances, and
           task history from the embedded Flowable engine.
         </p>
       </div>

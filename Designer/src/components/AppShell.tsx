@@ -22,7 +22,6 @@ const PRIMARY_NAV: NavItem[] = [
   { to: '/onboarding', label: 'Onboarding' },
   { to: '/workbench', label: 'Workbench' },
   { to: '/workflow-wrapper', label: 'Workflow Wrapper' },
-  { to: '/agentic-designer', label: 'Agentic Designer' },
 ]
 
 const GOVERNANCE_NAV: NavItem[] = [

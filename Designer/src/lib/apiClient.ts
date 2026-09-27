@@ -19,8 +19,8 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.
 export class ApiNotConfiguredError extends Error {
   constructor() {
     super(
-      'The Runtime Gateway is not configured (VITE_API_BASE_URL is unset). ' +
-        'This is expected until the service in WaaS/Workflow-Wrapper is actually deployed somewhere -- see that project\'s README.md.',
+      'The CWP API is not configured (VITE_API_BASE_URL is unset). ' +
+        'Start the stack with `docker compose up` at the repo root and point this at the gateway -- see README.md.',
     )
     this.name = 'ApiNotConfiguredError'
   }

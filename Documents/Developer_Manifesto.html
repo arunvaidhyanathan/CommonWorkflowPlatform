@@ -285,7 +285,7 @@ open http://localhost:8080          # or http://localhost:$GATEWAY_PORT (8088 on
             <tbody>
                 <tr><td><code>GATEWAY_PORT</code></td><td>gateway</td><td>Host port (default 8080)</td><td>no</td></tr>
                 <tr><td><code>CORS_ALLOWED_ORIGINS</code></td><td>gateway</td><td>Regex of browser origins allowed cross-origin (default <code>^http://localhost:5173$</code>)</td><td>no</td></tr>
-                <tr><td><code>SUPABASE_JWKS_URL</code>, <code>SUPABASE_JWT_MODE</code>, <code>SUPABASE_JWT_HS256_SECRET</code></td><td>all services</td><td>How services verify the Supabase JWT (the project signs ES256; JWKS mode)</td><td>the HS256 secret only</td></tr>
+                <tr><td><code>SUPABASE_JWKS_URL</code>, <code>SUPABASE_JWT_HS256_SECRET</code></td><td>all services</td><td>How services verify the Supabase login token. Tokens signed with a key in the JWKS (ES256/RS256) are always accepted; HS256 tokens (this project still issues them) are checked with the project&rsquo;s legacy JWT secret if set, otherwise by <strong>Supabase Auth</strong> (<code>GET /auth/v1/user</code>, answer reused for 60 s) using <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code>. This project has migrated to signing keys and no longer reveals the secret, so leave it blank.</td><td>the HS256 secret, if you have it</td></tr>
                 <tr><td><code>WORKFLOW_RUNTIME_DB_PASSWORD</code></td><td>workflow-runtime, runtime-db</td><td>Local runtime DB password</td><td>yes</td></tr>
                 <tr><td><code>AGENT_PROVIDER</code>, <code>AGENT_MODEL</code>, <code>AGENT_EDIT_MODEL</code></td><td>agentic-designer</td><td>AI provider (<code>gemini</code> | <code>nvidia</code> | <code>openrouter</code>), model (empty = provider default: <code>gemini-3.8-flash</code>, <code>moonshotai/kimi-k3</code>, <code>google/gemini-3.8-flash</code>), optional Edit-only model</td><td>no</td></tr>
                 <tr><td><code>GEMINI_API_KEY</code>, <code>NVIDIA_API_KEY</code>, <code>OPENROUTER_API_KEY</code>, <code>TYPESAFE_JEV_API_KEY</code></td><td>agentic-designer, spend-tracker</td><td>Provider keys (the tracker only checks them)</td><td>yes</td></tr>
@@ -305,7 +305,7 @@ open http://localhost:8080          # or http://localhost:$GATEWAY_PORT (8088 on
 
         <h3>6.1 Designer (web app)</h3>
         <ul>
-            <li><strong>Routes:</strong> <code>/designer</code>, <code>/onboarding</code>, <code>/workbench</code>, <code>/workflow-wrapper</code>, <code>/agentic-designer</code> (pointer to the AI Designer panel), <code>/admin</code> (tenant_admin), <code>/approvals</code> (tenant_admin, approver), <code>/spend</code> (tenant_admin; platform admins see everything).</li>
+            <li><strong>Routes:</strong> <code>/designer</code>, <code>/onboarding</code>, <code>/workbench</code>, <code>/workflow-wrapper</code>, <code>/agentic-designer</code> (redirects to <code>/designer</code>: the Agentic Designer is the Designer&rsquo;s built-in AI Designer panel, with no sidebar item of its own), <code>/admin</code> (tenant_admin), <code>/approvals</code> (tenant_admin, approver), <code>/spend</code> (tenant_admin; platform admins see everything).</li>
             <li><strong>Canvas model:</strong> React Flow nodes and edges in a zustand store with undo/redo (zundo). BPMN and CMMN are canvases; DMN is a table editor. Saved as <code>workflow_versions.graph_json</code> plus generated XML.</li>
             <li><strong>Talks to:</strong> Supabase directly (auth, design-time data, Edge Functions) and CWP services via <code>src/lib/apiClient.ts</code> (<code>apiFetch</code>, and <code>apiStream</code> for server-sent events, which skips keepalive comments).</li>
             <li><strong>AI Designer panel</strong> (toolbar button, for designers and tenant admins): Generate, Edit and Review tabs for all three notations (Section 6.4).</li>
@@ -401,8 +401,8 @@ open http://localhost:8080          # or http://localhost:$GATEWAY_PORT (8088 on
         <div class="table-wrap"><table class="stack-table">
             <thead><tr><th>Suite</th><th>Command</th><th>Count</th></tr></thead>
             <tbody>
-                <tr><td>agentic-designer (unit + API, no model calls)</td><td><code>cd services/agentic-designer &amp;&amp; uv run pytest</code></td><td>213 passing</td></tr>
-                <tr><td>spend-tracker (against a throwaway Postgres in Docker)</td><td><code>cd services/spend-tracker &amp;&amp; uv run pytest</code></td><td>52 passing</td></tr>
+                <tr><td>agentic-designer (unit + API, no model calls)</td><td><code>cd services/agentic-designer &amp;&amp; uv run pytest</code></td><td>222 passing</td></tr>
+                <tr><td>spend-tracker (against a throwaway Postgres in Docker)</td><td><code>cd services/spend-tracker &amp;&amp; uv run pytest</code></td><td>54 passing</td></tr>
                 <tr><td>Designer typecheck and lint</td><td><code>cd Designer &amp;&amp; npx tsc -b &amp;&amp; npm run lint</code></td><td>clean</td></tr>
                 <tr><td>workflow-runtime</td><td><code>cd services/workflow-runtime &amp;&amp; mvn -DskipTests package</code> (builds)</td><td><strong>no automated tests yet</strong></td></tr>
                 <tr><td>AI evaluation (real, metered calls)</td><td><code>cd services/agentic-designer &amp;&amp; uv run python scripts/eval.py run --provider gemini --pause 2 --env-file ../../.env</code>; compare with <code>scripts/eval.py compare A.json B.json</code></td><td>22 cases; reports in <code>evals/reports/</code></td></tr>
@@ -473,6 +473,8 @@ docker compose down                              # stop (volumes, i.e. data, are
         <div class="table-wrap"><table class="stack-table">
             <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
             <tbody>
+                <tr><td><code>Invalid token: Unable to find a signing key that matches: "&hellip;"</code> or <code>HS256 token, but SUPABASE_JWT_HS256_SECRET is not configured</code>; pages show HTTP 401</td><td>Supabase signs logins with the project&rsquo;s legacy HS256 key, whose key id isn&rsquo;t in the JWKS, and the service has no way to check them</td><td>Set <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> in the project <code>.env</code> and leave <code>SUPABASE_JWT_HS256_SECRET</code> blank (a wrong value there is used instead of Supabase Auth and rejects every login; <code>SUPABASE_JWT_SECRET</code> in <code>~/Developer/.env</code> belongs to another project). Then <code>docker compose up -d workflow-runtime agentic-designer spend-tracker</code></td></tr>
+                <tr><td><code>Supabase Auth rejected the token (HTTP 403)</code></td><td>The session was signed out or has expired, or the token is forged</td><td>Log in again</td></tr>
                 <tr><td>Gateway won&rsquo;t start: &ldquo;port is already allocated&rdquo;</td><td>Another container uses 8080</td><td>Set <code>GATEWAY_PORT</code> in <code>.env</code> (8088 here)</td></tr>
                 <tr><td>Gemini: <code>429 RESOURCE_EXHAUSTED</code> &ldquo;monthly spending cap&rdquo;</td><td>The project&rsquo;s spend cap in AI Studio is reached; credit alone doesn&rsquo;t lift it</td><td>Raise the cap at <a href="https://ai.studio/spend">ai.studio/spend</a>; confirm with <code>scripts/check_gemini.py</code></td></tr>
                 <tr><td>OpenRouter: HTTP 402, &ldquo;out of credit&rdquo;</td><td>The key&rsquo;s $10 is a spending <em>cap</em>; the account has no purchased credit</td><td>Add credit in OpenRouter &rarr; Settings &rarr; Credits</td></tr>
@@ -528,7 +530,7 @@ docker compose down                              # stop (volumes, i.e. data, are
     <section>
         <h2 id="s15">15. Known Limits &amp; What&rsquo;s Next</h2>
         <ul>
-            <li><strong>Not yet tested with a real login:</strong> the browser flows in Section 11, including Publish through the gateway and grounding end to end.</li>
+            <li><strong>Not yet tested with a real login:</strong> the browser flows in Section 11, including Publish through the gateway and grounding end to end. The first real login (September 27) showed the project signs logins with HS256; every earlier check used test tokens signed with the JWKS key, which is why it wasn&rsquo;t caught sooner.</li>
             <li><strong>workflow-runtime has no automated tests</strong>, including none for tenant isolation (a known risk).</li>
             <li><strong>Deploying AI-made CMMN or DMN</strong> models through Publish to Flowable is untested.</li>
             <li><strong>Alerts</strong> show in the app and log only; email or Slack needs a channel choice.</li>
@@ -564,7 +566,8 @@ docker compose down                              # stop (volumes, i.e. data, are
         <div class="table-wrap"><table class="stack-table">
             <thead><tr><th>Commit</th><th>Change</th></tr></thead>
             <tbody>
-                <tr><td>(this commit)</td><td>Developer Manifesto; Gemini as the provider; out-of-credit handling; OpenRouter prices; Gemini diagnostic; fix &ldquo;Unsaved changes&rdquo; on open</td></tr>
+                <tr><td>(this commit)</td><td>Accept HS256 login tokens in all three services, checked by Supabase Auth (or the legacy secret, if set), fixing 401s for real logins; the Agentic Designer&rsquo;s sidebar item and page removed (it lives in the Designer; the old link redirects); remaining &ldquo;Runtime Gateway&rdquo; wording in the app</td></tr>
+                <tr><td><code>2de3544</code></td><td>Developer Manifesto; Gemini as the provider; out-of-credit handling; OpenRouter prices; Gemini diagnostic; fix &ldquo;Unsaved changes&rdquo; on open</td></tr>
                 <tr><td><code>e30a034</code></td><td>Evaluation harness and tenant grounding (A5)</td></tr>
                 <tr><td><code>ef1cbae</code></td><td>CMMN and DMN in the Agentic Designer (A4)</td></tr>
                 <tr><td><code>76cc2ba</code></td><td>Review mode with seeded-defect evaluation (A3)</td></tr>

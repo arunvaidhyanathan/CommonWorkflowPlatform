@@ -74,7 +74,9 @@ def create_app(
             await app.state.pool.close()
 
     app = FastAPI(title="CWP Spend Tracker", lifespan=lifespan)
-    app.state.verifier = verifier or JwtVerifier(os.environ["SUPABASE_JWKS_URL"])
+    app.state.verifier = verifier or JwtVerifier(
+        os.environ["SUPABASE_JWKS_URL"], os.environ.get("SUPABASE_JWT_HS256_SECRET"),
+        os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY"))
     app.state.ingest_token = ingest_token if ingest_token is not None else os.environ.get("SPEND_INGEST_TOKEN", "")
     app.state.admin_user_ids = admin_user_ids if admin_user_ids is not None else {
         u.strip() for u in os.environ.get("SPEND_ADMIN_USER_IDS", "").split(",") if u.strip()

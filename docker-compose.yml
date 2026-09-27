@@ -27,8 +27,10 @@ services:
       WORKFLOW_RUNTIME_DB_USER: workflow_runtime
       WORKFLOW_RUNTIME_DB_PASSWORD: ${WORKFLOW_RUNTIME_DB_PASSWORD:?set WORKFLOW_RUNTIME_DB_PASSWORD in .env}
       SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:?set SUPABASE_JWKS_URL in .env}
-      SUPABASE_JWT_MODE: ${SUPABASE_JWT_MODE:-jwks}
       SUPABASE_JWT_HS256_SECRET: ${SUPABASE_JWT_HS256_SECRET:-}
+      # HS256 logins are checked by Supabase Auth when the secret above is unset.
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
     depends_on:
       runtime-db:
         condition: service_healthy
@@ -37,6 +39,7 @@ services:
     build: services/agentic-designer
     environment:
       SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:?set SUPABASE_JWKS_URL in .env}
+      SUPABASE_JWT_HS256_SECRET: ${SUPABASE_JWT_HS256_SECRET:-}
       # gemini | nvidia | openrouter. Without the chosen provider's key the
       # service still starts and /generate returns 503.
       AGENT_PROVIDER: ${AGENT_PROVIDER:-gemini}
@@ -63,6 +66,9 @@ services:
     environment:
       SPEND_DATABASE_URL: postgresql://spend_tracker:${SPEND_DB_PASSWORD:?set SPEND_DB_PASSWORD in .env}@spend-db:5432/cwp_spend
       SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:?set SUPABASE_JWKS_URL in .env}
+      SUPABASE_JWT_HS256_SECRET: ${SUPABASE_JWT_HS256_SECRET:-}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
       SPEND_INGEST_TOKEN: ${SPEND_INGEST_TOKEN:?set SPEND_INGEST_TOKEN in .env}
       # Comma-separated Supabase user ids allowed platform-wide spend and key health.
       SPEND_ADMIN_USER_IDS: ${SPEND_ADMIN_USER_IDS:-}

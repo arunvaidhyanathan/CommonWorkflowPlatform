@@ -108,7 +108,9 @@ def create_app(
         (_provider_from_env(os.environ.get("AGENT_EDIT_MODEL")) if os.environ.get("AGENT_EDIT_MODEL") else None)
         if provider is None else None
     )
-    app.state.verifier = verifier or JwtVerifier(os.environ["SUPABASE_JWKS_URL"])
+    app.state.verifier = verifier or JwtVerifier(
+        os.environ["SUPABASE_JWKS_URL"], os.environ.get("SUPABASE_JWT_HS256_SECRET"),
+        os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY"))
     app.state.usage_sink = usage_sink or _usage_sink_from_env()
     app.state.grounding = grounding if grounding is not None else (_grounding_from_env() if provider is None else None)
     app.state.prices = prices or PriceTable.bundled()

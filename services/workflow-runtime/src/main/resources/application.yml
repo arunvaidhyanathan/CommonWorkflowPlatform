@@ -82,9 +82,12 @@ flowable:
 # Custom properties read by SecurityConfig.java.
 supabase:
   jwt:
-    # jwks (default, recommended) or hs256 (legacy Supabase projects only).
-    mode: ${SUPABASE_JWT_MODE:jwks}
+    # Tokens signed with a JWKS key are always accepted. HS256 tokens (the
+    # project's legacy shared key) are checked with this when set, else by
+    # Supabase Auth using url and anon-key below.
     hs256-secret: ${SUPABASE_JWT_HS256_SECRET:}
+  url: ${SUPABASE_URL:}
+  anon-key: ${SUPABASE_ANON_KEY:}
 
 server:
   port: ${PORT:8081}

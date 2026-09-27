@@ -176,7 +176,7 @@
             <li>Design-time reads and writes go straight to Supabase PostgREST, governed by RLS (unchanged).</li>
             <li>Calls to CWP's own services go through <code>Designer/src/lib/apiClient.ts</code> (<code>apiFetch</code>), which prefixes <code>VITE_API_BASE_URL</code> and attaches the Supabase JWT as a Bearer token.</li>
             <li>nginx routes by path prefix and forwards the token untouched.</li>
-            <li>Each service verifies the JWT against Supabase's JWKS endpoint and reads <code>app_metadata.role</code> and the tenant id from its claims.</li>
+            <li>Each service verifies the JWT (keys in Supabase's JWKS; HS256 logins with the legacy secret <code>SUPABASE_JWT_HS256_SECRET</code> if set, otherwise by asking Supabase Auth) and reads <code>app_metadata.role</code> and the tenant id from its claims.</li>
         </ol>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
     </section>
@@ -203,7 +203,7 @@ open http://localhost:8080  # or GATEWAY_PORT from .env</code></pre>
                 <tr><td><code>GATEWAY_PORT</code></td><td>Host port for the gateway</td></tr>
                 <tr><td><code>WORKFLOW_RUNTIME_DB_PASSWORD</code></td><td>Password for the local <code>runtime-db</code> (required)</td></tr>
                 <tr><td><code>SUPABASE_JWKS_URL</code></td><td>JWKS endpoint services verify JWTs against (required)</td></tr>
-                <tr><td><code>SUPABASE_JWT_MODE</code> / <code>SUPABASE_JWT_HS256_SECRET</code></td><td><code>jwks</code> (default) or <code>hs256</code> for legacy projects</td></tr>
+                <tr><td><code>SUPABASE_JWT_HS256_SECRET</code></td><td>The project&rsquo;s legacy JWT secret, optional. When blank, HS256 logins are checked by Supabase Auth using <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> (now passed to all three services). This project no longer reveals the secret, so it stays blank</td></tr>
                 <tr><td><code>CORS_ALLOWED_ORIGINS</code></td><td>Regex of browser origins allowed to call <code>/api/*</code> cross-origin</td></tr>
                 <tr><td><code>AGENT_GROUNDING</code>, <code>SUPABASE_URL</code>, <code>SUPABASE_ANON_KEY</code>, <code>AGENT_EMBED_PROVIDER</code>, <code>AGENT_EMBED_MODEL</code></td><td>Agentic Designer grounding in the tenant&rsquo;s workflows (AgenticDesigner.html Section 4e). The key is the browser app&rsquo;s public key; the agent reads Supabase as the logged-in user</td></tr>
                 <tr><td><code>SPEND_DB_PASSWORD</code>, <code>SPEND_INGEST_TOKEN</code>, <code>SPEND_ADMIN_USER_IDS</code>, <code>SPEND_KEY_CHECK_INTERVAL_S</code>, <code>TYPESAFE_JEV_API_KEY</code></td><td>Spend tracker settings (SpendTracker.html Section 3b)</td></tr>

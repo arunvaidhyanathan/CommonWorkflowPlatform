@@ -7,7 +7,6 @@ import { AppShell } from './components/AppShell'
 import { RequireRole } from './components/RequireRole'
 import { SetPasswordScreen } from './components/SetPasswordScreen'
 import { DesignerPage } from './pages/DesignerPage'
-import { StubPage } from './pages/StubPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { WorkbenchPage } from './pages/WorkbenchPage'
 import { AdministrationPage } from './pages/AdministrationPage'
@@ -53,15 +52,8 @@ function App() {
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/workbench" element={<WorkbenchPage />} />
           <Route path="/workflow-wrapper" element={<WorkflowWrapperPage />} />
-          <Route
-            path="/agentic-designer"
-            element={
-              <StubPage
-                title="Agentic Designer"
-                description="Generate with AI now lives in the Designer: open a BPMN workflow and use the Generate with AI button in its toolbar. Chat-based editing and review are planned (AgenticDesigner.html)."
-              />
-            }
-          />
+          {/* The Agentic Designer lives in the Designer (AI Designer panel); keep old links working. */}
+          <Route path="/agentic-designer" element={<Navigate to="/designer" replace />} />
           <Route
             path="/admin"
             element={

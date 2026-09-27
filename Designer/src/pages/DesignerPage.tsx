@@ -701,7 +701,7 @@ export function DesignerPage() {
               type="button"
               onClick={onPublish}
               disabled={!draftVersionId || publishStatus === 'publishing'}
-              title="Package this approved version and deploy it via the Runtime Gateway (WorkflowWrapper.html)"
+              title="Package this approved version and deploy it to the workflow runtime (WorkflowWrapper.html)"
               className="rounded bg-[#003b70] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#00294f] disabled:opacity-50"
             >
               {publishStatus === 'publishing' ? 'Publishing...' : 'Publish'}
@@ -719,7 +719,7 @@ export function DesignerPage() {
       </div>
       {publishStatus === 'published' && (
         <div className="border-b border-emerald-200 bg-emerald-50 px-4 py-1.5 text-xs font-semibold text-emerald-700">
-          Deployment created via the Runtime Gateway.
+          Deployment created in the workflow runtime.
         </div>
       )}
       {publishStatus === 'error' && publishError && (

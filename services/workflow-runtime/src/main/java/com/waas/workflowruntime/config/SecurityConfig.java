@@ -1,32 +1,37 @@
 package com.waas.workflowruntime.config;
 
+import java.text.ParseException;
+import java.time.Clock;
+
 import javax.crypto.spec.SecretKeySpec;
 
+import com.nimbusds.jwt.JWTParser;
+
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.client.RestClient;
 
 /**
- * Security configuration for the Runtime Gateway. Stateless, JWT-only --
+ * Security configuration for workflow-runtime (formerly the Runtime Gateway). Stateless, JWT-only --
  * this service issues nothing itself and trusts Supabase Auth entirely as
  * the identity provider (CWP.html Section 2: "Supabase Auth is the single
  * identity provider"), the same as every other component in this platform.
  *
- * <p><b>Two JWT verification modes</b>, selected by {@code supabase.jwt.mode}
- * (application.yml): most Supabase projects today sign with an asymmetric
- * key and expose a JWKS endpoint ({@code jwks}, the default here). Older
- * Supabase projects that haven't migrated off the legacy shared HS256 JWT
- * secret need {@code hs256} instead, verified against that literal shared
- * secret. Confirm which applies to project {@code nrhsoabqeskybrznxfyi} in
- * Supabase's dashboard (Project Settings -> API -> JWT Settings) before
- * relying on this in anything beyond local development.
+ * <p><b>Both Supabase signing schemes are accepted</b> (see {@link #jwtDecoder}):
+ * tokens signed with a key in the project's JWKS (ES256/RS256), and tokens
+ * signed with the project's legacy shared key (HS256). HS256 tokens are checked
+ * with {@code supabase.jwt.hs256-secret} when set, otherwise by Supabase Auth
+ * ({@link SupabaseAuthTokenDecoder}). Project {@code nrhsoabqeskybrznxfyi}
+ * issued HS256 login tokens as of September 27, 2026 (their key id is not in
+ * the JWKS) and, having migrated to signing keys, no longer reveals the secret.
  */
 @Configuration
 public class SecurityConfig {
@@ -45,38 +50,45 @@ public class SecurityConfig {
     }
 
     /**
-     * Default, recommended path: verify against Supabase's published JWKS.
-     * The converter maps app_metadata.role onto a ROLE_* authority
-     * (SupabaseJwtAuthenticationConverter) -- wired via
-     * spring.security.oauth2.resourceserver.jwt.jwk-set-uri
-     * (application.yml), which Spring Boot's autoconfiguration already
-     * turns into a JwtDecoder bean automatically. This explicit bean only
-     * exists to attach the custom authentication converter; if Spring
-     * Boot's own autoconfigured decoder is sufficient once this is wired up
-     * for real, this bean can be simplified away.
+     * Supabase signs login tokens either with an asymmetric key published in
+     * the project's JWKS (ES256/RS256) or, for projects still on it, with the
+     * legacy shared secret (HS256, whose key id isn't in the JWKS). Accept
+     * both: pick the decoder by the token's algorithm. HS256 tokens are
+     * checked with {@code supabase.jwt.hs256-secret} when set, else by
+     * Supabase Auth when {@code supabase.url} and {@code supabase.anon-key}
+     * are set, else refused.
      */
     @Bean
-    @ConditionalOnProperty(name = "supabase.jwt.mode", havingValue = "jwks", matchIfMissing = true)
-    public JwtDecoder jwksJwtDecoder(
-            @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwkSetUri) {
-        return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
-    }
-
-    /**
-     * Fallback path for a Supabase project still on the legacy shared HS256
-     * JWT secret (Project Settings -> API -> JWT Settings -> "JWT Secret").
-     * Set {@code SUPABASE_JWT_MODE=hs256} and {@code
-     * SUPABASE_JWT_HS256_SECRET=<that secret>} to use this instead of JWKS.
-     */
-    @Bean
-    @ConditionalOnProperty(name = "supabase.jwt.mode", havingValue = "hs256")
-    public JwtDecoder hs256JwtDecoder(@Value("${supabase.jwt.hs256-secret}") String secret) {
-        if (secret == null || secret.isBlank()) {
-            throw new IllegalStateException(
-                    "supabase.jwt.mode=hs256 requires supabase.jwt.hs256-secret to be set.");
+    public JwtDecoder jwtDecoder(
+            @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwkSetUri,
+            @Value("${supabase.jwt.hs256-secret:}") String secret,
+            @Value("${supabase.url:}") String supabaseUrl,
+            @Value("${supabase.anon-key:}") String anonKey) {
+        JwtDecoder jwks = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        JwtDecoder hs256 = (secret == null || secret.isBlank())
+                ? null
+                : NimbusJwtDecoder.withSecretKey(new SecretKeySpec(secret.getBytes(), "HmacSHA256"))
+                        .macAlgorithm(MacAlgorithm.HS256).build();
+        if (hs256 == null && !supabaseUrl.isBlank() && !anonKey.isBlank()) {
+            hs256 = new SupabaseAuthTokenDecoder(RestClient.builder(), supabaseUrl, anonKey, Clock.systemUTC());
         }
-        SecretKeySpec key = new SecretKeySpec(secret.getBytes(), "HmacSHA256");
-        return NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+        JwtDecoder hs256Decoder = hs256;
+        return token -> {
+            String alg;
+            try {
+                alg = JWTParser.parse(token).getHeader().getAlgorithm().getName();
+            } catch (ParseException e) {
+                throw new BadJwtException("Malformed token", e);
+            }
+            if ("HS256".equals(alg)) {
+                if (hs256Decoder == null) {
+                    throw new BadJwtException(
+                            "HS256 token, but neither supabase.jwt.hs256-secret nor supabase.url and supabase.anon-key are configured");
+                }
+                return hs256Decoder.decode(token);
+            }
+            return jwks.decode(token);
+        };
     }
 
     @Bean

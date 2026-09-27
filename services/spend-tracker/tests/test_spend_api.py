@@ -114,3 +114,50 @@ def test_costs_are_plain_decimal_strings(client, signer):
     body = summary(client, signer.token(sub=ADMIN_ID)).json()
     assert body["total"]["costUsd"] == "15"
     assert all("E" not in d["costUsd"] for d in body["daily"])
+
+
+def test_legacy_hs256_tokens_verify_with_the_secret_and_only_with_it():
+    import time
+
+    import jwt as pyjwt
+
+    from spend_tracker.auth import JwtVerifier
+
+    token = pyjwt.encode({"sub": "u1", "exp": int(time.time()) + 300}, "project-secret", algorithm="HS256")
+    assert JwtVerifier("https://example.invalid/jwks.json", "project-secret").verify(token)["sub"] == "u1"
+    with pytest.raises(pyjwt.InvalidTokenError):
+        JwtVerifier("https://example.invalid/jwks.json", "wrong-secret").verify(token)
+    with pytest.raises(pyjwt.InvalidTokenError):
+        JwtVerifier("https://example.invalid/jwks.json").verify(token)
+
+
+def test_hs256_tokens_without_the_secret_are_judged_by_supabase_auth():
+    # The migrated project no longer reveals its legacy secret, so Supabase
+    # Auth decides; a token it rejects must never reach spend data.
+    import time
+
+    import httpx
+    import jwt as pyjwt
+
+    from spend_tracker.auth import JwtVerifier
+
+    def verifier(status, user_id="u1"):
+        calls = []
+
+        def handler(request):
+            calls.append(request)
+            return httpx.Response(status, json={"id": user_id})
+
+        v = JwtVerifier("https://example.invalid/jwks.json", None, "https://proj.supabase.co", "anon",
+                        httpx.Client(transport=httpx.MockTransport(handler)))
+        return v, calls
+
+    token = pyjwt.encode({"sub": "u1", "exp": int(time.time()) + 300}, "unknown", algorithm="HS256")
+    v, calls = verifier(200)
+    assert v.verify(token)["sub"] == "u1"
+    v.verify(token)
+    assert len(calls) == 1 and str(calls[0].url) == "https://proj.supabase.co/auth/v1/user"
+    with pytest.raises(pyjwt.InvalidTokenError, match="HTTP 401"):
+        verifier(401)[0].verify(token)
+    with pytest.raises(pyjwt.InvalidTokenError, match="different user"):
+        verifier(200, user_id="u2")[0].verify(token)
