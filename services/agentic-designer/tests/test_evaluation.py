@@ -238,3 +238,19 @@ def test_all_empty_replies_count_as_no_answer_not_a_wrong_answer():
     r = run(Silent(), case)
     assert (r.outcome, r.attempts, r.empty_replies) == ("failed", 3, 3)
     assert harness.summarize([r])["all"]["no_answer"] == 1
+
+
+def test_out_of_credit_is_not_retried():
+    # Waiting doesn't refill an account; retrying would just burn time.
+    class Broke(ScriptedProvider):
+        def __init__(self):
+            super().__init__()
+            self.hits = 0
+
+        async def generate_json(self, system, turns, schema):
+            self.hits += 1
+            raise ProviderError("out of credit", kind="rate_limited", retryable=False)
+
+    provider = Broke()
+    r = asyncio.run(harness.run_case(provider, Case("t", "generate", "BPMN", "Loan", (has_condition("10000"),)), backoff_s=0))
+    assert r.outcome == "error" and provider.hits == 1

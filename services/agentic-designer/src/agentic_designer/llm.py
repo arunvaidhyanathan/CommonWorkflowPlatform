@@ -36,10 +36,12 @@ class ProviderError(RuntimeError):
     """A provider call failed. ``user_message`` is safe to show in the
     browser; the original exception (logged server-side) is not."""
 
-    def __init__(self, user_message: str, kind: ErrorKind = "error"):
+    def __init__(self, user_message: str, kind: ErrorKind = "error", retryable: bool = True):
         super().__init__(user_message)
         self.user_message = user_message
         self.kind = kind
+        # False when waiting won't help (e.g. an account out of credit).
+        self.retryable = retryable
 
 
 class LLMProvider(Protocol):
@@ -145,6 +147,13 @@ class OpenAICompatibleProvider:
                 f"The AI provider ({self.name}) refused the request: rate limit or quota reached.", kind="rate_limited"
             ) from exc
         except openai.APIStatusError as exc:
+            if exc.status_code == 402:
+                # Out of credit: the key is refused like a spent quota (so the
+                # spend tracker alerts), and retrying won't help.
+                raise ProviderError(
+                    f"The AI provider ({self.name}) refused the request: the account is out of credit.",
+                    kind="rate_limited", retryable=False,
+                ) from exc
             raise ProviderError(f"The AI provider ({self.name}) returned an error (HTTP {exc.status_code}).") from exc
         except openai.APIConnectionError as exc:
             raise ProviderError(f"The AI provider ({self.name}) could not be reached.") from exc

@@ -112,16 +112,19 @@ export const useWorkbenchStore = create<WorkbenchState>()(
           tenantId,
         }),
 
+      // React Flow also reports node measurements ('dimensions', e.g. on first
+      // render) and clicks ('select'). Neither changes what gets saved, so
+      // they must not mark the workflow as having unsaved changes.
       onNodesChange: (changes) =>
         set({
           nodes: applyNodeChanges(changes, get().nodes),
-          isDirty: true,
+          isDirty: get().isDirty || changes.some((c) => c.type !== 'dimensions' && c.type !== 'select'),
         }),
 
       onEdgesChange: (changes) =>
         set({
           edges: applyEdgeChanges(changes, get().edges),
-          isDirty: true,
+          isDirty: get().isDirty || changes.some((c) => c.type !== 'select'),
         }),
 
       onConnect: (connection) =>

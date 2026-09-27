@@ -1,0 +1,741 @@
+{
+ "provider": "gemini",
+ "model": "gemini-3.8-flash",
+ "started": "2026-09-27T21:10:46+00:00",
+ "finished": "2026-09-27T21:14:50+00:00",
+ "summary": {
+  "generate/BPMN": {
+   "cases": 5,
+   "valid": 5,
+   "errors": 0,
+   "checks_passed": 11,
+   "checks_total": 14,
+   "mean_seconds": 6.0,
+   "mean_attempts": 1.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 10809,
+   "cost_usd": "0.03222075"
+  },
+  "all": {
+   "cases": 22,
+   "valid": 22,
+   "errors": 0,
+   "checks_passed": 42,
+   "checks_total": 45,
+   "mean_seconds": 9.2,
+   "mean_attempts": 1.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 60839,
+   "cost_usd": "0.17857425"
+  },
+  "generate/CMMN": {
+   "cases": 2,
+   "valid": 2,
+   "errors": 0,
+   "checks_passed": 5,
+   "checks_total": 5,
+   "mean_seconds": 11.2,
+   "mean_attempts": 1.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 6907,
+   "cost_usd": "0.02284425"
+  },
+  "generate/DMN": {
+   "cases": 2,
+   "valid": 2,
+   "errors": 0,
+   "checks_passed": 8,
+   "checks_total": 8,
+   "mean_seconds": 3.8,
+   "mean_attempts": 1.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 3165,
+   "cost_usd": "0.00864675"
+  },
+  "edit/BPMN": {
+   "cases": 2,
+   "valid": 2,
+   "errors": 0,
+   "checks_passed": 5,
+   "checks_total": 5,
+   "mean_seconds": 19.1,
+   "mean_attempts": 1.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 11156,
+   "cost_usd": "0.037212"
+  },
+  "edit/CMMN": {
+   "cases": 1,
+   "valid": 1,
+   "errors": 0,
+   "checks_passed": 2,
+   "checks_total": 2,
+   "mean_seconds": 41.9,
+   "mean_attempts": 1.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 5589,
+   "cost_usd": "0.01637475"
+  },
+  "edit/DMN": {
+   "cases": 1,
+   "valid": 1,
+   "errors": 0,
+   "checks_passed": 2,
+   "checks_total": 2,
+   "mean_seconds": 4.2,
+   "mean_attempts": 1.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 2280,
+   "cost_usd": "0.00525"
+  },
+  "review/BPMN": {
+   "cases": 6,
+   "valid": 6,
+   "errors": 0,
+   "checks_passed": 6,
+   "checks_total": 6,
+   "mean_seconds": 4.0,
+   "mean_attempts": 1.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 8689,
+   "cost_usd": "0.02043075"
+  },
+  "review/DMN": {
+   "cases": 2,
+   "valid": 2,
+   "errors": 0,
+   "checks_passed": 2,
+   "checks_total": 2,
+   "mean_seconds": 12.6,
+   "mean_attempts": 1.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 8431,
+   "cost_usd": "0.02553225"
+  },
+  "review/CMMN": {
+   "cases": 1,
+   "valid": 1,
+   "errors": 0,
+   "checks_passed": 1,
+   "checks_total": 1,
+   "mean_seconds": 8.8,
+   "mean_attempts": 1.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 3813,
+   "cost_usd": "0.01006275"
+  }
+ },
+ "cases": [
+  {
+   "id": "gen-bpmn-loan",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 7.8,
+   "calls": 1,
+   "input_tokens": 541,
+   "output_tokens": 2215,
+   "cost_usd": "0.008712",
+   "checks": [
+    {
+     "name": "userTask mentioning manager",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "condition mentioning 10000 or 10k",
+     "passed": true,
+     "detail": "${amount>10000}; ${managerapproved}"
+    },
+    {
+     "name": "serviceTask mentioning disburs",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "gen-bpmn-parallel-onboarding",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 3.0,
+   "calls": 1,
+   "input_tokens": 515,
+   "output_tokens": 735,
+   "cost_usd": "0.0031425",
+   "checks": [
+    {
+     "name": "parallelGateway mentioning anything",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "userTask mentioning contract",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "userTask mentioning welcome",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "gen-bpmn-expense",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 11.1,
+   "calls": 1,
+   "input_tokens": 514,
+   "output_tokens": 2922,
+   "cost_usd": "0.011343",
+   "checks": [
+    {
+     "name": "condition mentioning 5000 or 5k",
+     "passed": true,
+     "detail": "${amount>5000}"
+    },
+    {
+     "name": "userTask mentioning finance",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "gen-cmmn-fraud",
+   "mode": "generate",
+   "spec": "CMMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 7.9,
+   "calls": 1,
+   "input_tokens": 510,
+   "output_tokens": 2305,
+   "cost_usd": "0.00902625",
+   "checks": [
+    {
+     "name": "cmmnHumanTask mentioning evidence",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "cmmnHumanTask mentioning interview",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "a sentry waits for evidence and interview",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "gen-cmmn-claim",
+   "mode": "generate",
+   "spec": "CMMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 14.5,
+   "calls": 1,
+   "input_tokens": 509,
+   "output_tokens": 3583,
+   "cost_usd": "0.013818",
+   "checks": [
+    {
+     "name": "cmmnHumanTask mentioning assess",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "condition mentioning fraudSuspected",
+     "passed": true,
+     "detail": "${fraudsuspected==true}"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "gen-dmn-loan-tier",
+   "mode": "generate",
+   "spec": "DMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 4.7,
+   "calls": 1,
+   "input_tokens": 549,
+   "output_tokens": 1399,
+   "cost_usd": "0.005658",
+   "checks": [
+    {
+     "name": "{'creditScore': 780, 'dti': 0.2} -> riskTier='Low'",
+     "passed": true,
+     "detail": "got 'Low'"
+    },
+    {
+     "name": "{'creditScore': 700, 'dti': 0.5} -> riskTier='Medium'",
+     "passed": true,
+     "detail": "got 'Medium'"
+    },
+    {
+     "name": "{'creditScore': 800, 'dti': 0.4} -> riskTier='Medium'",
+     "passed": true,
+     "detail": "got 'Medium'"
+    },
+    {
+     "name": "{'creditScore': 600, 'dti': 0.6} -> riskTier='High'",
+     "passed": true,
+     "detail": "got 'High'"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "gen-dmn-shipping",
+   "mode": "generate",
+   "spec": "DMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 2.8,
+   "calls": 1,
+   "input_tokens": 525,
+   "output_tokens": 692,
+   "cost_usd": "0.00298875",
+   "checks": [
+    {
+     "name": "{'zone': 'domestic', 'weightKg': 1} -> cost=5",
+     "passed": true,
+     "detail": "got 5"
+    },
+    {
+     "name": "{'zone': 'domestic', 'weightKg': 5} -> cost=12",
+     "passed": true,
+     "detail": "got 12"
+    },
+    {
+     "name": "{'zone': 'international', 'weightKg': 2} -> cost=20",
+     "passed": true,
+     "detail": "got 20"
+    },
+    {
+     "name": "{'zone': 'international', 'weightKg': 10} -> cost=45",
+     "passed": true,
+     "detail": "got 45"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "edit-bpmn-compliance",
+   "mode": "edit",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 5.9,
+   "calls": 1,
+   "input_tokens": 775,
+   "output_tokens": 1633,
+   "cost_usd": "0.006705",
+   "checks": [
+    {
+     "name": "userTask mentioning compliance",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "condition mentioning 50000 or 50k",
+     "passed": true,
+     "detail": "${amount>10000}; ${amount>50000}"
+    },
+    {
+     "name": "kept the untouched nodes",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "edit-bpmn-remove-manager",
+   "mode": "edit",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 32.3,
+   "calls": 1,
+   "input_tokens": 766,
+   "output_tokens": 7982,
+   "cost_usd": "0.030507",
+   "checks": [
+    {
+     "name": "no node mentioning manager",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "kept the untouched nodes",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "edit-cmmn-legal",
+   "mode": "edit",
+   "spec": "CMMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 41.9,
+   "calls": 1,
+   "input_tokens": 1528,
+   "output_tokens": 4061,
+   "cost_usd": "0.01637475",
+   "checks": [
+    {
+     "name": "PI_Determination waits for a new legal item",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "kept the untouched nodes",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "edit-dmn-operations",
+   "mode": "edit",
+   "spec": "DMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 4.2,
+   "calls": 1,
+   "input_tokens": 1100,
+   "output_tokens": 1180,
+   "cost_usd": "0.00525",
+   "checks": [
+    {
+     "name": "{'department': 'Operations', 'priorIncidentCount': 3} -> riskPoints=12",
+     "passed": true,
+     "detail": "got 12"
+    },
+    {
+     "name": "{'department': 'Trading', 'priorIncidentCount': 6} -> riskPoints=45",
+     "passed": true,
+     "detail": "got 45"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-seeded-unassigned_task",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 4.0,
+   "calls": 1,
+   "input_tokens": 720,
+   "output_tokens": 905,
+   "cost_usd": "0.00393375",
+   "checks": [
+    {
+     "name": "reports {'source': 'check', 'categories': ['AD017'], 'node': 'manager'}",
+     "passed": true,
+     "detail": "ai:missing_path, check:AD017"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-seeded-dead_end",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 4.9,
+   "calls": 1,
+   "input_tokens": 770,
+   "output_tokens": 1219,
+   "cost_usd": "0.00514875",
+   "checks": [
+    {
+     "name": "reports {'source': 'check', 'categories': ['AD010'], 'node': 'hold'}",
+     "passed": true,
+     "detail": "ai:missing_path, ai:overlapping_conditions, check:AD010"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-seeded-no_rejection_path",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 2.3,
+   "calls": 1,
+   "input_tokens": 579,
+   "output_tokens": 364,
+   "cost_usd": "0.00179925",
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['missing_path'], 'node': 'approve'}",
+     "passed": true,
+     "detail": "ai:assignment, ai:missing_path"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-seeded-overlapping_conditions",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 7.3,
+   "calls": 1,
+   "input_tokens": 708,
+   "output_tokens": 1249,
+   "cost_usd": "0.00521475",
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['overlapping_conditions'], 'node': 'amount_check'}",
+     "passed": true,
+     "detail": "ai:missing_path, ai:ordering, ai:overlapping_conditions"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-seeded-unclear_label",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 2.4,
+   "calls": 1,
+   "input_tokens": 697,
+   "output_tokens": 397,
+   "cost_usd": "0.0020115",
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['unclear_label'], 'node': 'review'}",
+     "passed": true,
+     "detail": "ai:missing_path, ai:unclear_label"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-seeded-wrong_order",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 2.9,
+   "calls": 1,
+   "input_tokens": 577,
+   "output_tokens": 504,
+   "cost_usd": "0.00232275",
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['ordering'], 'node': 'disburse'}",
+     "passed": true,
+     "detail": "ai:missing_path, ai:ordering"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-dmn-sample-gap",
+   "mode": "review",
+   "spec": "DMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 14.2,
+   "calls": 1,
+   "input_tokens": 1014,
+   "output_tokens": 3742,
+   "cost_usd": "0.014793",
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['rule_gap'], 'node': 'Decision_RiskScoreAggregation'}",
+     "passed": true,
+     "detail": "ai:assignment, ai:hit_policy, ai:rule_gap"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-dmn-sample-priority",
+   "mode": "review",
+   "spec": "DMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 11.1,
+   "calls": 1,
+   "input_tokens": 1014,
+   "output_tokens": 2661,
+   "cost_usd": "0.01073925",
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['hit_policy'], 'node': 'Decision_SanctionSeverity'}",
+     "passed": true,
+     "detail": "ai:hit_policy, ai:rule_gap"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-cmmn-sample",
+   "mode": "review",
+   "spec": "CMMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 8.8,
+   "calls": 1,
+   "input_tokens": 1412,
+   "output_tokens": 2401,
+   "cost_usd": "0.01006275",
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['missing_path', 'ordering', 'incomplete_conditions'], 'node': None}",
+     "passed": true,
+     "detail": "ai:ordering"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "ground-bpmn-with-tenant",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 5.0,
+   "calls": 1,
+   "input_tokens": 689,
+   "output_tokens": 1278,
+   "cost_usd": "0.00530925",
+   "checks": [
+    {
+     "name": "userTask mentioning credit_committee",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "condition mentioning loanAmount",
+     "passed": false,
+     "detail": "${abovecommitteelimit==true}"
+    },
+    {
+     "name": "a delegate expression mentioning loanCore",
+     "passed": true,
+     "detail": "${loanCore.disburse}"
+    }
+   ],
+   "error": null,
+   "grounded_on": [
+    "Mortgage approval"
+   ],
+   "empty_replies": 0
+  },
+  {
+   "id": "ground-bpmn-baseline",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 3.3,
+   "calls": 1,
+   "input_tokens": 512,
+   "output_tokens": 888,
+   "cost_usd": "0.003714",
+   "checks": [
+    {
+     "name": "userTask mentioning credit_committee",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "condition mentioning loanAmount",
+     "passed": false,
+     "detail": "${abovecommitteelimit==true}"
+    },
+    {
+     "name": "a delegate expression mentioning loanCore",
+     "passed": false,
+     "detail": "${disburseLoanDelegate}"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  }
+ ]
+}

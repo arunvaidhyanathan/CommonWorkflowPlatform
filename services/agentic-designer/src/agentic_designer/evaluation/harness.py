@@ -92,7 +92,7 @@ async def run_case(provider: LLMProvider, case: Case, max_rate_limit_retries: in
             else:
                 events = [e async for e in review_workflow(metered, case.base, case.text or None, spec=spec)]
         except ProviderError as exc:
-            if exc.kind == "rate_limited" and attempt_run < max_rate_limit_retries:
+            if exc.kind == "rate_limited" and exc.retryable and attempt_run < max_rate_limit_retries:
                 await asyncio.sleep(backoff_s * (attempt_run + 1))
                 continue
             result.error = exc.user_message

@@ -1,0 +1,73 @@
+{
+ "provider": "openrouter",
+ "model": "google/gemini-3.8-flash",
+ "started": "2026-09-27T20:59:37+00:00",
+ "finished": "2026-09-27T20:59:59+00:00",
+ "summary": {
+  "generate/DMN": {
+   "cases": 1,
+   "valid": 1,
+   "errors": 0,
+   "checks_passed": 4,
+   "checks_total": 4,
+   "mean_seconds": 22.1,
+   "mean_attempts": 1.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 4829,
+   "cost_usd": "0.01397175"
+  },
+  "all": {
+   "cases": 1,
+   "valid": 1,
+   "errors": 0,
+   "checks_passed": 4,
+   "checks_total": 4,
+   "mean_seconds": 22.1,
+   "mean_attempts": 1.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 4829,
+   "cost_usd": "0.01397175"
+  }
+ },
+ "cases": [
+  {
+   "id": "gen-dmn-loan-tier",
+   "mode": "generate",
+   "spec": "DMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 22.1,
+   "calls": 1,
+   "input_tokens": 1379,
+   "output_tokens": 3450,
+   "cost_usd": "0.01397175",
+   "checks": [
+    {
+     "name": "{'creditScore': 780, 'dti': 0.2} -> riskTier='Low'",
+     "passed": true,
+     "detail": "got 'Low'"
+    },
+    {
+     "name": "{'creditScore': 700, 'dti': 0.5} -> riskTier='Medium'",
+     "passed": true,
+     "detail": "got 'Medium'"
+    },
+    {
+     "name": "{'creditScore': 800, 'dti': 0.4} -> riskTier='Medium'",
+     "passed": true,
+     "detail": "got 'Medium'"
+    },
+    {
+     "name": "{'creditScore': 600, 'dti': 0.6} -> riskTier='High'",
+     "passed": true,
+     "detail": "got 'High'"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  }
+ ]
+}

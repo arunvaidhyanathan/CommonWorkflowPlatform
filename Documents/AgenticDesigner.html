@@ -92,7 +92,7 @@
         <h1>Agentic Designer</h1>
         <div class="subtitle">Agent-assisted workflow authoring: generate from a description, edit by chat, review for defects.</div>
         <div class="meta-grid">
-            <div class="meta-item"><strong>Status</strong><span id="status-text">A0&ndash;A5 done: Generate, Edit and Review for BPMN, CMMN and DMN; an evaluation harness (baseline 34/34 checks when the model answers); grounding in the tenant&rsquo;s own workflows. The in-browser run by a logged-in user is still to do.</span></div>
+            <div class="meta-item"><strong>Status</strong><span id="status-text">A0&ndash;A5 done: Generate, Edit and Review for BPMN, CMMN and DMN; an evaluation harness; grounding in the tenant&rsquo;s own workflows. Running on Gemini 3.8 Flash (22/22 cases valid, 9 s mean). The in-browser run by a logged-in user is still to do.</span></div>
             <div class="meta-item"><strong>Service</strong><code>services/agentic-designer/</code> (Python / FastAPI), behind the edge gateway at <code>/api/agent/**</code></div>
             <div class="meta-item"><strong>Document Version</strong>1.7.0 (A5: Evaluation &amp; Grounding)</div>
             <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
@@ -368,7 +368,7 @@
         <ul>
             <li>122 agent tests (13 new plus the <code>AD017</code> fixture): structural seeds caught without a model, checks sent before the model answers, a sound workflow can come back clean, invented ids dropped, id-less invented findings discarded, cap enforced, <code>already_found</code> and focus sent to the model, malformed replies retried exactly 3 times then falling back to checks, no-provider review returning 200 with checks, streaming order and metering as <code>review</code>, focus length bound. Three deliberately introduced bugs were each caught.</li>
             <li>UI with Playwright against the running app: Review shows the check and AI findings grouped and labelled, and clicking a finding selects exactly its nodes; no console errors.</li>
-            <li><strong>Found, not fixed (pre-existing):</strong> opening a saved workflow immediately shows &ldquo;Unsaved changes&rdquo;, because the canvas store marks the workflow dirty on every React Flow change, including the size measurements React Flow reports on first render. Separate from this work; worth fixing in the Designer.</li>
+            <li><strong>Found here, fixed September 27, 2026 (pre-existing):</strong> opening a saved workflow immediately showed &ldquo;Unsaved changes&rdquo;, because the canvas store marked the workflow dirty on every React Flow change, including first-render size measurements. The store now ignores size measurements and selection clicks.</li>
         </ul>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
     </section>
@@ -460,6 +460,23 @@
             </tbody>
         </table>
         <p><strong>Reading it:</strong> all four failures were <em>no answer</em>: three calls, zero tokens, every reply empty. Whenever the model did answer, every check passed (34 of 34). Quality isn&rsquo;t the limit on this provider; reliability is. That is the case for comparing providers once Gemini&rsquo;s cap is raised or OpenRouter is renewed (the harness takes <code>--provider gemini</code> or <code>openrouter</code> unchanged). A first run also exposed three harness bugs (a crash on CMMN condition checks, provider errors scored as 0/0, one broken check aborting the run) and one check that was too literal; all fixed with tests before the baseline above.</p>
+
+        <h3>Second provider: Gemini 3.8 Flash via OpenRouter (September 27, 2026)</h3>
+        <p>After the OpenRouter key was renewed, the same harness ran against <code>openrouter / google/gemini-3.8-flash</code> (prices added to <code>prices.json</code> from OpenRouter&rsquo;s model list: $0.75 / $3.75 per million tokens). The first 6 cases (a DMN smoke test plus 5 Generate cases) were <strong>all valid on the first attempt with every check passing</strong>, in 7&ndash;30 s at about $0.004&ndash;0.018 each, versus Kimi&rsquo;s 20&ndash;70 s and frequent empty replies. The remaining cases got <strong>HTTP 402</strong>: the key has a $10 spending <em>cap</em>, but the account has $0 of purchased credit (<code>total_credits: 0</code>), and the free tier stopped after about $0.05. A full comparison needs credit on the OpenRouter account. Since then a 402 reads as &ldquo;out of credit&rdquo;, counts as a refused call (so the spend tracker alerts on it), and is never retried.</p>
+
+        <h3>Gemini 3.8 Flash direct: the app&rsquo;s provider (September 27, 2026)</h3>
+        <p>Gemini had been failing with <code>429 RESOURCE_EXHAUSTED</code> &ldquo;monthly spending cap&rdquo;: the project&rsquo;s <em>spend cap</em> in AI Studio was reached, which credit alone doesn&rsquo;t lift. <code>scripts/check_gemini.py</code> diagnoses this without printing the key (where each copy of the key lives, whether it&rsquo;s valid, Google&rsquo;s full error per model). After the cap was raised to $10:</p>
+        <table class="stack-table">
+            <thead><tr><th>Group</th><th>Kimi K3 (NVIDIA)</th><th>Gemini 3.8 Flash</th></tr></thead>
+            <tbody>
+                <tr><td>All</td><td>16/20 valid, 34/39 checks, 42 s mean</td><td><strong>22/22 valid, 42/45 checks, 9 s mean, every case on the first attempt</strong></td></tr>
+                <tr><td>Generate (BPMN, CMMN, DMN)</td><td>7/7, 21/21 checks</td><td>9/9 incl. the grounding pair; 21/21 on the shared cases, DMN correct by execution</td></tr>
+                <tr><td>Edit</td><td>3/4 (one no-answer)</td><td>4/4, 11/11 checks</td></tr>
+                <tr><td>Review</td><td>6/9 (three no-answers)</td><td>9/9, every planted and real defect caught</td></tr>
+                <tr><td>Cost</td><td>unpriced (free credits)</td><td>$0.18 for all 22 cases</td></tr>
+            </tbody>
+        </table>
+        <p>Grounding on Gemini: 2/3 convention checks with the tenant&rsquo;s workflows (used <code>credit_committee</code> and <code>loanCore</code>; wrote <code>${aboveCommitteeLimit == true}</code> rather than the tenant&rsquo;s <code>loanAmount</code>, reasonable for a request that only says &ldquo;above the committee limit&rdquo;) vs 1/3 without (invented <code>${disburseLoanDelegate}</code>). <strong>Decision:</strong> the app runs on Gemini (<code>AGENT_PROVIDER=gemini</code>), which was the original choice; NVIDIA stays configured as a fallback and for grounding embeddings.</p>
 
         <h3>Grounding in the tenant&rsquo;s own workflows</h3>
         <ul>

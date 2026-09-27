@@ -27,6 +27,33 @@
       "output_per_mtok": "2.50",
       "source": "https://ai.google.dev/gemini-api/docs/pricing",
       "reviewed_on": "2026-09-27"
+    },
+    {
+      "provider": "openrouter",
+      "model": "google/gemini-3.8-flash",
+      "effective_from": "2026-01-01",
+      "input_per_mtok": "0.75",
+      "output_per_mtok": "3.75",
+      "source": "https://openrouter.ai/api/v1/models",
+      "reviewed_on": "2026-09-27"
+    },
+    {
+      "provider": "openrouter",
+      "model": "google/gemini-3.5-flash-lite",
+      "effective_from": "2026-01-01",
+      "input_per_mtok": "0.30",
+      "output_per_mtok": "2.50",
+      "source": "https://openrouter.ai/api/v1/models",
+      "reviewed_on": "2026-09-27"
+    },
+    {
+      "provider": "openrouter",
+      "model": "moonshotai/kimi-k3",
+      "effective_from": "2026-01-01",
+      "input_per_mtok": "3.00",
+      "output_per_mtok": "15.00",
+      "source": "https://openrouter.ai/api/v1/models",
+      "reviewed_on": "2026-09-27"
     }
   ]
 }

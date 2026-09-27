@@ -1,6 +1,6 @@
 # Common Workflow Platform (CWP)
 
-Platform docs start at [`Documents/CWP.html`](Documents/CWP.html).
+**Developers: start with [`Documents/Developer_Manifesto.html`](Documents/Developer_Manifesto.html)** (architecture, setup, every setting, testing, runbooks, the manual test plan). Platform index: [`Documents/CWP.html`](Documents/CWP.html).
 
 ## Layout
 

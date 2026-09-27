@@ -1,0 +1,741 @@
+{
+ "provider": "openrouter",
+ "model": "google/gemini-3.8-flash",
+ "started": "2026-09-27T21:00:06+00:00",
+ "finished": "2026-09-27T21:02:11+00:00",
+ "summary": {
+  "generate/BPMN": {
+   "cases": 5,
+   "valid": 3,
+   "errors": 2,
+   "checks_passed": 8,
+   "checks_total": 14,
+   "mean_seconds": 6.7,
+   "mean_attempts": 0.6,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 8523,
+   "cost_usd": null
+  },
+  "all": {
+   "cases": 22,
+   "valid": 5,
+   "errors": 17,
+   "checks_passed": 13,
+   "checks_total": 45,
+   "mean_seconds": 3.8,
+   "mean_attempts": 0.23,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 18415,
+   "cost_usd": null
+  },
+  "generate/CMMN": {
+   "cases": 2,
+   "valid": 2,
+   "errors": 0,
+   "checks_passed": 5,
+   "checks_total": 5,
+   "mean_seconds": 24.1,
+   "mean_attempts": 1.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 9892,
+   "cost_usd": "0.03073800"
+  },
+  "generate/DMN": {
+   "cases": 2,
+   "valid": 0,
+   "errors": 2,
+   "checks_passed": 0,
+   "checks_total": 8,
+   "mean_seconds": 0.1,
+   "mean_attempts": 0.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 0,
+   "cost_usd": null
+  },
+  "edit/BPMN": {
+   "cases": 2,
+   "valid": 0,
+   "errors": 2,
+   "checks_passed": 0,
+   "checks_total": 5,
+   "mean_seconds": 0.1,
+   "mean_attempts": 0.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 0,
+   "cost_usd": null
+  },
+  "edit/CMMN": {
+   "cases": 1,
+   "valid": 0,
+   "errors": 1,
+   "checks_passed": 0,
+   "checks_total": 2,
+   "mean_seconds": 0.1,
+   "mean_attempts": 0.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 0,
+   "cost_usd": null
+  },
+  "edit/DMN": {
+   "cases": 1,
+   "valid": 0,
+   "errors": 1,
+   "checks_passed": 0,
+   "checks_total": 2,
+   "mean_seconds": 0.0,
+   "mean_attempts": 0.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 0,
+   "cost_usd": null
+  },
+  "review/BPMN": {
+   "cases": 6,
+   "valid": 0,
+   "errors": 6,
+   "checks_passed": 0,
+   "checks_total": 6,
+   "mean_seconds": 0.0,
+   "mean_attempts": 0.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 0,
+   "cost_usd": null
+  },
+  "review/DMN": {
+   "cases": 2,
+   "valid": 0,
+   "errors": 2,
+   "checks_passed": 0,
+   "checks_total": 2,
+   "mean_seconds": 0.0,
+   "mean_attempts": 0.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 0,
+   "cost_usd": null
+  },
+  "review/CMMN": {
+   "cases": 1,
+   "valid": 0,
+   "errors": 1,
+   "checks_passed": 0,
+   "checks_total": 1,
+   "mean_seconds": 0.0,
+   "mean_attempts": 0.0,
+   "empty_replies": 0,
+   "no_answer": 0,
+   "tokens": 0,
+   "cost_usd": null
+  }
+ },
+ "cases": [
+  {
+   "id": "gen-bpmn-loan",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 11.8,
+   "calls": 1,
+   "input_tokens": 1221,
+   "output_tokens": 1895,
+   "cost_usd": "0.008022",
+   "checks": [
+    {
+     "name": "userTask mentioning manager",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "condition mentioning 10000 or 10k",
+     "passed": true,
+     "detail": "${amount>10000}; ${!managerapproved}"
+    },
+    {
+     "name": "serviceTask mentioning disburs",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "gen-bpmn-parallel-onboarding",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 7.1,
+   "calls": 1,
+   "input_tokens": 1195,
+   "output_tokens": 717,
+   "cost_usd": "0.003585",
+   "checks": [
+    {
+     "name": "parallelGateway mentioning anything",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "userTask mentioning contract",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "userTask mentioning welcome",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "gen-bpmn-expense",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 14.0,
+   "calls": 1,
+   "input_tokens": 1194,
+   "output_tokens": 2301,
+   "cost_usd": "0.00952425",
+   "checks": [
+    {
+     "name": "condition mentioning 5000 or 5k",
+     "passed": true,
+     "detail": "${amount>5000}"
+    },
+    {
+     "name": "userTask mentioning finance",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "gen-cmmn-fraud",
+   "mode": "generate",
+   "spec": "CMMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 18.2,
+   "calls": 1,
+   "input_tokens": 1060,
+   "output_tokens": 3155,
+   "cost_usd": "0.01262625",
+   "checks": [
+    {
+     "name": "cmmnHumanTask mentioning evidence",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "cmmnHumanTask mentioning interview",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "a sentry waits for evidence and interview",
+     "passed": true,
+     "detail": ""
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "gen-cmmn-claim",
+   "mode": "generate",
+   "spec": "CMMN",
+   "outcome": "valid",
+   "attempts": 1,
+   "seconds": 30.0,
+   "calls": 1,
+   "input_tokens": 1059,
+   "output_tokens": 4618,
+   "cost_usd": "0.01811175",
+   "checks": [
+    {
+     "name": "cmmnHumanTask mentioning assess",
+     "passed": true,
+     "detail": ""
+    },
+    {
+     "name": "condition mentioning fraudSuspected",
+     "passed": true,
+     "detail": "${fraudsuspected==true}"
+    }
+   ],
+   "error": null,
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "gen-dmn-loan-tier",
+   "mode": "generate",
+   "spec": "DMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.1,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "{'creditScore': 780, 'dti': 0.2} -> riskTier='Low'",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "{'creditScore': 700, 'dti': 0.5} -> riskTier='Medium'",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "{'creditScore': 800, 'dti': 0.4} -> riskTier='Medium'",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "{'creditScore': 600, 'dti': 0.6} -> riskTier='High'",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "gen-dmn-shipping",
+   "mode": "generate",
+   "spec": "DMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.1,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "{'zone': 'domestic', 'weightKg': 1} -> cost=5",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "{'zone': 'domestic', 'weightKg': 5} -> cost=12",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "{'zone': 'international', 'weightKg': 2} -> cost=20",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "{'zone': 'international', 'weightKg': 10} -> cost=45",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "edit-bpmn-compliance",
+   "mode": "edit",
+   "spec": "BPMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.1,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "userTask mentioning compliance",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "condition mentioning 50000 or 50k",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "kept the untouched nodes",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "edit-bpmn-remove-manager",
+   "mode": "edit",
+   "spec": "BPMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.1,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "no node mentioning manager",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "kept the untouched nodes",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "edit-cmmn-legal",
+   "mode": "edit",
+   "spec": "CMMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.1,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "PI_Determination waits for a new legal item",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "kept the untouched nodes",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "edit-dmn-operations",
+   "mode": "edit",
+   "spec": "DMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.0,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "{'department': 'Operations', 'priorIncidentCount': 3} -> riskPoints=12",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "{'department': 'Trading', 'priorIncidentCount': 6} -> riskPoints=45",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-seeded-unassigned_task",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.1,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'check', 'categories': ['AD017'], 'node': 'manager'}",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-seeded-dead_end",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.0,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'check', 'categories': ['AD010'], 'node': 'hold'}",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-seeded-no_rejection_path",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.0,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['missing_path'], 'node': 'approve'}",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-seeded-overlapping_conditions",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.0,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['overlapping_conditions'], 'node': 'amount_check'}",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-seeded-unclear_label",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.0,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['unclear_label'], 'node': 'review'}",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-seeded-wrong_order",
+   "mode": "review",
+   "spec": "BPMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.1,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['ordering'], 'node': 'disburse'}",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-dmn-sample-gap",
+   "mode": "review",
+   "spec": "DMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.0,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['rule_gap'], 'node': 'Decision_RiskScoreAggregation'}",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-dmn-sample-priority",
+   "mode": "review",
+   "spec": "DMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.0,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['hit_policy'], 'node': 'Decision_SanctionSeverity'}",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "review-cmmn-sample",
+   "mode": "review",
+   "spec": "CMMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.0,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "reports {'source': 'ai', 'categories': ['missing_path', 'ordering', 'incomplete_conditions'], 'node': None}",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  },
+  {
+   "id": "ground-bpmn-with-tenant",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.7,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "userTask mentioning credit_committee",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "condition mentioning loanAmount",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "a delegate expression mentioning loanCore",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [
+    "Mortgage approval"
+   ],
+   "empty_replies": 0
+  },
+  {
+   "id": "ground-bpmn-baseline",
+   "mode": "generate",
+   "spec": "BPMN",
+   "outcome": "error",
+   "attempts": 0,
+   "seconds": 0.0,
+   "calls": 1,
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "cost_usd": null,
+   "checks": [
+    {
+     "name": "userTask mentioning credit_committee",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "condition mentioning loanAmount",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    },
+    {
+     "name": "a delegate expression mentioning loanCore",
+     "passed": false,
+     "detail": "The AI provider (openrouter) returned an error (HTTP 402)."
+    }
+   ],
+   "error": "The AI provider (openrouter) returned an error (HTTP 402).",
+   "grounded_on": [],
+   "empty_replies": 0
+  }
+ ]
+}

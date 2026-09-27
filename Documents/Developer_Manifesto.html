@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CWP Developer Manifesto</title>
+    <style>
+        :root {
+            --citi-blue-dark: #003B70;
+            --citi-blue: #0066B2;
+            --citi-blue-light: #56A0D3;
+            --bg-primary: #FFFFFF;
+            --bg-panel: #EAF3FB;
+            --bg-panel-deep: #D6E7F5;
+            --code-bg: #F4F8FC;
+            --text-primary: #16212E;
+            --text-secondary: #44566B;
+            --border-color: #C2D8EC;
+            --accent-green: #1E7E34;
+            --accent-amber: #A85E00;
+            --accent-red: #C4262E;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { border-bottom: 4px solid var(--citi-blue); padding-bottom: 2rem; margin-bottom: 2.5rem; }
+        h1 { font-size: 2.25rem; color: var(--citi-blue-dark); margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1.1rem; color: var(--text-secondary); }
+        .meta-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-top: 1.5rem; background: var(--bg-panel);
+            padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .meta-item strong { color: var(--citi-blue); display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        section { margin-bottom: 3rem; }
+        h2 { font-size: 1.5rem; color: var(--citi-blue-dark); border-bottom: 2px solid var(--bg-panel-deep); padding-bottom: 0.5rem; margin-bottom: 1.25rem; }
+        h3 { font-size: 1.15rem; color: var(--citi-blue); margin: 1.5rem 0 0.75rem 0; }
+        p { color: var(--text-secondary); margin-bottom: 1rem; }
+        ul, ol { color: var(--text-secondary); margin-left: 1.5rem; margin-bottom: 1rem; }
+        li { margin-bottom: 0.35rem; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background-color: var(--bg-panel); color: var(--citi-blue-dark);
+            padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.875rem;
+        }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background-color: var(--bg-primary); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { background-color: var(--citi-blue-dark); color: #FFFFFF; font-weight: 600; }
+        td { color: var(--text-secondary); }
+        tr:nth-child(even) td { background-color: var(--bg-panel); }
+        tr:last-child td { border-bottom: none; }
+        td a { color: var(--citi-blue); font-weight: 600; text-decoration: none; }
+        td a:hover { text-decoration: underline; }
+        .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .badge-built { background-color: #DDF0E2; color: var(--accent-green); }
+        .badge-design { background-color: var(--bg-panel-deep); color: var(--citi-blue-dark); }
+        .badge-future { background-color: #F5E4E4; color: var(--accent-red); }
+        .callout { background-color: var(--bg-panel); border-left: 4px solid var(--citi-blue); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; margin: 1.5rem 0; }
+        .callout-title { font-weight: 600; color: var(--citi-blue-dark); margin-bottom: 0.25rem; }
+        .decision { background-color: var(--bg-panel-deep); border: 1px solid var(--citi-blue-light); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+        .decision-title { font-weight: 700; color: var(--citi-blue-dark); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        h2, h3 { scroll-margin-top: 1.5rem; }
+        .toc { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem 1.75rem; margin-bottom: 3rem; }
+        .toc-title { font-size: 1.1rem; font-weight: 700; color: var(--citi-blue-dark); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .toc ol { list-style: none; margin-left: 0; }
+        .toc > ol > li { margin-bottom: 0.4rem; }
+        .toc a { color: var(--citi-blue-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+        .toc a:hover { color: var(--citi-blue); text-decoration: underline; }
+        .back-to-top { display: inline-block; margin-top: 0.5rem; font-size: 0.75rem; color: var(--citi-blue); text-decoration: none; }
+        .back-to-top:hover { text-decoration: underline; }
+        .doc-card {
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem;
+            margin-bottom: 1rem; background: var(--bg-primary);
+        }
+        .doc-card h3 { margin-top: 0; }
+        .doc-card a.doc-link { font-size: 0.85rem; font-weight: 600; color: var(--citi-blue); text-decoration: none; }
+        .doc-card a.doc-link:hover { text-decoration: underline; }
+        pre { background-color: var(--code-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+        pre code { background: none; padding: 0; }
+        .table-wrap { overflow-x: auto; }
+        code { overflow-wrap: anywhere; }
+        .diagram { margin: 1.5rem 0; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; }
+        .diagram svg { width: 100%; height: auto; display: block; }
+        .diagram figcaption { font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.5rem; }
+        ol.checklist li { margin-bottom: 0.5rem; }
+        @media (max-width: 640px) { body { padding: 1rem; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>CWP Developer Manifesto</h1>
+        <div class="subtitle">Everything a developer needs to understand, run, change, test and operate the Common Workflow Platform, in one place.</div>
+        <div class="meta-grid">
+            <div class="meta-item"><strong>Platform State</strong>Feature-complete for the current plan (September 27, 2026): gateway, services, Agentic Designer A0&ndash;A5, spend tracker S0&ndash;S3</div>
+            <div class="meta-item"><strong>Repository</strong><code>/Users/arunvaidhyanathan/Developer/CommonWorkflowPlatform</code></div>
+            <div class="meta-item"><strong>Document Version</strong>1.0.0</div>
+            <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
+            <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
+        </div>
+    </header>
+
+    <nav class="toc" id="top">
+        <div class="toc-title">Contents</div>
+        <ol>
+            <li><a href="#s0">0. How to Use This Document</a></li>
+            <li><a href="#s1">1. The Platform at a Glance</a></li>
+            <li><a href="#s2">2. Architecture</a></li>
+            <li><a href="#s3">3. Repository Layout</a></li>
+            <li><a href="#s4">4. Getting Started</a></li>
+            <li><a href="#s5">5. Configuration Reference</a></li>
+            <li><a href="#s6">6. Components in Depth</a></li>
+            <li><a href="#s7">7. Security Model</a></li>
+            <li><a href="#s8">8. Data &amp; Migrations</a></li>
+            <li><a href="#s9">9. How the AI Parts Are Built</a></li>
+            <li><a href="#s10">10. Testing &amp; Evaluation</a></li>
+            <li><a href="#s11">11. Manual Test Plan (Do This Yourself)</a></li>
+            <li><a href="#s12">12. Operations Runbook &amp; Troubleshooting</a></li>
+            <li><a href="#s13">13. Conventions</a></li>
+            <li><a href="#s14">14. Decision Log</a></li>
+            <li><a href="#s15">15. Known Limits &amp; What&rsquo;s Next</a></li>
+            <li><a href="#s16">16. Document Map</a></li>
+            <li><a href="#s17">17. Change Log</a></li>
+        </ol>
+    </nav>
+
+    <section>
+        <h2 id="s0">0. How to Use This Document</h2>
+        <p>This is the single entry point for developers. It explains the whole platform and links to the component design documents for depth. If you are new, read Sections 1&ndash;4, run the stack, then work through Section 11. If you are changing something, read the section for that component, Section 7 (security) and Section 13 (conventions) first.</p>
+        <div class="decision">
+            <div class="decision-title">Keep This Document True</div>
+            <p>Every change that alters how the platform works, runs or is tested updates this document and the relevant component document in the same commit. A statement here that no longer matches the code is a bug.</p>
+        </div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s1">1. The Platform at a Glance</h2>
+        <p>The <strong>Common Workflow Platform (CWP)</strong> lets organisations (tenants) design, govern and run workflows in three OMG notations: <strong>BPMN</strong> processes, <strong>CMMN</strong> cases and <strong>DMN</strong> decision tables. Designers author workflows in the browser, optionally with an AI assistant; approvers approve them; tenant admins publish them to a Flowable engine; operators watch them run. Every tenant&rsquo;s data is isolated by row-level security.</p>
+        <div class="table-wrap"><table class="stack-table">
+            <thead><tr><th>Component</th><th>What it does</th><th>Status</th><th>Design doc</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Designer</strong> (web app shell)</td><td>BPMN/CMMN/DMN authoring canvas and tables, import/export, versioning, submit for approval, Publish</td><td><span class="badge badge-built">Built</span></td><td><a href="Designer.html">Designer.html</a></td></tr>
+                <tr><td><strong>Governance</strong></td><td>Roles (designer, tenant_admin, approver, viewer), Administration, Approvals, audit log, invites</td><td><span class="badge badge-built">Built</span></td><td><a href="Governance.html">Governance.html</a></td></tr>
+                <tr><td><strong>Onboarding</strong></td><td>Invite flow, getting-started panel, sample import</td><td><span class="badge badge-built">Phases 1&ndash;2</span></td><td><a href="Onboarding.html">Onboarding.html</a></td></tr>
+                <tr><td><strong>Workbench</strong></td><td>Operator landing page</td><td><span class="badge badge-built">Phases 1&ndash;3</span></td><td><a href="Workbench.html">Workbench.html</a></td></tr>
+                <tr><td><strong>Workflow Wrapper</strong> (<code>workflow-runtime</code>)</td><td>Hosts Flowable 8: deployments, case instances, task history</td><td><span class="badge badge-built">Built; boots</span></td><td><a href="WorkflowWrapper.html">WorkflowWrapper.html</a></td></tr>
+                <tr><td><strong>Edge gateway</strong> (nginx)</td><td>Single entry point; serves the SPA; routes <code>/api/*</code>; CORS, rate limits, request ids</td><td><span class="badge badge-built">Built</span></td><td><a href="Services.html">Services.html</a></td></tr>
+                <tr><td><strong>Agentic Designer</strong></td><td>AI Generate / Edit / Review for all three notations, validated by code, grounded in the tenant&rsquo;s own workflows</td><td><span class="badge badge-built">A0&ndash;A5 built</span></td><td><a href="AgenticDesigner.html">AgenticDesigner.html</a></td></tr>
+                <tr><td><strong>API Spend Tracker</strong></td><td>Metered cost of every AI call, key health, budgets and alerts</td><td><span class="badge badge-built">S0&ndash;S3 built</span></td><td><a href="SpendTracker.html">SpendTracker.html</a></td></tr>
+            </tbody>
+        </table></div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s2">2. Architecture</h2>
+        <p>The browser talks to two backends. <strong>Supabase</strong> (hosted) provides identity (Auth, JWTs), the design-time database with row-level security, and two Edge Functions. <strong>CWP&rsquo;s own services</strong> run in Docker Compose behind one nginx gateway. Every service verifies the Supabase JWT itself.</p>
+        <figure class="diagram">
+            <svg viewBox="0 0 960 470" role="img" aria-label="CWP architecture: browser, nginx gateway, services and their databases, Supabase, AI providers">
+                <defs>
+                    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#44566B"/></marker>
+                </defs>
+                <g font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="13" fill="#16212E">
+                    <rect x="20" y="190" width="150" height="70" rx="8" fill="#EAF3FB" stroke="#0066B2"/>
+                    <text x="95" y="220" text-anchor="middle" font-weight="600">Browser</text>
+                    <text x="95" y="240" text-anchor="middle" font-size="11" fill="#44566B">Designer SPA</text>
+
+                    <rect x="240" y="190" width="160" height="70" rx="8" fill="#D6E7F5" stroke="#003B70"/>
+                    <text x="320" y="220" text-anchor="middle" font-weight="600">nginx gateway</text>
+                    <text x="320" y="240" text-anchor="middle" font-size="11" fill="#44566B">:8080 (local :8088)</text>
+
+                    <rect x="480" y="40" width="190" height="60" rx="8" fill="#FFFFFF" stroke="#0066B2"/>
+                    <text x="575" y="66" text-anchor="middle" font-weight="600">workflow-runtime</text>
+                    <text x="575" y="84" text-anchor="middle" font-size="11" fill="#44566B">Java 21 &#183; Flowable 8 &#183; /api/runtime</text>
+                    <rect x="740" y="40" width="190" height="60" rx="8" fill="#F4F8FC" stroke="#C2D8EC"/>
+                    <text x="835" y="75" text-anchor="middle">runtime-db (Postgres)</text>
+
+                    <rect x="480" y="195" width="190" height="60" rx="8" fill="#FFFFFF" stroke="#0066B2"/>
+                    <text x="575" y="221" text-anchor="middle" font-weight="600">agentic-designer</text>
+                    <text x="575" y="239" text-anchor="middle" font-size="11" fill="#44566B">Python &#183; FastAPI &#183; /api/agent</text>
+                    <rect x="740" y="165" width="190" height="60" rx="8" fill="#F4F8FC" stroke="#C2D8EC"/>
+                    <text x="835" y="191" text-anchor="middle">AI providers</text>
+                    <text x="835" y="209" text-anchor="middle" font-size="11" fill="#44566B">Gemini &#183; NVIDIA &#183; OpenRouter</text>
+
+                    <rect x="480" y="340" width="190" height="60" rx="8" fill="#FFFFFF" stroke="#0066B2"/>
+                    <text x="575" y="366" text-anchor="middle" font-weight="600">spend-tracker</text>
+                    <text x="575" y="384" text-anchor="middle" font-size="11" fill="#44566B">Python &#183; FastAPI &#183; /api/spend</text>
+                    <rect x="740" y="340" width="190" height="60" rx="8" fill="#F4F8FC" stroke="#C2D8EC"/>
+                    <text x="835" y="375" text-anchor="middle">spend-db (Postgres)</text>
+
+                    <rect x="20" y="370" width="380" height="80" rx="8" fill="#FFFFFF" stroke="#1E7E34" stroke-dasharray="5 3"/>
+                    <text x="210" y="398" text-anchor="middle" font-weight="600">Supabase (hosted)</text>
+                    <text x="210" y="418" text-anchor="middle" font-size="11" fill="#44566B">Auth (JWT) &#183; Postgres + RLS + pgvector &#183; PostgREST</text>
+                    <text x="210" y="436" text-anchor="middle" font-size="11" fill="#44566B">Edge Functions: admin-set-role, invite-user</text>
+                </g>
+                <g stroke="#44566B" stroke-width="1.5" fill="none" marker-end="url(#arr)">
+                    <path d="M170,225 L238,225"/>
+                    <path d="M400,215 C440,215 440,70 478,70"/>
+                    <path d="M400,225 L478,225"/>
+                    <path d="M400,235 C440,235 440,370 478,370"/>
+                    <path d="M670,70 L738,70"/>
+                    <path d="M670,215 L738,200"/>
+                    <path d="M670,370 L738,370"/>
+                    <path d="M575,255 L575,338"/>
+                    <path d="M95,260 L95,368"/>
+                    <path d="M480,245 C420,300 420,380 402,395"/>
+                </g>
+                <g font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#44566B">
+                    <text x="585" y="300">usage events (internal)</text>
+                    <text x="102" y="320">sign-in, design-time data (RLS)</text>
+                    <text x="392" y="362" text-anchor="end">grounding, as the user</text>
+                </g>
+            </svg>
+            <figcaption>Requests carry the user&rsquo;s Supabase JWT end to end. The agent reads Supabase as the user (never with a service key); the spend tracker&rsquo;s ingest endpoint is internal only.</figcaption>
+        </figure>
+        <h3>Principles</h3>
+        <ul>
+            <li><strong>One login, many planes:</strong> the Supabase JWT authorizes Postgres RLS and every CWP service. Tenant id and role come from <code>app_metadata</code>.</li>
+            <li><strong>The gateway routes; services decide:</strong> nginx does not validate tokens (open-source nginx can&rsquo;t check JWKS signatures); each service does.</li>
+            <li><strong>Database per service:</strong> workflow-runtime and spend-tracker each own a Postgres; design-time data stays in Supabase.</li>
+            <li><strong>The model proposes, code decides:</strong> AI output is typed, validated and shown for review before anything changes; saving and approvals are untouched (Section 9).</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s3">3. Repository Layout</h2>
+        <div class="table-wrap"><table class="stack-table">
+            <thead><tr><th>Path</th><th>What</th><th>Stack</th></tr></thead>
+            <tbody>
+                <tr><td><code>Designer/</code></td><td>The web app (app shell: Designer, Onboarding, Workbench, Workflow Wrapper, Administration, Approvals, API Spend). Adapters for BPMN/CMMN/DMN in <code>src/adapters</code>; agent client in <code>src/data/agent.ts</code>, <code>src/components/AgentPanel.tsx</code></td><td>React 19, TypeScript, Vite, Tailwind 4, React Flow 12, zustand + zundo, bpmn/cmmn/dmn-moddle, elkjs</td></tr>
+                <tr><td><code>gateway/</code></td><td>nginx config (<code>templates/cwp.conf.template</code>, <code>snippets/cwp-api.conf</code>) and the Dockerfile that also builds the SPA</td><td>nginx 1.28</td></tr>
+                <tr><td><code>services/workflow-runtime/</code></td><td>Flowable engine host (formerly the &ldquo;Runtime Gateway&rdquo;)</td><td>Java 21, Spring Boot 4, Flowable 8, Liquibase</td></tr>
+                <tr><td><code>services/agentic-designer/</code></td><td>AI Generate/Edit/Review, contracts and validators, grounding, evaluation harness (<code>scripts/eval.py</code>), Gemini diagnostic (<code>scripts/check_gemini.py</code>)</td><td>Python 3.13, FastAPI, Pydantic, google-genai, openai, uv</td></tr>
+                <tr><td><code>services/spend-tracker/</code></td><td>Usage events, spend summaries, key health, budgets, alerts</td><td>Python 3.13, FastAPI, psycopg 3, uv</td></tr>
+                <tr><td><code>Database/</code></td><td>Portable copies of the Supabase schema (<code>schema.sql</code>) and RLS (<code>policies.sql</code>); migration plan</td><td>PostgreSQL</td></tr>
+                <tr><td><code>Documents/</code></td><td>This manifesto and the component design documents (Section 16)</td><td>HTML</td></tr>
+                <tr><td><code>docker-compose.yml</code>, <code>.env.example</code>, <code>README.md</code></td><td>The local stack, its settings template, and the quick start</td><td>Docker Compose</td></tr>
+            </tbody>
+        </table></div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s4">4. Getting Started</h2>
+        <h3>Prerequisites</h3>
+        <ul>
+            <li>Docker Desktop (Compose v2); Node 22+ and npm; Python 3.12+ with <a href="https://docs.astral.sh/uv/">uv</a>; Java 21 and Maven (only to build workflow-runtime outside Docker).</li>
+            <li>A Supabase account on the project, with <code>app_metadata.tenant_id</code> and <code>app_metadata.role</code> set.</li>
+            <li>At least one AI provider key (Gemini recommended; Section 5).</li>
+        </ul>
+        <h3>First run</h3>
+<pre><code>cd CommonWorkflowPlatform
+cp .env.example .env                # fill in: passwords (any value locally), SUPABASE_*, provider keys
+cp Designer/.env.example Designer/.env.local   # VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+docker compose up -d --build        # gateway, workflow-runtime, runtime-db, agentic-designer, spend-tracker, spend-db
+open http://localhost:8080          # or http://localhost:$GATEWAY_PORT (8088 on this machine)</code></pre>
+        <h3>Where things are</h3>
+        <div class="table-wrap"><table class="stack-table">
+            <thead><tr><th>URL / command</th><th>What</th></tr></thead>
+            <tbody>
+                <tr><td><code>http://localhost:8088/</code></td><td>The app, served by the gateway (8080 by default; this machine uses 8088 because another container holds 8080)</td></tr>
+                <tr><td><code>http://localhost:8088/healthz</code></td><td>Gateway health</td></tr>
+                <tr><td><code>/api/runtime/**</code>, <code>/api/agent/**</code>, <code>/api/spend/**</code></td><td>The three services (all need a login; <code>/api/agent/healthz</code> and <code>/api/spend/healthz</code> don&rsquo;t)</td></tr>
+                <tr><td><code>cd Designer &amp;&amp; VITE_API_BASE_URL=http://localhost:8088/api npm run dev</code></td><td>Vite dev server on :5173 against the running stack (5173 is in the gateway&rsquo;s CORS allow-list)</td></tr>
+                <tr><td><code>docker compose logs -f agentic-designer</code></td><td>Logs for any service (JSON access log for the gateway)</td></tr>
+            </tbody>
+        </table></div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s5">5. Configuration Reference</h2>
+        <p>All settings live in the project&rsquo;s <code>.env</code> (gitignored; template <code>.env.example</code>). <strong>A variable exported in your shell overrides <code>.env</code> in Docker Compose.</strong> The browser app reads <code>Designer/.env.local</code>.</p>
+        <div class="table-wrap"><table class="stack-table">
+            <thead><tr><th>Variable</th><th>Used by</th><th>Meaning</th><th>Secret?</th></tr></thead>
+            <tbody>
+                <tr><td><code>GATEWAY_PORT</code></td><td>gateway</td><td>Host port (default 8080)</td><td>no</td></tr>
+                <tr><td><code>CORS_ALLOWED_ORIGINS</code></td><td>gateway</td><td>Regex of browser origins allowed cross-origin (default <code>^http://localhost:5173$</code>)</td><td>no</td></tr>
+                <tr><td><code>SUPABASE_JWKS_URL</code>, <code>SUPABASE_JWT_MODE</code>, <code>SUPABASE_JWT_HS256_SECRET</code></td><td>all services</td><td>How services verify the Supabase JWT (the project signs ES256; JWKS mode)</td><td>the HS256 secret only</td></tr>
+                <tr><td><code>WORKFLOW_RUNTIME_DB_PASSWORD</code></td><td>workflow-runtime, runtime-db</td><td>Local runtime DB password</td><td>yes</td></tr>
+                <tr><td><code>AGENT_PROVIDER</code>, <code>AGENT_MODEL</code>, <code>AGENT_EDIT_MODEL</code></td><td>agentic-designer</td><td>AI provider (<code>gemini</code> | <code>nvidia</code> | <code>openrouter</code>), model (empty = provider default: <code>gemini-3.8-flash</code>, <code>moonshotai/kimi-k3</code>, <code>google/gemini-3.8-flash</code>), optional Edit-only model</td><td>no</td></tr>
+                <tr><td><code>GEMINI_API_KEY</code>, <code>NVIDIA_API_KEY</code>, <code>OPENROUTER_API_KEY</code>, <code>TYPESAFE_JEV_API_KEY</code></td><td>agentic-designer, spend-tracker</td><td>Provider keys (the tracker only checks them)</td><td>yes</td></tr>
+                <tr><td><code>AGENT_TENANT_RPM</code></td><td>agentic-designer</td><td>AI requests per tenant per minute (default 10)</td><td>no</td></tr>
+                <tr><td><code>AGENT_GROUNDING</code>, <code>SUPABASE_URL</code>, <code>SUPABASE_ANON_KEY</code>, <code>AGENT_EMBED_PROVIDER</code>, <code>AGENT_EMBED_MODEL</code></td><td>agentic-designer</td><td>Grounding on/off; Supabase URL and the browser app&rsquo;s public key; embedding provider (default <code>nvidia</code>, model <code>nvidia/nemotron-3-embed-1b</code>)</td><td>the anon key is public by design</td></tr>
+                <tr><td><code>SPEND_DB_PASSWORD</code>, <code>SPEND_INGEST_TOKEN</code></td><td>spend-tracker, spend-db, agentic-designer</td><td>Local DB password; the token services use to post usage events</td><td>yes</td></tr>
+                <tr><td><code>SPEND_ADMIN_USER_IDS</code></td><td>spend-tracker</td><td>Comma-separated Supabase user ids that see platform-wide spend and key health (find yours in Supabase &rarr; Authentication &rarr; Users &rarr; User UID)</td><td>no</td></tr>
+                <tr><td><code>SPEND_KEY_CHECK_INTERVAL_S</code></td><td>spend-tracker</td><td>Key health check interval (default 3600)</td><td>no</td></tr>
+                <tr><td><code>VITE_SUPABASE_URL</code>, <code>VITE_SUPABASE_ANON_KEY</code>, <code>VITE_API_BASE_URL</code></td><td>Designer (<code>.env.local</code>)</td><td>Supabase for the browser; the gateway&rsquo;s <code>/api</code> base (the gateway build sets <code>/api</code> itself)</td><td>no</td></tr>
+            </tbody>
+        </table></div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s6">6. Components in Depth</h2>
+
+        <h3>6.1 Designer (web app)</h3>
+        <ul>
+            <li><strong>Routes:</strong> <code>/designer</code>, <code>/onboarding</code>, <code>/workbench</code>, <code>/workflow-wrapper</code>, <code>/agentic-designer</code> (pointer to the AI Designer panel), <code>/admin</code> (tenant_admin), <code>/approvals</code> (tenant_admin, approver), <code>/spend</code> (tenant_admin; platform admins see everything).</li>
+            <li><strong>Canvas model:</strong> React Flow nodes and edges in a zustand store with undo/redo (zundo). BPMN and CMMN are canvases; DMN is a table editor. Saved as <code>workflow_versions.graph_json</code> plus generated XML.</li>
+            <li><strong>Talks to:</strong> Supabase directly (auth, design-time data, Edge Functions) and CWP services via <code>src/lib/apiClient.ts</code> (<code>apiFetch</code>, and <code>apiStream</code> for server-sent events, which skips keepalive comments).</li>
+            <li><strong>AI Designer panel</strong> (toolbar button, for designers and tenant admins): Generate, Edit and Review tabs for all three notations (Section 6.4).</li>
+            <li><strong>Fixed September 27:</strong> opening a saved workflow no longer shows &ldquo;Unsaved changes&rdquo;; only changes that alter what is saved mark the workflow as changed (not React Flow&rsquo;s size measurements or clicks).</li>
+        </ul>
+
+        <h3>6.2 Edge gateway</h3>
+        <p>nginx serves the built SPA (deep links fall back to <code>index.html</code>) and routes <code>/api/runtime/**</code> &rarr; workflow-runtime <code>/runtime/**</code>, <code>/api/agent/**</code> &rarr; agentic-designer, <code>/api/spend/**</code> &rarr; spend-tracker; <code>/api/spend/events</code> is blocked (internal only). It answers CORS preflights itself, rate-limits per IP (20 req/s for runtime and spend, 2 req/s for agent), passes or mints <code>X-Request-Id</code>, logs JSON, and streams agent responses unbuffered. Upstreams resolve per request, so the gateway starts even if a service is down (that route returns 502). Details: <a href="Services.html">Services.html</a>.</p>
+
+        <h3>6.3 workflow-runtime (Flowable)</h3>
+        <p>Java 21 / Spring Boot 4 / Flowable 8 in <code>services/workflow-runtime</code>, with its own Postgres (<code>runtime-db</code>) holding the <code>runtime</code> schema (Liquibase) and Flowable&rsquo;s engine tables. Endpoints: <code>POST/GET /runtime/deployments</code>, <code>GET /runtime/deployments/{id}</code>, <code>GET /runtime/case-instances</code>, <code>GET /runtime/history/task-instances</code>, <code>GET /runtime/form-definitions/{id}</code> (still a stub). Deploying is <code>tenant_admin</code>-only. First compiled and booted September 27, 2026 after five fixes, including a real bug where user roles were never mapped. Details: <a href="WorkflowWrapper.html">WorkflowWrapper.html</a>.</p>
+
+        <h3>6.4 agentic-designer (AI)</h3>
+        <div class="table-wrap"><table class="stack-table">
+            <thead><tr><th>Mode</th><th>Endpoint</th><th>What comes back</th></tr></thead>
+            <tbody>
+                <tr><td>Generate</td><td><code>POST /generate {spec, description, workflowId?}</code></td><td>A validated model for the canvas (BPMN/CMMN) or tables (DMN)</td></tr>
+                <tr><td>Edit</td><td><code>POST /edit {spec, instruction, graph, workflowId?}</code></td><td>BPMN: patch operations; CMMN/DMN: the full updated model; plus a code-computed diff. Rejected only for errors the edit introduces</td></tr>
+                <tr><td>Review</td><td><code>POST /review {spec, graph, focus?}</code></td><td>Code checks first, then grounded AI findings in fixed categories; checks-only without a model</td></tr>
+            </tbody>
+        </table></div>
+        <ul>
+            <li><strong>Streaming:</strong> server-sent events <code>grounding</code> (which tenant workflows were used), <code>attempt</code>, <code>invalid</code>, <code>result</code> / <code>failed</code>, <code>error</code>, with 15 s keepalives.</li>
+            <li><strong>Contracts and validators:</strong> <code>graph.py</code> (BPMN, rules AD001&ndash;AD017), <code>cmmn.py</code> (CD001&ndash;CD011), <code>dmn.py</code> (DM001&ndash;DM012), tied together per notation in <code>specs.py</code>. They mirror the Designer&rsquo;s adapters and are anchored on the Designer&rsquo;s own sample files.</li>
+            <li><strong>Repair loop:</strong> up to 3 attempts; validator codes and ids go back to the model; empty replies are retried.</li>
+            <li><strong>Providers:</strong> Gemini (the app&rsquo;s provider), NVIDIA and OpenRouter (OpenAI-compatible). Provider errors reach users as plain messages (quota, out of credit).</li>
+            <li><strong>Grounding:</strong> Section 9 and <a href="AgenticDesigner.html">AgenticDesigner.html</a> Section 4e.</li>
+        </ul>
+
+        <h3>6.5 spend-tracker</h3>
+        <ul>
+            <li><strong>Endpoints:</strong> <code>GET /summary</code> (tenant_admin: own tenant; platform admins: all), <code>GET /keys</code>, <code>POST /keys/check</code>, <code>GET /budgets</code>, <code>PUT/DELETE /budgets/{subject}</code>, <code>GET /alerts</code>, <code>POST /alerts/{id}/ack</code> (platform admins), <code>POST /events</code> (services only, internal network).</li>
+            <li><strong>Metering:</strong> every AI call (features <code>generate</code>, <code>edit</code>, <code>review</code>, <code>embed</code>) records tokens, estimated cost from a dated price table (<code>prices.json</code>; unpriced, never $0, when unknown), outcome and request id.</li>
+            <li><strong>Key health:</strong> free read-only checks hourly; a key whose check says valid but whose last real call was refused is shown as &ldquo;Rate-limited&rdquo;.</li>
+            <li><strong>Alerts:</strong> budget thresholds (80%/100%, once a month), expired/invalid keys, refused calls (including out-of-credit), low provider credit. Key alerts clear themselves when the problem goes away. Shown on the API Spend page and in the log; no email/Slack yet.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s7">7. Security Model</h2>
+        <div class="table-wrap"><table class="stack-table">
+            <thead><tr><th>Concern</th><th>How it is handled</th></tr></thead>
+            <tbody>
+                <tr><td>Tenant isolation</td><td>Row-level security on every design-time table, via <code>current_tenant_id()</code> from the JWT. Services add their own tenant scoping (workflow-runtime in code; spend-tracker in SQL; agentic-designer reads Supabase <em>as the user</em>, so RLS applies). Verified live for <code>workflow_embeddings</code> with rolled-back synthetic tenants.</td></tr>
+                <tr><td>Authentication</td><td>Supabase JWT (ES256, JWKS) checked by every service; nginx only routes.</td></tr>
+                <tr><td>Authorization</td><td>Roles in <code>app_metadata.role</code>: designer, tenant_admin, approver, viewer. AI authoring: designer and tenant_admin. Deploy: tenant_admin. Platform-wide spend and key health: user ids in <code>SPEND_ADMIN_USER_IDS</code> (stand-in for a platform role).</td></tr>
+                <tr><td>Service-to-service</td><td>Usage ingest requires <code>X-Ingest-Token</code> and is unreachable through the gateway.</td></tr>
+                <tr><td>Secrets</td><td>Only in <code>.env</code> (gitignored, mode 600). Keys go in headers, never URLs. Each service receives only the keys it needs. The spend tracker stores key <em>names</em>, never values.</td></tr>
+                <tr><td>AI safety</td><td>User text, tenant workflows and model output are fenced as data in prompts; model output is schema-checked and validated before use; nothing the AI returns is saved or deployed without a person; review findings are grounded in real ids. Only sizes and outcomes are logged, never prompts.</td></tr>
+                <tr><td>Anonymous access</td><td>Revoked on <code>workflow_embeddings</code>; the search function is executable by authenticated users only.</td></tr>
+            </tbody>
+        </table></div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s8">8. Data &amp; Migrations</h2>
+        <div class="table-wrap"><table class="stack-table">
+            <thead><tr><th>Store</th><th>Holds</th><th>Schema changes</th></tr></thead>
+            <tbody>
+                <tr><td>Supabase Postgres (<code>public</code>)</td><td>tenants, profiles, workflows, workflow_versions, deployments, form_schemas, approval_requests, audit_logs, invites, <strong>workflow_embeddings</strong> (pgvector)</td><td>Supabase migrations (latest: <code>agentic_designer_workflow_embeddings</code>, <code>&hellip;_revoke_anon</code>); keep <code>Database/schema.sql</code> and <code>policies.sql</code> in step. <strong>The project is shared with another project</strong> (officecollab): changes must be additive and clearly named.</td></tr>
+                <tr><td><code>runtime-db</code></td><td><code>runtime.deployments</code> and Flowable&rsquo;s engine tables</td><td>Liquibase changelog in workflow-runtime; Flowable manages its own tables</td></tr>
+                <tr><td><code>spend-db</code></td><td>usage_events, key_checks, budgets, alerts, provider_usage</td><td>Numbered SQL files in <code>spend_tracker/migrations</code>, applied once each at startup</td></tr>
+            </tbody>
+        </table></div>
+        <p>Full catalog, relationships and policies: <a href="DataArchitecture.html">DataArchitecture.html</a>.</p>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s9">9. How the AI Parts Are Built</h2>
+        <ol>
+            <li><strong>Typed contracts per notation</strong> that mirror the Designer&rsquo;s adapters. Unknown fields are rejected, not dropped.</li>
+            <li><strong>Validators decide</strong> whether a proposal is acceptable; stable rule codes go back to the model to repair.</li>
+            <li><strong>People decide</strong> whether a change is applied: previews with highlights, Accept/Reject, then the normal save and approval flow.</li>
+            <li><strong>Grounding</strong> shows the model condensed summaries of the tenant&rsquo;s most similar workflows (pgvector search in Supabase, read as the user; embeddings written lazily; best-effort). Measured effect: the tenant&rsquo;s own names appear when grounded (Kimi 3/3 vs 0/3; Gemini 2/3 vs 1/3).</li>
+            <li><strong>Everything is measured:</strong> every call metered; an evaluation harness scores providers on 22 cases, judging DMN by executing the tables.</li>
+        </ol>
+        <div class="table-wrap"><table class="stack-table">
+            <thead><tr><th>Provider / model</th><th>Evaluation (22 cases)</th><th>Status</th></tr></thead>
+            <tbody>
+                <tr><td><strong>Gemini 3.8 Flash</strong> (direct)</td><td><strong>22/22 valid, 42/45 checks, 9 s mean, $0.18 total</strong></td><td>The app&rsquo;s provider</td></tr>
+                <tr><td>Kimi K3 (NVIDIA)</td><td>16/20 valid, 34/39 checks, 42 s mean; every failure an empty reply</td><td>Fallback; also provides grounding embeddings</td></tr>
+                <tr><td>Gemini 3.8 Flash via OpenRouter</td><td>6/6 valid before the account ran out of free credit</td><td>Needs purchased credit</td></tr>
+            </tbody>
+        </table></div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s10">10. Testing &amp; Evaluation</h2>
+        <div class="table-wrap"><table class="stack-table">
+            <thead><tr><th>Suite</th><th>Command</th><th>Count</th></tr></thead>
+            <tbody>
+                <tr><td>agentic-designer (unit + API, no model calls)</td><td><code>cd services/agentic-designer &amp;&amp; uv run pytest</code></td><td>213 passing</td></tr>
+                <tr><td>spend-tracker (against a throwaway Postgres in Docker)</td><td><code>cd services/spend-tracker &amp;&amp; uv run pytest</code></td><td>52 passing</td></tr>
+                <tr><td>Designer typecheck and lint</td><td><code>cd Designer &amp;&amp; npx tsc -b &amp;&amp; npm run lint</code></td><td>clean</td></tr>
+                <tr><td>workflow-runtime</td><td><code>cd services/workflow-runtime &amp;&amp; mvn -DskipTests package</code> (builds)</td><td><strong>no automated tests yet</strong></td></tr>
+                <tr><td>AI evaluation (real, metered calls)</td><td><code>cd services/agentic-designer &amp;&amp; uv run python scripts/eval.py run --provider gemini --pause 2 --env-file ../../.env</code>; compare with <code>scripts/eval.py compare A.json B.json</code></td><td>22 cases; reports in <code>evals/reports/</code></td></tr>
+            </tbody>
+        </table></div>
+        <ul>
+            <li><strong>Tests encode intent:</strong> each test says why the behaviour matters; fixtures break exactly one rule and must fail for exactly that reason.</li>
+            <li><strong>Mutation checks:</strong> for each new piece, deliberately introduced bugs (e.g. dropping the tenant filter) must make tests fail; this has been done for every phase.</li>
+            <li><strong>UI checks:</strong> Playwright against the running app with a stand-in login, mocked database rows and real service payloads; screenshots are looked at, not just taken.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s11">11. Manual Test Plan (Do This Yourself)</h2>
+        <p>These need a real login and so can&rsquo;t be automated here. Work through them in order at <code>http://localhost:8088</code> after <code>docker compose up -d --build</code>. Tick each expected result; anything different is a bug worth a note with the time (for the logs) and a screenshot.</p>
+        <h3>A. Stack health (2 minutes)</h3>
+        <ol class="checklist">
+            <li><code>docker compose ps</code>: gateway, workflow-runtime, runtime-db, agentic-designer, spend-tracker, spend-db all <em>Up</em>. &rarr; <em>All six running.</em></li>
+            <li>Open <code>http://localhost:8088/api/agent/healthz</code>. &rarr; <em><code>{"status":"ok","provider":"gemini"}</code></em></li>
+            <li>Run <code>cd services/agentic-designer &amp;&amp; uv run python scripts/check_gemini.py</code>. &rarr; <em>Both models <code>OK</code>.</em></li>
+        </ol>
+        <h3>B. Sign in and the Designer</h3>
+        <ol class="checklist">
+            <li>Sign in. &rarr; <em>You land in the Designer; your tenant and role show in the header.</em></li>
+            <li>Open an existing workflow. &rarr; <em>No &ldquo;Unsaved changes&rdquo; until you actually change something (fixed today).</em></li>
+            <li>Drag a node. &rarr; <em>&ldquo;Unsaved changes&rdquo; appears.</em> Save Version. &rarr; <em>&ldquo;Saved&rdquo;.</em></li>
+        </ol>
+        <h3>C. AI Designer: BPMN</h3>
+        <ol class="checklist">
+            <li>Create a new BPMN workflow, click <strong>AI Designer</strong> &rarr; <strong>Generate</strong>, describe a loan approval (&ldquo;an underwriter reviews; over 10,000 needs a manager; then the system pays out&rdquo;). &rarr; <em>Within ~10 s a laid-out process appears; &ldquo;Unsaved changes&rdquo; shows.</em></li>
+            <li>If you already have similar saved workflows: &rarr; <em>the panel says &ldquo;Following the conventions of your workflow &hellip;&rdquo;, and the result reuses their group names.</em></li>
+            <li><strong>Edit</strong> tab: &ldquo;Loans over 50,000 also need a compliance review after the manager approval.&rdquo; &rarr; <em>New items outlined green, changes listed in words.</em> Click <strong>Reject</strong> &rarr; <em>canvas exactly as before.</em> Repeat and <strong>Accept</strong> &rarr; <em>highlights go, changes stay.</em></li>
+            <li><strong>Review</strong> tab, Review. &rarr; <em>Findings grouped as Problems / Warnings / Suggestions, labelled Check or AI; clicking one selects its nodes.</em></li>
+            <li>Save Version, then <strong>Submit for Approval</strong>. &rarr; <em>Status becomes pending approval.</em></li>
+        </ol>
+        <h3>D. AI Designer: CMMN and DMN</h3>
+        <ol class="checklist">
+            <li>New CMMN workflow &rarr; Generate a fraud investigation case. &rarr; <em>Human tasks, milestones and sentries on the canvas.</em> Edit: &ldquo;legal must review before the decision&rdquo; &rarr; <em>links described as (on complete) / (entry).</em></li>
+            <li>New DMN workflow &rarr; Generate a loan risk tier from credit score and debt-to-income. &rarr; <em>A decision table appears in the table editor.</em> Edit: add a rule &rarr; <em>the change list (&ldquo;added rule N&rdquo;) shows; the table only changes after Accept.</em></li>
+            <li>Import <code>Designer/samples/investigation-decisions.dmn</code>, Review it. &rarr; <em>AI findings include the PRIORITY hit policy with no output ordering, and a department no rule covers.</em></li>
+        </ol>
+        <h3>E. Governance and runtime</h3>
+        <ol class="checklist">
+            <li>As an <em>approver</em> (another account), approve the workflow from C.5. &rarr; <em>Status approved.</em></li>
+            <li>As a <em>tenant_admin</em>, open it and click <strong>Publish</strong>. &rarr; <em>&ldquo;Deployment created&rdquo;.</em> Then <strong>Workflow Wrapper</strong> page &rarr; <em>the deployment is listed.</em> (Publish through the gateway has not yet been tested with a real login.)</li>
+            <li>As a <em>viewer</em>: &rarr; <em>no AI Designer button; AI endpoints refuse (403).</em></li>
+        </ol>
+        <h3>F. API Spend</h3>
+        <ol class="checklist">
+            <li>As a platform admin (your id is in <code>SPEND_ADMIN_USER_IDS</code>) open <strong>API Spend</strong>. &rarr; <em>&ldquo;Platform-wide&rdquo; badge; this month&rsquo;s calls from sections C&ndash;D appear with Gemini costs; unpriced NVIDIA calls counted separately.</em></li>
+            <li>Key health. &rarr; <em>Gemini OK (its old refused-call alert clears after a successful call), NVIDIA OK, OpenRouter OK, TypeSafe OK.</em> Click <strong>Check now</strong> &rarr; <em>times update.</em></li>
+            <li>Set a tiny Gemini budget (e.g. $0.01). &rarr; <em>Near/over-budget alerts appear immediately.</em> Dismiss them, then set a realistic budget (e.g. $10).</li>
+            <li>As a tenant_admin who is not a platform admin. &rarr; <em>&ldquo;Your tenant&rdquo; only; key health says platform admins only.</em></li>
+        </ol>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s12">12. Operations Runbook &amp; Troubleshooting</h2>
+        <h3>Everyday commands</h3>
+<pre><code>docker compose up -d --build                     # build and start everything
+docker compose up -d --build agentic-designer    # rebuild one service after a code change
+docker compose restart spend-tracker             # pick up .env changes (keys, admin ids)
+docker compose logs -f gateway                   # follow a service's log
+docker compose down                              # stop (volumes, i.e. data, are kept)</code></pre>
+        <h3>Common problems</h3>
+        <div class="table-wrap"><table class="stack-table">
+            <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+            <tbody>
+                <tr><td>Gateway won&rsquo;t start: &ldquo;port is already allocated&rdquo;</td><td>Another container uses 8080</td><td>Set <code>GATEWAY_PORT</code> in <code>.env</code> (8088 here)</td></tr>
+                <tr><td>Gemini: <code>429 RESOURCE_EXHAUSTED</code> &ldquo;monthly spending cap&rdquo;</td><td>The project&rsquo;s spend cap in AI Studio is reached; credit alone doesn&rsquo;t lift it</td><td>Raise the cap at <a href="https://ai.studio/spend">ai.studio/spend</a>; confirm with <code>scripts/check_gemini.py</code></td></tr>
+                <tr><td>OpenRouter: HTTP 402, &ldquo;out of credit&rdquo;</td><td>The key&rsquo;s $10 is a spending <em>cap</em>; the account has no purchased credit</td><td>Add credit in OpenRouter &rarr; Settings &rarr; Credits</td></tr>
+                <tr><td>NVIDIA models return empty replies or 429</td><td>Free-tier reliability and rate limits</td><td>Use Gemini (<code>AGENT_PROVIDER=gemini</code>); NVIDIA is the fallback</td></tr>
+                <tr><td>A key change has no effect</td><td>Compose reads the <em>project</em> <code>.env</code>, and a shell export overrides it</td><td>Edit the project <code>.env</code>; <code>unset</code> the shell variable; restart the service</td></tr>
+                <tr><td>API Spend shows only &ldquo;Your tenant&rdquo;</td><td>Your user id isn&rsquo;t in <code>SPEND_ADMIN_USER_IDS</code></td><td>Add it (Supabase &rarr; Authentication &rarr; Users &rarr; User UID) and restart spend-tracker</td></tr>
+                <tr><td>Grounding never names any workflow</td><td>No similar saved workflows yet, grounding off, or embeddings unavailable (grounding fails quietly)</td><td>Check <code>AGENT_GROUNDING=on</code> and the agent log line &ldquo;grounding on&rdquo;; save a few workflows first</td></tr>
+                <tr><td>A route returns 502</td><td>That service is down</td><td><code>docker compose ps</code>, then the service&rsquo;s logs</td></tr>
+            </tbody>
+        </table></div>
+        <h3>Rotating a provider key</h3>
+        <ol>
+            <li>Update the key in the project <code>.env</code> (and in <code>~/Developer/.env</code> if you keep a master copy there).</li>
+            <li><code>docker compose up -d agentic-designer spend-tracker</code>.</li>
+            <li>API Spend &rarr; Key health &rarr; <strong>Check now</strong>: the key shows OK and any &ldquo;expired&rdquo; alert clears itself.</li>
+        </ol>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s13">13. Conventions</h2>
+        <ul>
+            <li><strong>Git:</strong> imperative, present-tense commit subjects; stage specific paths, never <code>git add .</code>; never push without an explicit request; never force-push <code>main</code>. Your own unrelated work in progress stays out of commits.</li>
+            <li><strong>Code:</strong> match the surrounding style; smallest change that solves the problem; no speculative features; comments explain <em>why</em>. Python via <code>uv</code>; TypeScript strict and lint-clean.</li>
+            <li><strong>Tests:</strong> encode intent; a fixture breaks exactly one thing; run mutation checks on new logic.</li>
+            <li><strong>AI:</strong> the model proposes, code decides, a person accepts; use the model only for judgement calls; fence untrusted text; meter every call.</li>
+            <li><strong>Data:</strong> additive, clearly named migrations on the shared Supabase project; keep the portable scripts in step; test RLS with rolled-back synthetic data.</li>
+            <li><strong>Docs:</strong> update this manifesto and the component document in the same commit as the change (Section 0).</li>
+            <li><strong>Secrets:</strong> never print, log or commit a key; copy them between env files with scripts that don&rsquo;t display values.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s14">14. Decision Log</h2>
+        <div class="table-wrap"><table class="stack-table">
+            <thead><tr><th>Decision</th><th>Why</th></tr></thead>
+            <tbody>
+                <tr><td>Standalone nginx gateway; the Java service renamed workflow-runtime</td><td>The &ldquo;Runtime Gateway&rdquo; was really a Flowable host; routing, CORS and rate limits belong at the edge</td></tr>
+                <tr><td>Keep Supabase for identity and design-time data</td><td>Working and RLS-proven; replacing it is a separate, deferred track</td></tr>
+                <tr><td>Docker Compose locally, database per service</td><td>Simple to run; services don&rsquo;t share schemas</td></tr>
+                <tr><td>Provider-agnostic AI layer; Gemini as the provider</td><td>Measured: Gemini 22/22 valid at 9 s vs Kimi 16/20 at 42 s</td></tr>
+                <tr><td>Patch ops for BPMN edits; full models for CMMN/DMN edits</td><td>Patch ops are BPMN-shaped; tables are grids; code computes the diff either way</td></tr>
+                <tr><td>Metering in the agent; spend tracker as its own service</td><td>Exact per-call cost for CWP&rsquo;s own calls; provider-reported totals where APIs exist</td></tr>
+                <tr><td>Tenant admins see only their tenant&rsquo;s spend</td><td>Showing one tenant another&rsquo;s usage would break tenant isolation</td></tr>
+                <tr><td>Grounding in pgvector in Supabase, read as the user</td><td>Chosen by the product owner; RLS guarantees isolation without a service key</td></tr>
+                <tr><td>Evaluation judges DMN by execution</td><td>&ldquo;Looks right&rdquo; isn&rsquo;t evidence; running the table is</td></tr>
+            </tbody>
+        </table></div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s15">15. Known Limits &amp; What&rsquo;s Next</h2>
+        <ul>
+            <li><strong>Not yet tested with a real login:</strong> the browser flows in Section 11, including Publish through the gateway and grounding end to end.</li>
+            <li><strong>workflow-runtime has no automated tests</strong>, including none for tenant isolation (a known risk).</li>
+            <li><strong>Deploying AI-made CMMN or DMN</strong> models through Publish to Flowable is untested.</li>
+            <li><strong>Alerts</strong> show in the app and log only; email or Slack needs a channel choice.</li>
+            <li><strong>No platform-level role</strong> yet; <code>SPEND_ADMIN_USER_IDS</code> stands in.</li>
+            <li><strong>Mobile:</strong> the app shell&rsquo;s fixed sidebar isn&rsquo;t built for phones.</li>
+            <li><strong>Form rendering</strong> (<code>/runtime/form-definitions</code>) is a stub pending a redesign.</li>
+            <li><strong>Rate limits</strong> are per process (one replica); move to a shared store before scaling out.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s16">16. Document Map</h2>
+        <div class="table-wrap"><table class="stack-table">
+            <thead><tr><th>Document</th><th>Read it for</th></tr></thead>
+            <tbody>
+                <tr><td><a href="CWP.html">CWP.html</a></td><td>Platform index and component status</td></tr>
+                <tr><td><a href="Services.html">Services.html</a></td><td>Service map, gateway routes, local stack</td></tr>
+                <tr><td><a href="Designer.html">Designer.html</a></td><td>The authoring app: canvas, adapters, versioning</td></tr>
+                <tr><td><a href="Governance.html">Governance.html</a></td><td>Roles, approvals, audit, separation of duties</td></tr>
+                <tr><td><a href="Onboarding.html">Onboarding.html</a> / <a href="Workbench.html">Workbench.html</a></td><td>Onboarding flows; operator landing page</td></tr>
+                <tr><td><a href="WorkflowWrapper.html">WorkflowWrapper.html</a></td><td>Flowable runtime service</td></tr>
+                <tr><td><a href="AgenticDesigner.html">AgenticDesigner.html</a></td><td>AI Designer: contracts, rules, modes, evaluation, grounding</td></tr>
+                <tr><td><a href="SpendTracker.html">SpendTracker.html</a></td><td>Metering, key health, budgets, alerts</td></tr>
+                <tr><td><a href="DataArchitecture.html">DataArchitecture.html</a></td><td>Every table, policy and function</td></tr>
+            </tbody>
+        </table></div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="s17">17. Change Log</h2>
+        <div class="table-wrap"><table class="stack-table">
+            <thead><tr><th>Commit</th><th>Change</th></tr></thead>
+            <tbody>
+                <tr><td>(this commit)</td><td>Developer Manifesto; Gemini as the provider; out-of-credit handling; OpenRouter prices; Gemini diagnostic; fix &ldquo;Unsaved changes&rdquo; on open</td></tr>
+                <tr><td><code>e30a034</code></td><td>Evaluation harness and tenant grounding (A5)</td></tr>
+                <tr><td><code>ef1cbae</code></td><td>CMMN and DMN in the Agentic Designer (A4)</td></tr>
+                <tr><td><code>76cc2ba</code></td><td>Review mode with seeded-defect evaluation (A3)</td></tr>
+                <tr><td><code>3ef9720</code></td><td>Edit mode with canvas preview (A2)</td></tr>
+                <tr><td><code>be364c3</code>, <code>0871249</code>, <code>7e9a0bd</code>, <code>7f5e4e5</code></td><td>Spend tracker S3, S2, S1, S0</td></tr>
+                <tr><td><code>1ab022f</code>, <code>d3298a2</code></td><td>Generate mode (A1); graph contract and validator (A0)</td></tr>
+                <tr><td><code>eab1be9</code></td><td>nginx gateway; workflow-runtime split and first boot</td></tr>
+                <tr><td><code>292f3e4</code>, <code>29062b7</code>, <code>16d5421</code></td><td>Data architecture and portable scripts; docs; initial import</td></tr>
+            </tbody>
+        </table></div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+</div>
+
+</body>
+</html>

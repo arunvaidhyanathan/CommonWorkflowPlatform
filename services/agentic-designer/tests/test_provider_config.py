@@ -34,3 +34,25 @@ def test_openai_compatible_providers_use_their_own_key(monkeypatch, provider, ke
 def test_gemini_is_the_default(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     assert _provider_from_env().name == "gemini"
+
+
+def test_http_402_reads_as_out_of_credit_and_is_not_retryable():
+    import asyncio
+
+    import httpx
+    import openai
+
+    from agentic_designer.llm import OpenAICompatibleProvider, ProviderError, Turn
+
+    p = OpenAICompatibleProvider("openrouter", "OPENROUTER_API_KEY", "k", "https://openrouter.ai/api/v1", "m", 100)
+
+    async def refuse(**kwargs):
+        raise openai.APIStatusError("402", response=httpx.Response(402, request=httpx.Request("POST", "https://x")), body=None)
+
+    p._client.chat.completions.create = refuse
+    try:
+        asyncio.run(p.generate_json("s", [Turn("user", "u")], {}))
+    except ProviderError as exc:
+        assert (exc.kind, exc.retryable) == ("rate_limited", False) and "out of credit" in exc.user_message
+    else:
+        raise AssertionError("expected ProviderError")
