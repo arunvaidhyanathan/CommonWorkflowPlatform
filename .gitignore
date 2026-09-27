@@ -19,6 +19,11 @@ target/
 .idea/
 *.sw?
 
+# Python (services/agentic-designer)
+.venv/
+__pycache__/
+.pytest_cache/
+
 # Local secrets for docker compose (template: .env.example)
 .env
 

@@ -92,9 +92,9 @@
         <h1>Agentic Designer</h1>
         <div class="subtitle">Agent-assisted workflow authoring: generate from a description, edit by chat, review for defects.</div>
         <div class="meta-grid">
-            <div class="meta-item"><strong>Status</strong><span id="status-text">Design approved September 27, 2026. Phase A0 in progress.</span></div>
+            <div class="meta-item"><strong>Status</strong><span id="status-text">Design approved September 27, 2026. Phase A0 (graph contract + validator) complete; A1 next.</span></div>
             <div class="meta-item"><strong>Service</strong><code>services/agentic-designer/</code> (Python / FastAPI), behind the edge gateway at <code>/api/agent/**</code></div>
-            <div class="meta-item"><strong>Document Version</strong>1.0.0 (Design)</div>
+            <div class="meta-item"><strong>Document Version</strong>1.1.0 (A0: Graph Contract)</div>
             <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
             <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
         </div>
@@ -158,7 +158,66 @@
 
     <section>
         <h2 id="sec-3">3. Graph Contract</h2>
-        <p id="contract-status"><em>Defined in phase A0; details are filled in when A0 lands.</em></p>
+        <p>Built in phase A0 at <code>services/agentic-designer/src/agentic_designer/</code>. No LLM and no HTTP yet: this is the contract every later phase is checked against.</p>
+        <h3>3.1 Graph (<code>graph.py</code>)</h3>
+        <p><code>WorkflowGraph</code> holds <code>nodes</code> and <code>edges</code>. JSON field names are camelCase so they match the SPA's <code>NodeData</code> exactly. Unknown fields are rejected rather than dropped, so a model inventing an attribute is caught.</p>
+        <table class="stack-table">
+            <thead><tr><th>Element</th><th>Fields</th><th>Notes</th></tr></thead>
+            <tbody>
+                <tr><td>Node</td><td><code>id</code>, <code>type</code>, <code>label</code>, <code>documentation</code>, <code>assignee</code>, <code>candidateGroups</code>, <code>delegateExpression</code>, <code>formKey</code></td><td><code>id</code> must be a valid BPMN id (<code>^[A-Za-z_][A-Za-z0-9_.-]*$</code>)</td></tr>
+                <tr><td>Edge</td><td><code>id</code>, <code>source</code>, <code>target</code>, <code>label</code>, <code>conditionExpression</code></td><td>No separate "default flow" flag: the Designer's BPMN adapter doesn't write one, so one unconditioned branch acts as the fallback</td></tr>
+            </tbody>
+        </table>
+        <p><strong>Node types:</strong> the Designer's BPMN palette (<code>startEvent</code>, <code>endEvent</code>, <code>intermediateEvent</code>, <code>userTask</code>, <code>serviceTask</code>, <code>businessRuleTask</code>, <code>callActivity</code>, <code>subProcess</code>, <code>exclusiveGateway</code>, <code>parallelGateway</code>, <code>inclusiveGateway</code>) minus <code>boundaryEvent</code> (needs a host node the canvas format can't express yet) and <code>genericNode</code> (the Designer's fallback for unknown elements). CMMN and DMN come in A4.</p>
+        <p><strong>Field applicability:</strong> <code>assignee</code> and <code>candidateGroups</code> on user tasks; <code>formKey</code> on user tasks and start events; <code>delegateExpression</code> on service tasks. These match what Flowable acts on.</p>
+
+        <h3>3.2 Patch operations (<code>patch.py</code>)</h3>
+        <table class="stack-table">
+            <thead><tr><th>Op</th><th>Payload</th><th>Notes</th></tr></thead>
+            <tbody>
+                <tr><td><code>add_node</code></td><td><code>node</code></td><td></td></tr>
+                <tr><td><code>update_node</code></td><td><code>id</code>, <code>changes</code></td><td>Label and the optional fields only. Changing id or type is not allowed: that's a remove plus an add, so the node's flows get reconsidered</td></tr>
+                <tr><td><code>remove_node</code></td><td><code>id</code></td><td>Also removes every flow touching the node</td></tr>
+                <tr><td><code>connect</code></td><td><code>edge</code></td><td>Both ends must exist</td></tr>
+                <tr><td><code>disconnect</code></td><td><code>edgeId</code></td><td></td></tr>
+                <tr><td><code>set_condition</code></td><td><code>edgeId</code>, <code>conditionExpression</code></td><td><code>null</code> clears it</td></tr>
+            </tbody>
+        </table>
+        <p><code>apply_patch</code> returns a new graph and never modifies the original (so Reject restores exactly what was on the canvas). A bad reference raises <code>PatchError</code> with the index of the failing op, so the repair loop can tell the model which op to fix. Whether the result is a sensible workflow is left to the validator.</p>
+
+        <h3>3.3 Validator (<code>validator.py</code>)</h3>
+        <p>Errors block a proposal from reaching the canvas; warnings are legal BPMN that probably isn't what the author meant, shown in Review mode. Every issue names the node and flow ids involved so the SPA can highlight them. Codes are stable: the repair loop sends them back to the model.</p>
+        <table class="stack-table">
+            <thead><tr><th>Code</th><th>Severity</th><th>Rule</th></tr></thead>
+            <tbody>
+                <tr><td><code>AD001</code></td><td>error</td><td>Duplicate id (ids are shared by nodes and flows in BPMN XML)</td></tr>
+                <tr><td><code>AD002</code></td><td>error</td><td>Flow points to a node that doesn't exist</td></tr>
+                <tr><td><code>AD003</code></td><td>error</td><td>Flow loops from a node to itself</td></tr>
+                <tr><td><code>AD004</code></td><td>error</td><td>No start event</td></tr>
+                <tr><td><code>AD005</code></td><td>error</td><td>More than one start event</td></tr>
+                <tr><td><code>AD006</code></td><td>error</td><td>No end event</td></tr>
+                <tr><td><code>AD007</code></td><td>error</td><td>Start event has incoming flows</td></tr>
+                <tr><td><code>AD008</code></td><td>error</td><td>End event has outgoing flows</td></tr>
+                <tr><td><code>AD009</code></td><td>error</td><td>Node can never be reached from the start event</td></tr>
+                <tr><td><code>AD010</code></td><td>error</td><td>Node has no path to an end event (an instance there would be stuck)</td></tr>
+                <tr><td><code>AD011</code></td><td>error</td><td>Exclusive or inclusive gateway has two or more branches without a condition (one fallback branch is allowed)</td></tr>
+                <tr><td><code>AD012</code></td><td>warning</td><td>Conditions on flows out of a parallel gateway (Flowable ignores them)</td></tr>
+                <tr><td><code>AD013</code></td><td>warning</td><td>A non-gateway node has several outgoing flows (an implicit parallel split; usually a missing gateway)</td></tr>
+                <tr><td><code>AD014</code></td><td>error</td><td>A field set on a node type it does nothing for, e.g. <code>assignee</code> on a service task</td></tr>
+                <tr><td><code>AD015</code></td><td>warning</td><td>Activity without a label</td></tr>
+                <tr><td><code>AD016</code></td><td>warning</td><td>Two or more flows between the same pair of nodes</td></tr>
+            </tbody>
+        </table>
+        <p>A flow that fails <code>AD002</code> or <code>AD003</code> is left out of the reachability checks, so one bad flow produces one issue instead of a cascade.</p>
+
+        <h3>3.4 Canvas conversion (<code>canvas.py</code>)</h3>
+        <ul>
+            <li><code>to_canvas</code> produces the SPA's <code>GraphSnapshot</code> shape, the same one <code>parseBpmnXml</code> returns: nodes with <code>type</code>, <code>position</code> and <code>data</code>; edges of type <code>smoothstep</code> with <code>data.conditionExpression</code>. Every node gets position (0, 0) so the SPA's <code>needsAutoLayout</code> triggers layout.</li>
+            <li><code>from_canvas</code> reads the current canvas so the agent can edit or review it, ignoring position, size and selection. A node type the agent can't author raises an error instead of being dropped, because dropping it would make an Edit silently delete it.</li>
+        </ul>
+
+        <h3>3.5 Tests</h3>
+        <p><code>uv run pytest</code> in <code>services/agentic-designer/</code>: 51 tests. One fully valid "loan approval" process has no issues at all; each malformed fixture changes it in exactly one way and must produce exactly its one error code, no more and no fewer. The suite was checked against three deliberately introduced bugs (a relaxed gateway rule, a disabled dead-end check, and <code>remove_node</code> leaving flows behind), and each made tests fail.</p>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
     </section>
 
@@ -178,7 +237,7 @@
         <table class="stack-table">
             <thead><tr><th>Phase</th><th>Deliverable</th><th>Done when</th><th>Status</th></tr></thead>
             <tbody>
-                <tr id="phase-a0"><td>A0</td><td>Graph contract + validator + patch operations + canvas converter, with a pytest suite</td><td>The validator rejects each malformed-graph fixture for the right reason</td><td><span class="badge badge-design">In progress</span></td></tr>
+                <tr id="phase-a0"><td>A0</td><td>Graph contract + validator + patch operations + canvas converter, with a pytest suite</td><td>The validator rejects each malformed-graph fixture for the right reason</td><td><span class="badge badge-built">Done</span> September 27, 2026 (Section 3)</td></tr>
                 <tr><td>A1</td><td><code>/generate</code> for BPMN with the repair loop, plus the Designer side panel</td><td>A prompt becomes a valid draft on the canvas, saves, and can be submitted for approval</td><td><span class="badge badge-future">Not started</span></td></tr>
                 <tr><td>A2</td><td><code>/edit</code> with patch operations and a diff preview on the canvas</td><td>Accept and reject work; undo restores the prior graph</td><td><span class="badge badge-future">Not started</span></td></tr>
                 <tr><td>A3</td><td><code>/review</code> findings linked to nodes</td><td>Seeded defects in sample workflows are all reported</td><td><span class="badge badge-future">Not started</span></td></tr>
@@ -195,6 +254,7 @@
         <ul>
             <li><strong>Structurally valid is not the same as correct.</strong> The validator catches broken graphs, not wrong business logic. The approval flow remains the control for that.</li>
             <li><strong>Data leaves the environment.</strong> Workflow content is sent to an external LLM provider. That may need a data-handling review before real tenant data is used.</li>
+            <li><strong>The canvas contract is mirrored, not shared.</strong> <code>canvas.py</code> copies the shape of the SPA's <code>GraphSnapshot</code> in Python. If the SPA's node data changes, this has to change with it. A1's end-to-end test (generate &rarr; canvas &rarr; save) is what will catch drift.</li>
             <li><strong>Provider differences.</strong> Tool-calling reliability varies by provider and model; A5's eval harness is what makes that measurable instead of anecdotal.</li>
         </ul>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
@@ -204,6 +264,7 @@
         <h2 id="sec-7">7. Change Log</h2>
         <ul id="changelog">
             <li><strong>September 27, 2026:</strong> design approved; document created.</li>
+            <li><strong>September 27, 2026:</strong> A0 done. Graph contract, patch operations, validator (<code>AD001</code>&ndash;<code>AD016</code>) and canvas converter, with 51 passing tests. Known limits: BPMN only; no boundary events; <code>from_canvas</code> not yet checked against a graph saved by the real SPA (A1 will do this end to end).</li>
         </ul>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
     </section>
