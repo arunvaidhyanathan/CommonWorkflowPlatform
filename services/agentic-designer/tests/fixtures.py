@@ -97,4 +97,5 @@ WARNINGS = {
     "AD013": with_changes(g, add_edges=[Edge(id="f_skip", source="review", target="merge")]),
     "AD015": with_changes(g, replace_nodes=[Node(id="manager", type="userTask", assignee="${manager}")]),
     "AD016": with_changes(g, add_edges=[Edge(id="f7b", source="disburse", target="end")]),
+    "AD017": with_changes(g, replace_nodes=[Node(id="manager", type="userTask", label="Manager approval")]),
 }

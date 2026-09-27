@@ -75,3 +75,38 @@ export async function editWorkflow(
     signal,
   )
 }
+
+export interface ReviewFinding {
+  source: 'check' | 'ai' // code check vs model judgement
+  severity: 'error' | 'warning' | 'suggestion'
+  code: string // AD0xx for checks, a category for AI findings
+  message: string
+  nodeIds: string[]
+  edgeIds: string[]
+}
+
+export type ReviewEvent =
+  | { type: 'checks'; findings: ReviewFinding[]; aiAvailable: boolean } // code checks, sent first
+  | { type: 'attempt'; attempt: number }
+  | { type: 'invalid'; attempt: number; issues: AgentIssue[] }
+  | { type: 'result'; findings: ReviewFinding[]; aiAvailable: boolean }
+  | { type: 'error'; message: string }
+
+/** Review mode: read-only; nothing here changes the workflow. */
+export async function reviewWorkflow(
+  graph: CanvasGraph,
+  focus: string,
+  onEvent: (event: ReviewEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  await apiStream(
+    '/agent/review',
+    { graph: { nodes: graph.nodes, edges: graph.edges }, focus: focus || null },
+    ({ event, data }) => {
+      const body = (data ?? {}) as Record<string, unknown>
+      // Trusted shape: the service builds these events from its own validated models.
+      onEvent({ findings: [], issues: [], ...body, type: event } as unknown as ReviewEvent)
+    },
+    signal,
+  )
+}

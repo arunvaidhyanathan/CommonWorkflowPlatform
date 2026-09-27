@@ -147,6 +147,10 @@ def validate(graph: WorkflowGraph) -> list[Issue]:
         if n.type in ACTIVITY_TYPES and not n.label.strip():
             warn("AD015", f"Activity '{n.id}' has no label.", nodes=[n.id])
 
+        # AD017: a user task nobody is assigned to lands in no one's task list.
+        if n.type == "userTask" and not n.assignee and not n.candidate_groups:
+            warn("AD017", f"User task '{n.label or n.id}' has no assignee or candidate groups; nobody will see it.", nodes=[n.id])
+
     # AD016: two flows between the same pair of nodes.
     pairs: dict[tuple[str, str], list[str]] = defaultdict(list)
     for e in edges:

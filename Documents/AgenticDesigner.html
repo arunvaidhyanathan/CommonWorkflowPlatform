@@ -92,9 +92,9 @@
         <h1>Agentic Designer</h1>
         <div class="subtitle">Agent-assisted workflow authoring: generate from a description, edit by chat, review for defects.</div>
         <div class="meta-grid">
-            <div class="meta-item"><strong>Status</strong><span id="status-text">A0 done. A1 (Generate) and A2 (Edit) built and verified with a live model (NVIDIA-hosted Kimi K3). The in-browser run by a logged-in user is still to do.</span></div>
+            <div class="meta-item"><strong>Status</strong><span id="status-text">A0 done. A1 (Generate), A2 (Edit) and A3 (Review) built and verified with a live model (NVIDIA-hosted Kimi K3). The in-browser run by a logged-in user is still to do.</span></div>
             <div class="meta-item"><strong>Service</strong><code>services/agentic-designer/</code> (Python / FastAPI), behind the edge gateway at <code>/api/agent/**</code></div>
-            <div class="meta-item"><strong>Document Version</strong>1.4.0 (A2: Edit Mode)</div>
+            <div class="meta-item"><strong>Document Version</strong>1.5.0 (A3: Review Mode)</div>
             <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
             <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
         </div>
@@ -110,6 +110,7 @@
             <li><a href="#sec-4">4. Service Internals</a></li>
             <li><a href="#sec-4a">4a. Generate Mode as Built (Phase A1)</a></li>
             <li><a href="#sec-4b">4b. Edit Mode as Built (Phase A2)</a></li>
+            <li><a href="#sec-4c">4c. Review Mode as Built (Phase A3)</a></li>
             <li><a href="#sec-5">5. Phases &amp; Status</a></li>
             <li><a href="#sec-6">6. Risks &amp; Open Questions</a></li>
             <li><a href="#sec-7">7. Change Log</a></li>
@@ -208,6 +209,7 @@
                 <tr><td><code>AD014</code></td><td>error</td><td>A field set on a node type it does nothing for, e.g. <code>assignee</code> on a service task</td></tr>
                 <tr><td><code>AD015</code></td><td>warning</td><td>Activity without a label</td></tr>
                 <tr><td><code>AD016</code></td><td>warning</td><td>Two or more flows between the same pair of nodes</td></tr>
+                <tr><td><code>AD017</code></td><td>warning</td><td>User task with no assignee and no candidate groups (added in A3)</td></tr>
             </tbody>
         </table>
         <p>A flow that fails <code>AD002</code> or <code>AD003</code> is left out of the reachability checks, so one bad flow produces one issue instead of a cascade.</p>
@@ -336,6 +338,40 @@
     </section>
 
     <section>
+        <h2 id="sec-4c">4c. Review Mode as Built (Phase A3)</h2>
+        <p>Built September 27, 2026: <code>POST /review</code> (<code>review.py</code>) and the Review tab of the AI Designer panel. Read-only: nothing it returns is applied to the workflow.</p>
+        <h3>Two kinds of finding, kept apart</h3>
+        <ul>
+            <li><strong>Check</strong> (code): the validator&rsquo;s rules <code>AD001</code>&ndash;<code>AD017</code>. They need no model, arrive first (before the model answers), and are still returned when no model is configured or the model fails. New rule <strong><code>AD017</code></strong> (warning): a user task with no assignee and no candidate groups, which lands in nobody&rsquo;s task list. Generate and Edit prompts now ask for an assignment on every user task.</li>
+            <li><strong>AI</strong> (judgement): only what code can&rsquo;t decide, in fixed categories: <code>missing_path</code>, <code>incomplete_conditions</code>, <code>overlapping_conditions</code>, <code>unclear_label</code>, <code>assignment</code>, <code>ordering</code>, <code>other</code>; severity <em>warning</em> or <em>suggestion</em>. The model is told what the checks already found so it doesn&rsquo;t repeat them, and an optional focus (&ldquo;Is every approval path complete?&rdquo;, up to 500 characters) steers it. All of it is fenced as data.</li>
+            <li><strong>Code checks what the model says:</strong> node and flow ids that don&rsquo;t exist are dropped; a finding that pointed only at invented ids is discarded; at most 10 AI findings. Up to 3 attempts (empty or malformed replies are retried); if none works, the checks are returned with &ldquo;AI review unavailable&rdquo;.</li>
+        </ul>
+        <h3>In the panel</h3>
+        <p>Findings are grouped as Problems, Warnings and Suggestions, each labelled <em>Check</em> or <em>AI</em> with its code. Clicking one selects its nodes and flows on the canvas (selection only; the workflow isn&rsquo;t changed).</p>
+        <h3>Seeded-defect evaluation (A3&rsquo;s completion criterion)</h3>
+        <p><code>tests/review_samples.py</code> plants one defect per sample in the loan process; <code>scripts/review_eval.py</code> runs them all against the configured model and reports which were caught. It is the first piece of A5&rsquo;s evaluation harness.</p>
+        <table class="stack-table">
+            <thead><tr><th>Seeded defect</th><th>Caught by</th><th>Live result (Kimi K3, 2 runs each)</th></tr></thead>
+            <tbody>
+                <tr><td>User task with nobody assigned</td><td>Check <code>AD017</code></td><td>Caught</td></tr>
+                <tr><td>Branch that dead-ends</td><td>Check <code>AD010</code></td><td>Caught</td></tr>
+                <tr><td>Approval with no rejection path</td><td>AI <code>missing_path</code></td><td>Caught 2/2</td></tr>
+                <tr><td>Overlapping gateway conditions (&gt;1000 and &gt;5000)</td><td>AI <code>overlapping_conditions</code></td><td>Caught 2/2</td></tr>
+                <tr><td>Vague label (&ldquo;Do step 2&rdquo;)</td><td>AI <code>unclear_label</code></td><td>Caught 2/2</td></tr>
+                <tr><td>Paying before approving</td><td>AI <code>ordering</code></td><td>Caught 2/2</td></tr>
+            </tbody>
+        </table>
+        <p><strong>10 of 10 caught</strong>, 21&ndash;65 s per review. A first run with 2 attempts caught 7 of 10: every miss was infrastructure (Kimi returning empty replies twice in a row, and one NVIDIA 429 rate limit), never a model that answered and missed. That is why Review now gets 3 attempts like Generate and Edit. The AI also reported real issues beyond the seeded ones, notably that the base loan process itself has no rejection branch after manager approval.</p>
+        <h3>Verified</h3>
+        <ul>
+            <li>122 agent tests (13 new plus the <code>AD017</code> fixture): structural seeds caught without a model, checks sent before the model answers, a sound workflow can come back clean, invented ids dropped, id-less invented findings discarded, cap enforced, <code>already_found</code> and focus sent to the model, malformed replies retried exactly 3 times then falling back to checks, no-provider review returning 200 with checks, streaming order and metering as <code>review</code>, focus length bound. Three deliberately introduced bugs were each caught.</li>
+            <li>UI with Playwright against the running app: Review shows the check and AI findings grouped and labelled, and clicking a finding selects exactly its nodes; no console errors.</li>
+            <li><strong>Found, not fixed (pre-existing):</strong> opening a saved workflow immediately shows &ldquo;Unsaved changes&rdquo;, because the canvas store marks the workflow dirty on every React Flow change, including the size measurements React Flow reports on first render. Separate from this work; worth fixing in the Designer.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
         <h2 id="sec-5">5. Phases &amp; Status</h2>
         <table class="stack-table">
             <thead><tr><th>Phase</th><th>Deliverable</th><th>Done when</th><th>Status</th></tr></thead>
@@ -343,7 +379,7 @@
                 <tr id="phase-a0"><td>A0</td><td>Graph contract + validator + patch operations + canvas converter, with a pytest suite</td><td>The validator rejects each malformed-graph fixture for the right reason</td><td><span class="badge badge-built">Done</span> September 27, 2026 (Section 3)</td></tr>
                 <tr><td>A1</td><td><code>/generate</code> for BPMN with the repair loop, plus the Designer side panel</td><td>A prompt becomes a valid draft on the canvas, saves, and can be submitted for approval</td><td><span class="badge badge-design">Built; live-verified on NVIDIA; browser run pending</span> (Section 4a)</td></tr>
                 <tr><td>A2</td><td><code>/edit</code> with patch operations and a diff preview on the canvas</td><td>Accept and reject work; undo restores the prior graph</td><td><span class="badge badge-built">Built; live-verified on NVIDIA</span> (Section 4b)</td></tr>
-                <tr><td>A3</td><td><code>/review</code> findings linked to nodes</td><td>Seeded defects in sample workflows are all reported</td><td><span class="badge badge-future">Not started</span></td></tr>
+                <tr><td>A3</td><td><code>/review</code> findings linked to nodes</td><td>Seeded defects in sample workflows are all reported</td><td><span class="badge badge-built">Done: 10/10 seeded defects caught live</span> (Section 4c)</td></tr>
                 <tr><td>A4</td><td>CMMN and DMN support</td><td>The same checks pass for the CMMN and DMN samples in <code>Designer/samples</code></td><td><span class="badge badge-future">Not started</span></td></tr>
                 <tr><td>A5</td><td>Grounding in the tenant's existing workflows (pgvector + embeddings) and an eval harness (golden prompts &rarr; validity rate and structure checks, per provider)</td><td>Scores reported per provider</td><td><span class="badge badge-future">Not started</span></td></tr>
             </tbody>
@@ -367,6 +403,7 @@
         <h2 id="sec-7">7. Change Log</h2>
         <ul id="changelog">
             <li><strong>September 27, 2026:</strong> design approved; document created.</li>
+            <li><strong>September 27, 2026 (A3):</strong> Review mode: code checks (new <code>AD017</code>, unassigned user task) plus grounded AI judgement in fixed categories; seeded-defect evaluation caught 10 of 10 live on Kimi K3; 122 tests.</li>
             <li><strong>September 27, 2026 (A2):</strong> Edit mode: patch-op proposals against the current canvas, validated so an edit can only be rejected for problems it introduces, previewed with highlights and accepted or rejected. Live on Kimi K3: 4 of 4 edits valid in 28&ndash;48 s with empty-reply retries. Keepalive, retry and timeout hardening; 108 tests.</li>
             <li><strong>September 27, 2026 (later):</strong> OpenAI-compatible provider added (NVIDIA, OpenRouter) with <code>AGENT_PROVIDER</code> selection; live generation verified on three NVIDIA-hosted models, all valid on the first attempt; 79 tests.</li>
             <li><strong>September 27, 2026:</strong> A1 built: FastAPI service in Docker Compose behind <code>/api/agent</code>, Gemini provider, repair loop, streamed progress, Designer "Generate with AI" panel; 74 tests. Live generation not yet verified (Gemini key over its spend cap).</li>

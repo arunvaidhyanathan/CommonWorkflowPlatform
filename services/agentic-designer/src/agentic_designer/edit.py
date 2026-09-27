@@ -41,6 +41,7 @@ Rules the result must satisfy (checked by code; violations are sent back to you)
 - Keep one startEvent; every node reachable from it and able to reach an endEvent.
 - Every outgoing flow of an exclusive or inclusive gateway has a condition, except at most one fallback.
 - A task or event has at most one outgoing flow; split with a gateway.
+- Every new userTask needs candidateGroups or an assignee (who the instruction names, or a sensible group).
 - assignee/candidateGroups only on userTask (formKey also on startEvent); delegateExpression only on serviceTask.
 - To insert a step between A and B: disconnect the A->B flow, add the node, connect A->new and new->B.
 - Change only what the instruction asks for. Keep existing ids, labels and flows otherwise.

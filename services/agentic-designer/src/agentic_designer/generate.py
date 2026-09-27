@@ -35,8 +35,8 @@ Rules the result must satisfy (they are checked by code; violations are sent bac
   Label each branch (e.g. "yes"/"no"). Rejoin branches with a gateway of the same kind.
 - Use a parallelGateway for work that happens at the same time; its outgoing flows have no conditions.
 - A task or event has at most one outgoing flow; split with a gateway instead.
-- userTask: people do it. Set candidateGroups (e.g. ["underwriters"]) or assignee (e.g. "${initiator}") when the
-  description says who. serviceTask: the system does it; you may set delegateExpression (e.g. "${notifyDelegate}").
+- userTask: people do it. Every userTask needs candidateGroups (e.g. ["underwriters"]) or an assignee
+  (e.g. "${initiator}"); use who the description names, or a sensible group for the role. serviceTask: the system does it; you may set delegateExpression (e.g. "${notifyDelegate}").
   Do not set assignee, candidateGroups or formKey on anything but userTask (formKey is also allowed on startEvent),
   or delegateExpression on anything but serviceTask.
 - Short, specific labels in the imperative for tasks ("Review application"), questions for gateways ("Amount over 10k?").

@@ -23,7 +23,7 @@ from fixtures import loan_approval
 def test_insert_a_step_produces_a_valid_process():
     # The canonical edit: "add a compliance check after review".
     ops = [
-        AddNode(node=Node(id="compliance", type="userTask", label="Compliance check")),
+        AddNode(node=Node(id="compliance", type="userTask", label="Compliance check", candidate_groups=("compliance",))),
         Disconnect(edge_id="f2"),
         Connect(edge=Edge(id="f2a", source="review", target="compliance")),
         Connect(edge=Edge(id="f2b", source="compliance", target="amount_check")),

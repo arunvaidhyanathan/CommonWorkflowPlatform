@@ -16,6 +16,7 @@ from .auth import JwtVerifier, Principal, authoring_principal
 from .canvas import CanvasConversionError, from_canvas
 from .edit import MAX_GRAPH_NODES, MAX_INSTRUCTION_CHARS, edit_event_payload, edit_workflow
 from .generate import MAX_DESCRIPTION_CHARS, event_payload, generate_workflow
+from .review import MAX_FOCUS_CHARS, review_event_payload, review_workflow
 from .llm import GeminiProvider, LLMProvider, OpenAICompatibleProvider, ProviderError
 from .usage import FanoutSink, HttpSink, LogSink, MeteredProvider, PriceTable, UsageContext, UsageSink
 
@@ -30,6 +31,11 @@ class EditRequest(BaseModel):
     instruction: str = Field(min_length=5, max_length=MAX_INSTRUCTION_CHARS)
     # The Designer canvas as-is (GraphSnapshot: React Flow nodes and edges).
     graph: dict
+
+
+class ReviewRequest(BaseModel):
+    graph: dict
+    focus: str | None = Field(default=None, max_length=MAX_FOCUS_CHARS)
 
 
 class TenantRateLimiter:
@@ -126,6 +132,19 @@ def create_app(
 
         return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 
+    def canvas_or_422(graph: dict):
+        """Refused before any model call: unsupported elements, an empty
+        canvas, or one too large to send."""
+        try:
+            current = from_canvas(graph)
+        except CanvasConversionError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        if not current.nodes:
+            raise HTTPException(422, "The canvas is empty; use Generate instead.")
+        if len(current.nodes) > MAX_GRAPH_NODES:
+            raise HTTPException(422, f"Workflows over {MAX_GRAPH_NODES} nodes can't be sent to the agent yet.")
+        return current
+
     @app.post("/generate")
     async def generate(
         body: GenerateRequest,
@@ -141,16 +160,21 @@ def create_app(
         request: Request,
         principal: Principal = Depends(authoring_principal),
     ) -> StreamingResponse:
-        try:
-            current = from_canvas(body.graph)
-        except CanvasConversionError as exc:
-            raise HTTPException(422, str(exc)) from exc
-        if not current.nodes:
-            raise HTTPException(422, "The canvas is empty; use Generate instead.")
-        if len(current.nodes) > MAX_GRAPH_NODES:
-            raise HTTPException(422, f"Workflows over {MAX_GRAPH_NODES} nodes can't be edited by the agent yet.")
+        current = canvas_or_422(body.graph)
         metered = metered_for(request, principal, "edit")
         return sse("edit", edit_workflow(metered, current, body.instruction), edit_event_payload, principal, len(body.instruction))
+
+    @app.post("/review")
+    async def review(
+        body: ReviewRequest,
+        request: Request,
+        principal: Principal = Depends(authoring_principal),
+    ) -> StreamingResponse:
+        current = canvas_or_422(body.graph)
+        # Without a provider, Review still returns the code checks.
+        metered = metered_for(request, principal, "review") if request.app.state.provider is not None else None
+        focus = body.focus.strip() if body.focus else None
+        return sse("review", review_workflow(metered, current, focus), review_event_payload, principal, len(focus or ""))
 
     return app
 

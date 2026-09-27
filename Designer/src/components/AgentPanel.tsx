@@ -2,19 +2,30 @@
 // Generate: a description becomes a new canvas (unsaved; Undo restores).
 // Edit: an instruction becomes proposed changes to the current canvas,
 // previewed with highlights; Accept keeps them (unsaved), Reject restores
-// the canvas exactly as it was. Nothing here saves: Save Version does.
+// the canvas exactly as it was. Review: read-only findings (code checks and
+// AI judgement); clicking one selects its nodes. Nothing here saves.
 import { useRef, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
 import { useWorkbenchStore, type NodeData } from '../store/useWorkbenchStore'
 import { applyAutoLayout, needsAutoLayout } from '../adapters/autoLayout'
-import { editWorkflow, generateWorkflow, type AgentIssue, type EditEvent, type GenerateEvent } from '../data/agent'
+import {
+  editWorkflow,
+  generateWorkflow,
+  reviewWorkflow,
+  type AgentIssue,
+  type EditEvent,
+  type GenerateEvent,
+  type ReviewEvent,
+  type ReviewFinding,
+} from '../data/agent'
 import { ADDED_COLOR, CHANGED_COLOR, describeChanges, mergeProposal, stripHighlights } from '../lib/editPreview'
 import { ApiError, ApiNotConfiguredError } from '../lib/apiClient'
 
 const MAX_DESCRIPTION = 4000
 const MAX_INSTRUCTION = 2000
+const MAX_FOCUS = 500
 
-type Mode = 'generate' | 'edit'
+type Mode = 'generate' | 'edit' | 'review'
 type Status = 'idle' | 'running' | 'preview' | 'done' | 'failed'
 type Canvas = { nodes: Node<NodeData>[]; edges: Edge[] }
 
@@ -34,15 +45,19 @@ export function AgentPanel({ onClose }: { onClose: () => void }) {
   const [issues, setIssues] = useState<AgentIssue[]>([])
   const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState<Preview | null>(null)
+  const [findings, setFindings] = useState<ReviewFinding[] | null>(null)
+  const [aiAvailable, setAiAvailable] = useState(true)
+  const [activeFinding, setActiveFinding] = useState<number | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
   const busy = status === 'running' || status === 'preview'
-  const max = mode === 'generate' ? MAX_DESCRIPTION : MAX_INSTRUCTION
-  const minLength = mode === 'generate' ? 10 : 5
+  const max = mode === 'generate' ? MAX_DESCRIPTION : mode === 'edit' ? MAX_INSTRUCTION : MAX_FOCUS
+  const minLength = mode === 'generate' ? 10 : mode === 'edit' ? 5 : 0
 
   const progress = (e: { type: string; attempt?: number; issues?: AgentIssue[] }) => {
     if (e.type === 'attempt') {
-      const first = mode === 'generate' ? 'Drafting the workflow...' : 'Working out the changes...'
+      const first =
+        mode === 'generate' ? 'Drafting the workflow...' : mode === 'edit' ? 'Working out the changes...' : 'Reviewing the workflow...'
       setLog((l) => [...l, e.attempt === 1 ? first : `Trying again (attempt ${e.attempt})...`])
     } else if (e.type === 'invalid') {
       setLog((l) => [...l, `Proposal rejected: ${(e.issues ?? []).map((i) => i.code).join(', ')}`])
@@ -87,6 +102,35 @@ export function AgentPanel({ onClose }: { onClose: () => void }) {
     }
   }
 
+  const onReviewEvent = (event: ReviewEvent) => {
+    progress(event)
+    if (event.type === 'checks') {
+      setFindings(event.findings)
+      setLog((l) => [...l, `Automated checks: ${event.findings.length} finding(s).`])
+    } else if (event.type === 'result') {
+      setFindings(event.findings)
+      setAiAvailable(event.aiAvailable)
+      setLog((l) => [...l, event.aiAvailable ? 'Review complete.' : 'AI review unavailable right now; showing automated checks only.'])
+      setStatus('done')
+    } else if (event.type === 'error') {
+      setError(event.message)
+      setStatus('failed')
+    }
+  }
+
+  /** Select a finding's nodes and flows on the canvas (selection only; the workflow isn't changed). */
+  const onFindingClick = (index: number, f: ReviewFinding) => {
+    const next = activeFinding === index ? null : index
+    setActiveFinding(next)
+    const nodeIds = new Set(next === null ? [] : f.nodeIds)
+    const edgeIds = new Set(next === null ? [] : f.edgeIds)
+    const { nodes, edges } = useWorkbenchStore.getState()
+    useWorkbenchStore.setState({
+      nodes: nodes.map((n) => ({ ...n, selected: nodeIds.has(n.id) })),
+      edges: edges.map((e) => ({ ...e, selected: edgeIds.has(e.id) })),
+    })
+  }
+
   const onRun = async () => {
     const state = useWorkbenchStore.getState()
     if (mode === 'generate' && state.nodes.length > 0 &&
@@ -97,11 +141,16 @@ export function AgentPanel({ onClose }: { onClose: () => void }) {
     setLog([])
     setIssues([])
     setError(null)
+    setFindings(null)
+    setAiAvailable(true)
+    setActiveFinding(null)
     abortRef.current = new AbortController()
     const signal = abortRef.current.signal
     try {
       if (mode === 'generate') {
         await generateWorkflow(text.trim(), (e) => void onGenerateEvent(e), signal)
+      } else if (mode === 'review') {
+        await reviewWorkflow({ nodes: state.nodes, edges: state.edges }, text.trim(), onReviewEvent, signal)
       } else {
         const before = { nodes: state.nodes, edges: state.edges, isDirty: state.isDirty }
         await editWorkflow(text.trim(), before, (e) => onEditEvent(e, before), signal)
@@ -151,24 +200,26 @@ export function AgentPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="flex gap-1" role="tablist">
-        {(['generate', 'edit'] as const).map((m) => (
+        {(['generate', 'edit', 'review'] as const).map((m) => (
           <button
             key={m}
             type="button"
             role="tab"
             aria-selected={mode === m}
-            disabled={busy || (m === 'edit' && !canvasHasNodes)}
+            disabled={busy || (m !== 'generate' && !canvasHasNodes)}
             onClick={() => {
               setMode(m)
+              setText('')
               setLog([])
               setIssues([])
               setError(null)
+              setFindings(null)
               setStatus('idle')
             }}
-            title={m === 'edit' && !canvasHasNodes ? 'The canvas is empty; use Generate' : undefined}
+            title={m !== 'generate' && !canvasHasNodes ? 'The canvas is empty; use Generate' : undefined}
             className={`flex-1 rounded px-2 py-1 text-xs font-semibold disabled:opacity-40 ${mode === m ? 'bg-[#0066b2] text-white' : 'bg-white text-sky-700 hover:bg-sky-100'}`}
           >
-            {m === 'generate' ? 'Generate' : 'Edit'}
+            {m === 'generate' ? 'Generate' : m === 'edit' ? 'Edit' : 'Review'}
           </button>
         ))}
       </div>
@@ -176,17 +227,21 @@ export function AgentPanel({ onClose }: { onClose: () => void }) {
       <p className="text-xs text-slate-500">
         {mode === 'generate'
           ? 'Describe the process: its steps, who does each one, and the decisions along the way. The result replaces the canvas; nothing is saved until you click Save Version.'
-          : 'Describe a change to this workflow. The proposal is highlighted on the canvas for you to accept or reject; nothing is saved until you click Save Version.'}
+          : mode === 'edit'
+            ? 'Describe a change to this workflow. The proposal is highlighted on the canvas for you to accept or reject; nothing is saved until you click Save Version.'
+            : 'Checks this workflow for problems. Automated checks run first; the AI then looks for things they can\'t catch. Optionally say what to focus on. Nothing is changed.'}
       </p>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value.slice(0, max))}
-        rows={mode === 'generate' ? 8 : 5}
+        rows={mode === 'generate' ? 8 : mode === 'edit' ? 5 : 3}
         disabled={busy}
         placeholder={
           mode === 'generate'
             ? 'Loan application: an underwriter reviews it; amounts over 10,000 need manager approval; then the system disburses the funds.'
-            : 'Loans over 50,000 also need a compliance review after the manager approval.'
+            : mode === 'edit'
+              ? 'Loans over 50,000 also need a compliance review after the manager approval.'
+              : 'Optional: e.g. Is every approval path complete?'
         }
         className="w-full rounded border border-sky-200 bg-white p-2 text-sm text-slate-800"
       />
@@ -209,7 +264,7 @@ export function AgentPanel({ onClose }: { onClose: () => void }) {
             disabled={busy || trimmed < minLength}
             className="rounded bg-[#0066b2] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#003b70] disabled:opacity-50"
           >
-            {mode === 'generate' ? 'Generate' : 'Propose changes'}
+            {mode === 'generate' ? 'Generate' : mode === 'edit' ? 'Propose changes' : 'Review'}
           </button>
         )}
       </div>
@@ -267,7 +322,9 @@ export function AgentPanel({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {issues.length > 0 && (
+      {findings && <Findings findings={findings} aiAvailable={aiAvailable} active={activeFinding} onClick={onFindingClick} />}
+
+      {issues.length > 0 && mode !== 'review' && (
         <div>
           <h4 className="mb-1 text-xs font-bold text-slate-700">{status === 'failed' ? 'Problems' : 'Worth checking'}</h4>
           <ul className="space-y-1">
@@ -282,6 +339,69 @@ export function AgentPanel({ onClose }: { onClose: () => void }) {
           </ul>
         </div>
       )}
+    </div>
+  )
+}
+
+const GROUPS: { severity: ReviewFinding['severity']; title: string; tone: string }[] = [
+  { severity: 'error', title: 'Problems', tone: 'bg-red-50 text-red-800' },
+  { severity: 'warning', title: 'Warnings', tone: 'bg-amber-50 text-amber-900' },
+  { severity: 'suggestion', title: 'Suggestions', tone: 'bg-white text-slate-700' },
+]
+
+function Findings({
+  findings,
+  aiAvailable,
+  active,
+  onClick,
+}: {
+  findings: ReviewFinding[]
+  aiAvailable: boolean
+  active: number | null
+  onClick: (index: number, f: ReviewFinding) => void
+}) {
+  if (findings.length === 0) {
+    return (
+      <p className="rounded bg-white p-2 text-xs text-slate-600">
+        {aiAvailable ? 'No problems found.' : 'The automated checks found no problems.'}
+      </p>
+    )
+  }
+  const indexed = findings.map((f, i) => ({ f, i }))
+  return (
+    <div className="space-y-3">
+      {GROUPS.map((g) => {
+        const items = indexed.filter(({ f }) => f.severity === g.severity)
+        if (items.length === 0) return null
+        return (
+          <div key={g.severity}>
+            <h4 className="mb-1 text-xs font-bold text-slate-700">
+              {g.title} ({items.length})
+            </h4>
+            <ul className="space-y-1">
+              {items.map(({ f, i }) => {
+                const pointsAtSomething = f.nodeIds.length + f.edgeIds.length > 0
+                return (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      onClick={() => onClick(i, f)}
+                      disabled={!pointsAtSomething}
+                      title={pointsAtSomething ? 'Select on the canvas' : undefined}
+                      className={`w-full rounded border p-1.5 text-left text-xs ${g.tone} ${active === i ? 'border-[#0066b2]' : 'border-transparent'} ${pointsAtSomething ? 'hover:border-sky-300' : 'cursor-default'}`}
+                    >
+                      <span className="mr-1 rounded bg-slate-200 px-1 text-[10px] font-bold uppercase text-slate-700">
+                        {f.source === 'check' ? 'Check' : 'AI'}
+                      </span>
+                      <span className="font-mono text-[10px] text-slate-500">{f.code}</span> {f.message}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )
+      })}
     </div>
   )
 }
