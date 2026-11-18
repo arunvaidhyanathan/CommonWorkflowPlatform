@@ -10,6 +10,10 @@ import { AdministrationPage } from './pages/AdministrationPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
 import { WorkflowWrapperPage } from './pages/WorkflowWrapperPage'
 import { SpendPage } from './pages/SpendPage'
+import { TasksPage } from './pages/TasksPage'
+import { InstancesPage } from './pages/InstancesPage'
+import { DecisionsPage } from './pages/DecisionsPage'
+import { JobsPage } from './pages/JobsPage'
 
 function App() {
   const { session, loading } = useSession()
@@ -34,6 +38,9 @@ function App() {
           <Route path="/designer" element={<DesignerPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/workbench" element={<WorkbenchPage />} />
+          <Route path="/tasks" element={<TasksPage />} />
+          <Route path="/instances" element={<InstancesPage />} />
+          <Route path="/decisions" element={<DecisionsPage />} />
           <Route path="/workflow-wrapper" element={<WorkflowWrapperPage />} />
           {/* The Agentic Designer lives in the Designer (AI Designer panel); keep old links working. */}
           <Route path="/agentic-designer" element={<Navigate to="/designer" replace />} />
@@ -50,6 +57,14 @@ function App() {
             element={
               <RequireRole allow={['tenant_admin', 'approver']}>
                 <ApprovalsPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/jobs"
+            element={
+              <RequireRole allow={['tenant_admin']}>
+                <JobsPage />
               </RequireRole>
             }
           />

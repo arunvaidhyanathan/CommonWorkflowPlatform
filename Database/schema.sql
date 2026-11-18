@@ -200,6 +200,21 @@ create table if not exists public.invites (
 );
 
 -- ----------------------------------------------------------------------------
+-- 10b. group_members (runtime task candidate groups)
+-- ----------------------------------------------------------------------------
+-- Flowable human tasks name candidate groups (flowable:candidateGroups).
+-- A member belongs to the groups listed here plus, implicitly, a group named
+-- after their role (e.g. "designer"). Managed by tenant admins.
+create table if not exists public.group_members (
+  tenant_id  uuid not null references public.tenants(id),
+  user_id    uuid not null references public.profiles(id) on delete cascade,
+  group_key  text not null check (group_key ~ '^[A-Za-z][A-Za-z0-9_-]{0,63}$'),
+  created_at timestamptz not null default now(),
+  primary key (user_id, group_key)
+);
+create index if not exists group_members_tenant_group_idx on public.group_members (tenant_id, group_key);
+
+-- ----------------------------------------------------------------------------
 -- 11. Indexes (beyond the unique constraints/PKs already implied above)
 -- ----------------------------------------------------------------------------
 create index if not exists idx_workflows_tenant           on public.workflows (tenant_id);

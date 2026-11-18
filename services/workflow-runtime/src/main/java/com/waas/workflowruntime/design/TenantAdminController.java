@@ -10,6 +10,7 @@ import com.waas.workflowruntime.common.TenantContext;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -40,7 +41,10 @@ public class TenantAdminController {
     private static final String ROLE_PATTERN = "designer|tenant_admin|approver|viewer";
 
     public record TenantMember(UUID id, String role, String displayName, String email, String status,
-            OffsetDateTime createdAt) {
+            OffsetDateTime createdAt, List<String> groups) {
+    }
+
+    public record GroupsRequest(@NotNull List<@Pattern(regexp = "^[A-Za-z][A-Za-z0-9_-]{0,63}$") String> groups) {
     }
 
     public record CreateUserRequest(@NotBlank @Size(max = 100) String username,
@@ -76,11 +80,15 @@ public class TenantAdminController {
     @GetMapping("/members")
     public List<TenantMember> members() {
         return db.jdbc.query("""
-                select id, role, display_name, email, status, created_at from public.profiles
-                where tenant_id = ? order by created_at""",
+                select p.id, p.role, p.display_name, p.email, p.status, p.created_at,
+                       coalesce(array_agg(g.group_key order by g.group_key) filter (where g.group_key is not null),
+                                '{}') as groups
+                from public.profiles p left join public.group_members g on g.user_id = p.id
+                where p.tenant_id = ? group by p.id order by p.created_at""",
                 (rs, i) -> new TenantMember(rs.getObject("id", UUID.class), rs.getString("role"),
                         rs.getString("display_name"), rs.getString("email"), rs.getString("status"),
-                        rs.getObject("created_at", OffsetDateTime.class)),
+                        rs.getObject("created_at", OffsetDateTime.class),
+                        List.of((String[]) rs.getArray("groups").getArray())),
                 db.tenantId());
     }
 
@@ -125,6 +133,25 @@ public class TenantAdminController {
                 values (?, ?, 'role_changed', 'profile', ?, ?::jsonb, ?::jsonb)""",
                 actor.tenantId(), actor.userId(), id,
                 db.toJson(Map.of("role", previous.get(0))), db.toJson(Map.of("role", request.role())));
+    }
+
+    /** Replaces the member's task candidate groups (their role is always an implicit group). */
+    @PutMapping("/members/{id}/groups")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void setGroups(@PathVariable UUID id, @Valid @RequestBody GroupsRequest request) {
+        DesignDb.Actor actor = db.writer("tenant_admin");
+        Boolean member = db.jdbc.queryForObject(
+                "select exists (select 1 from public.profiles where id = ? and tenant_id = ?)",
+                Boolean.class, id, actor.tenantId());
+        if (!Boolean.TRUE.equals(member)) {
+            throw DesignDb.notFound("Member");
+        }
+        db.jdbc.update("delete from public.group_members where user_id = ?", id);
+        for (String group : new java.util.TreeSet<>(request.groups())) {
+            db.jdbc.update("insert into public.group_members (tenant_id, user_id, group_key) values (?, ?, ?)",
+                    actor.tenantId(), id, group);
+        }
     }
 
     @PutMapping("/members/{id}/status")

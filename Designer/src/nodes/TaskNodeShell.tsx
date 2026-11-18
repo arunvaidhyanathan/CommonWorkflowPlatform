@@ -5,6 +5,34 @@ import { memo } from 'react'
 import { Handle, Position, type NodeProps, NodeToolbar } from '@xyflow/react'
 import { useWorkbenchStore } from '../store/useWorkbenchStore'
 import type { NodeData } from '../store/useWorkbenchStore'
+import type { BpmnNodeData } from '../adapters/bpmnAdapter'
+
+/** Multi-instance, compensation, event/ad-hoc sub-process and container markers. */
+function ActivityMarkers({ data }: { data: NodeData }) {
+  const d = data as NodeData & BpmnNodeData
+  const parentLabel = useWorkbenchStore((s) =>
+    d.parentId ? (s.nodes.find((n) => n.id === d.parentId)?.data.label ?? d.parentId) : null,
+  )
+  const markers = [
+    d.multiInstance ? (d.multiInstance.sequential ? 'multi: sequential' : 'multi: parallel') : null,
+    d.multiInstance?.aggregations?.length ? `collects ${d.multiInstance.aggregations.map((a) => a.target).join(', ')}` : null,
+    d.isForCompensation ? 'compensation' : null,
+    d.triggeredByEvent ? 'event sub-process' : null,
+    d.serviceType === 'mail' ? 'sends mail' : null,
+    d.serviceType === 'case' ? `starts case ${d.caseDefinitionKey ?? ''}` : null,
+    d.calledElement ? `calls ${d.calledElement}` : null,
+    d.decisionRef ? `decision ${d.decisionRef}` : null,
+  ].filter((m): m is string => m !== null)
+  if (!markers.length && !parentLabel) return null
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-0.5">
+      {markers.map((m) => (
+        <span key={m} className="truncate rounded bg-slate-100 px-1 text-[8px] font-bold uppercase text-slate-500">{m}</span>
+      ))}
+      {parentLabel && <span className="truncate rounded bg-violet-100 px-1 text-[8px] text-violet-700">in: {parentLabel}</span>}
+    </div>
+  )
+}
 
 interface TaskNodeShellProps extends NodeProps {
   data: NodeData
@@ -59,6 +87,7 @@ export const TaskNodeShell = memo(
           </div>
         </div>
 
+        <ActivityMarkers data={data} />
         {data.delegateExpression && (
           <div className="mt-2 truncate rounded bg-sky-50 p-1 font-mono text-[10px] text-slate-500">
             {data.delegateExpression}

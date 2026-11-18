@@ -13,6 +13,8 @@ import {
   CallActivityNode,
   SubProcessNode,
   GenericNode,
+  ScriptTaskNode,
+  AdHocSubProcessNode,
 } from './TaskNodes'
 import {
   ExclusiveGatewayNode,
@@ -25,6 +27,12 @@ import {
   CmmnMilestoneNode,
   CmmnStageNode,
   CmmnSentryNode,
+  CmmnDecisionTaskNode,
+  CmmnProcessTaskNode,
+  CmmnCaseTaskNode,
+  CmmnTimerListenerNode,
+  CmmnUserListenerNode,
+  CmmnCasePlanNode,
 } from './CmmnNodes'
 
 // All node types are registered together (keys never collide across specs),
@@ -41,6 +49,8 @@ export const nodeTypes: NodeTypes = {
   businessRuleTask: BusinessRuleTaskNode,
   callActivity: CallActivityNode,
   subProcess: SubProcessNode,
+  scriptTask: ScriptTaskNode,
+  adHocSubProcess: AdHocSubProcessNode,
   exclusiveGateway: ExclusiveGatewayNode,
   parallelGateway: ParallelGatewayNode,
   inclusiveGateway: InclusiveGatewayNode,
@@ -51,6 +61,12 @@ export const nodeTypes: NodeTypes = {
   cmmnMilestone: CmmnMilestoneNode,
   cmmnStage: CmmnStageNode,
   cmmnSentry: CmmnSentryNode,
+  cmmnDecisionTask: CmmnDecisionTaskNode,
+  cmmnProcessTask: CmmnProcessTaskNode,
+  cmmnCaseTask: CmmnCaseTaskNode,
+  cmmnTimerListener: CmmnTimerListenerNode,
+  cmmnUserListener: CmmnUserListenerNode,
+  cmmnCasePlan: CmmnCasePlanNode,
 }
 
 interface PaletteItem {
@@ -65,10 +81,12 @@ export const BPMN_PALETTE_ITEMS: PaletteItem[] = [
   { type: 'intermediateEvent', label: 'Intermediate Event', category: 'Events' },
   { type: 'boundaryEvent', label: 'Boundary Event', category: 'Events' },
   { type: 'userTask', label: 'User Task', category: 'Activities' },
-  { type: 'serviceTask', label: 'Service Task', category: 'Activities' },
+  { type: 'serviceTask', label: 'Service / Mail / Case Task', category: 'Activities' },
+  { type: 'scriptTask', label: 'Script Task', category: 'Activities' },
   { type: 'businessRuleTask', label: 'Business Rule Task', category: 'Activities' },
   { type: 'callActivity', label: 'Call Activity', category: 'Activities' },
-  { type: 'subProcess', label: 'Sub-Process', category: 'Activities' },
+  { type: 'subProcess', label: 'Sub-Process / Event Sub-Process', category: 'Activities' },
+  { type: 'adHocSubProcess', label: 'Ad-hoc Sub-Process', category: 'Activities' },
   { type: 'exclusiveGateway', label: 'Exclusive Gateway', category: 'Gateways' },
   { type: 'parallelGateway', label: 'Parallel Gateway', category: 'Gateways' },
   { type: 'inclusiveGateway', label: 'Inclusive Gateway', category: 'Gateways' },
@@ -79,7 +97,13 @@ export const CMMN_PALETTE_ITEMS: PaletteItem[] = [
   { type: 'cmmnTask', label: 'Task', category: 'Plan Items' },
   { type: 'cmmnMilestone', label: 'Milestone', category: 'Plan Items' },
   { type: 'cmmnStage', label: 'Stage', category: 'Plan Items' },
+  { type: 'cmmnDecisionTask', label: 'Decision Task', category: 'Plan Items' },
+  { type: 'cmmnProcessTask', label: 'Process Task', category: 'Plan Items' },
+  { type: 'cmmnCaseTask', label: 'Case Task', category: 'Plan Items' },
+  { type: 'cmmnTimerListener', label: 'Timer Listener', category: 'Event Listeners' },
+  { type: 'cmmnUserListener', label: 'User Event Listener', category: 'Event Listeners' },
   { type: 'cmmnSentry', label: 'Sentry', category: 'Sentries' },
+  { type: 'cmmnCasePlan', label: 'Case Plan (settings)', category: 'Case' },
 ]
 
 export function getPaletteItems(spec: SpecType): PaletteItem[] {

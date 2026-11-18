@@ -2,7 +2,7 @@
 // the workflow browser, origination paths (new/import/open), palette,
 // canvas, and properties panel into the full editor experience across all
 // three specs (BPMN process, CMMN case, DMN decision).
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useSession } from '../lib/useSession'
 import { useWorkbenchStore, type SpecType } from '../store/useWorkbenchStore'
@@ -11,6 +11,8 @@ import { Canvas } from '../components/Canvas'
 import { PropertiesPanel } from '../components/PropertiesPanel'
 import { AgentPanel } from '../components/AgentPanel'
 import { DmnEditor } from '../components/DmnEditor'
+import { DecisionServicesPanel } from '../components/DecisionServicesPanel'
+import { PublishBundlePicker } from '../components/PublishBundlePicker'
 import { GettingStartedPanel } from '../components/GettingStartedPanel'
 import {
   WorkflowIdentityDialog,
@@ -78,6 +80,8 @@ export function DesignerPage() {
     'idle',
   )
   const [publishError, setPublishError] = useState<string | null>(null)
+  // #13: other workflows to release with this one as a single app.
+  const [bundle, setBundle] = useState<WorkflowSummary[]>([])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -378,18 +382,21 @@ export function DesignerPage() {
     setPublishError(null)
     try {
       const { xml } = await serializeCurrent()
+      // Bundled workflows go out as their last saved version.
+      const bundled = await Promise.all(
+        bundle.map(async (w) => ({
+          definitionKey: w.definitionKey,
+          name: w.name,
+          specType: w.specType,
+          xml: (await loadWorkflowVersion(w.currentVersionId as string)).xmlContent,
+        })),
+      )
       const deployment = await createDeployment({
-        name: workflowName || definitionKey,
-        specType: activeSpec,
+        name: bundled.length ? `${workflowName || definitionKey} app` : workflowName || definitionKey,
+        specType: bundled.length ? 'APP' : activeSpec,
         description: `Published from Designer -- ${definitionKey} v(current)`,
-        manifest: [
-          {
-            definitionKey,
-            name: workflowName || definitionKey,
-            specType: activeSpec,
-            xml,
-          },
-        ],
+        manifest: [{ definitionKey, name: workflowName || definitionKey, specType: activeSpec, xml }, ...bundled],
+        ...(bundled.length ? { appKey: `${definitionKey}App` } : {}),
       })
       setPublishStatus('published')
       setTimeout(() => setPublishStatus('idle'), 3000)
@@ -408,6 +415,18 @@ export function DesignerPage() {
       }
     }
   }
+
+  // Keys of other definitions this model calls (decision / case / process references), for the bundle picker.
+  const referencedKeys = useMemo(() => {
+    const keys = new Set<string>()
+    for (const n of nodes) {
+      const d = n.data as Record<string, unknown>
+      for (const field of ['decisionKey', 'caseKey', 'processKey', 'caseDefinitionKey', 'calledElement', 'decisionRef']) {
+        if (typeof d[field] === 'string' && d[field]) keys.add(d[field] as string)
+      }
+    }
+    return [...keys].sort()
+  }, [nodes])
 
   /** Shared with onSaveVersion: serializes the in-memory model for the active spec. */
   const serializeCurrent = async (): Promise<{ xml: string; graph: GraphSnapshot }> => {
@@ -697,6 +716,15 @@ export function DesignerPage() {
             </button>
           )}
           {workflowStatus === 'approved' && canDeploy && (
+            <PublishBundlePicker
+              tenantId={tenantId}
+              currentWorkflowId={workflowId}
+              referencedKeys={referencedKeys}
+              selected={bundle}
+              onChange={setBundle}
+            />
+          )}
+          {workflowStatus === 'approved' && canDeploy && (
             <button
               type="button"
               onClick={onPublish}
@@ -770,11 +798,19 @@ export function DesignerPage() {
                 </div>
               ))}
             </div>
+            {dmnModel && (
+              <DecisionServicesPanel
+                decisions={dmnModel.decisions}
+                services={dmnModel.decisionServices ?? []}
+                onChange={(services) => useWorkbenchStore.getState().setDecisionServices(services)}
+              />
+            )}
           </aside>
           {activeDecision ? (
             <DmnEditor
               decision={activeDecision}
               onChange={(updated) => updateDecision(updated.id, updated)}
+              otherDecisions={dmnModel?.decisions.filter((d) => d.id !== activeDecision.id) ?? []}
             />
           ) : (
             <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
@@ -787,7 +823,14 @@ export function DesignerPage() {
         <div className="flex flex-1 overflow-hidden">
           <Palette
             onPlace={(type) => {
-              useWorkbenchStore.getState().addNode({
+              const store = useWorkbenchStore.getState()
+              // A case has exactly one plan model: select the existing one instead of adding another.
+              const existingPlan = type === 'cmmnCasePlan' ? store.nodes.find((n) => n.type === 'cmmnCasePlan') : undefined
+              if (existingPlan) {
+                store.selectNode(existingPlan.id)
+                return
+              }
+              store.addNode({
                 id: `${type}_${Date.now()}`,
                 type,
                 position: { x: 240, y: 240 },

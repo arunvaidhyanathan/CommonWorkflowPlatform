@@ -17,6 +17,7 @@ import {
   archiveWorkflow,
   deleteWorkflowPermanently,
   createUser,
+  setMemberGroups,
   type TenantMember,
 } from '../data/admin'
 import { listWorkflows, type WorkflowSummary } from '../data/workflows'
@@ -137,6 +138,21 @@ export function AdministrationPage() {
       await refreshMembers()
     } catch (err) {
       setMembersError(err instanceof Error ? err.message : 'Could not update role.')
+    } finally {
+      setRoleSaving(null)
+    }
+  }
+
+  const onGroupsSave = async (member: TenantMember, text: string) => {
+    const groups = text.split(',').map((g) => g.trim()).filter(Boolean)
+    if (groups.join(',') === member.groups.join(',')) return
+    setRoleSaving(member.id)
+    setMembersError(null)
+    try {
+      await setMemberGroups(member.id, groups)
+      await refreshMembers()
+    } catch (err) {
+      setMembersError(err instanceof Error ? err.message : 'Could not update groups.')
     } finally {
       setRoleSaving(null)
     }
@@ -273,6 +289,18 @@ export function AdministrationPage() {
                   <div className="truncate text-[11px] text-slate-400">
                     {member.displayName || <span className="font-mono">{member.id}</span>}
                   </div>
+                  <label className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
+                    Task groups:
+                    <input
+                      key={member.groups.join(',')}
+                      defaultValue={member.groups.join(', ')}
+                      placeholder="e.g. kycAnalyst, eddTeam"
+                      disabled={roleSaving === member.id}
+                      onBlur={(e) => onGroupsSave(member, e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                      className="w-56 rounded border border-sky-200 px-1.5 py-0.5 text-[11px] outline-none focus:border-sky-500"
+                    />
+                  </label>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <select
@@ -307,7 +335,9 @@ export function AdministrationPage() {
           </div>
           <p className="mt-2 text-[11px] text-slate-400">
             The first line is the member's username. Role changes take effect at their next
-            sign-in; deactivation blocks their writes at once.
+            sign-in; deactivation blocks their writes at once. Task groups decide which
+            workflow tasks are offered to a member (their role is always an extra group).
+            Separate groups with commas; changes save when you leave the field.
           </p>
           <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-slate-600">
             <div className="mb-1 font-bold uppercase tracking-wide text-slate-500">

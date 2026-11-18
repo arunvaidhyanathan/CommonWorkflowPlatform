@@ -22,5 +22,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Adapter tests run under Node (npm test), not in the browser build.
+  "exclude": ["src/**/*.test.ts"]
 }

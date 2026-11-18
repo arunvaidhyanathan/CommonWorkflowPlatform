@@ -27,5 +27,8 @@ public record CreateDeploymentRequest(
         String description,
 
         @NotEmpty(message = "manifest must contain at least one artifact")
-        List<@Valid ManifestArtifact> manifest) {
+        List<@Valid ManifestArtifact> manifest,
+        // #13: key of the Flowable app a multi-artifact manifest deploys as (default: from name).
+        @Size(max = 255, message = "appKey must be at most 255 characters")
+        String appKey) {
 }

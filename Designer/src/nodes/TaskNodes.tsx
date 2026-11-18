@@ -68,3 +68,25 @@ export const GenericNode = memo((props: NodeProps) => (
   />
 ))
 GenericNode.displayName = 'GenericNode'
+
+export const ScriptTaskNode = memo((props: NodeProps) => (
+  <TaskNodeShell
+    {...props}
+    data={props.data as NodeData}
+    badge="SC"
+    badgeClassName="bg-amber-100 text-amber-700"
+    subtitle="Script Task"
+  />
+))
+ScriptTaskNode.displayName = 'ScriptTaskNode'
+
+export const AdHocSubProcessNode = memo((props: NodeProps) => (
+  <TaskNodeShell
+    {...props}
+    data={props.data as NodeData}
+    badge="~"
+    badgeClassName="bg-violet-100 text-violet-700"
+    subtitle="Ad-hoc Sub-Process"
+  />
+))
+AdHocSubProcessNode.displayName = 'AdHocSubProcessNode'

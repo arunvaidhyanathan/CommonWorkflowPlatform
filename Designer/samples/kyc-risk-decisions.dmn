@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dmn:definitions xmlns:dmn="https://www.omg.org/spec/DMN/20191111/MODEL/" id="Definitions_KycRisk" name="KYC Risk Decisions" namespace="http://waas.citi.com/dmn/kyc">
+  <!--
+    KYC onboarding risk decisions. Flowable OSS 8 DMN capabilities shown here:
+      - Decision service (kycAssessmentService): one call evaluates a DRD of four
+        decisions; the CMMN sample (kyc-onboarding-case.cmmn) calls it by key.
+      - Decision requirements (informationRequirement): kycRiskTier consumes the
+        outputs of kycCountryRisk and kycProductRisk.
+      - Hit policies: FIRST (kycCountryRisk, kycProductRisk), UNIQUE with two
+        outputs (kycRiskTier), COLLECT returning a list (kycDocumentRequirements),
+        PRIORITY with ranked outputValues (kycMonitoringFrequency).
+      - Flowable 8 caveat (verified in FlowableKycSampleTest): inside a decision
+        service, a decision that feeds another decision passes on the output of
+        its LAST matching row, not the hit-policy result. So decisions consumed
+        downstream use FIRST or UNIQUE; PRIORITY is only used for an output
+        decision, whose returned result is correct.
+    Inputs: country, productType, expectedMonthlyVolume, isPep, customerType.
+  -->
+
+  <!-- FIRST: rules are checked top-down and the first match wins, so the
+       catch-all "-" row is a safe default instead of an overlap error. -->
+  <dmn:decision id="kycCountryRisk" name="Country Risk">
+    <dmn:decisionTable id="DT_CountryRisk" hitPolicy="FIRST">
+      <dmn:input id="CR_In_Country" label="Country (ISO code)">
+        <dmn:inputExpression id="CR_IE_Country" typeRef="string">
+          <dmn:text>country</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="CR_Out" name="countryRisk" typeRef="string" />
+      <dmn:rule id="CR_R1">
+        <dmn:inputEntry id="CR_R1_1"><dmn:text>"IR"</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="CR_R1_O"><dmn:text>"HIGH"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="CR_R2">
+        <dmn:inputEntry id="CR_R2_1"><dmn:text>"KP"</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="CR_R2_O"><dmn:text>"HIGH"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="CR_R3">
+        <dmn:inputEntry id="CR_R3_1"><dmn:text>"AE"</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="CR_R3_O"><dmn:text>"MEDIUM"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="CR_R4">
+        <dmn:inputEntry id="CR_R4_1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="CR_R4_O"><dmn:text>"LOW"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- FIRST again, with rows ordered from riskiest to safest, so the first
+       match is the highest applicable risk. -->
+  <dmn:decision id="kycProductRisk" name="Product Risk">
+    <dmn:decisionTable id="DT_ProductRisk" hitPolicy="FIRST">
+      <dmn:input id="PR_In_Product" label="Product Type">
+        <dmn:inputExpression id="PR_IE_Product" typeRef="string">
+          <dmn:text>productType</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="PR_In_Volume" label="Expected Monthly Volume (USD)">
+        <dmn:inputExpression id="PR_IE_Volume" typeRef="number">
+          <dmn:text>expectedMonthlyVolume</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="PR_Out" name="productRisk" typeRef="string" />
+      <dmn:rule id="PR_R1">
+        <dmn:inputEntry id="PR_R1_1"><dmn:text>"PRIVATE_BANKING"</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="PR_R1_2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="PR_R1_O"><dmn:text>"HIGH"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="PR_R2">
+        <dmn:inputEntry id="PR_R2_1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="PR_R2_2"><dmn:text>&gt;= 1000000</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="PR_R2_O"><dmn:text>"HIGH"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="PR_R3">
+        <dmn:inputEntry id="PR_R3_1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="PR_R3_2"><dmn:text>&gt;= 100000</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="PR_R3_O"><dmn:text>"MEDIUM"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="PR_R4">
+        <dmn:inputEntry id="PR_R4_1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="PR_R4_2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="PR_R4_O"><dmn:text>"LOW"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- UNIQUE with two outputs: rows are mutually exclusive (a PEP always gets
+       enhanced due diligence, whatever the other risks). -->
+  <dmn:decision id="kycRiskTier" name="Overall Risk Tier">
+    <dmn:informationRequirement id="IR_Tier_Country">
+      <dmn:requiredDecision href="#kycCountryRisk" />
+    </dmn:informationRequirement>
+    <dmn:informationRequirement id="IR_Tier_Product">
+      <dmn:requiredDecision href="#kycProductRisk" />
+    </dmn:informationRequirement>
+    <dmn:decisionTable id="DT_RiskTier" hitPolicy="UNIQUE">
+      <dmn:input id="RT_In_Pep" label="Politically Exposed Person">
+        <dmn:inputExpression id="RT_IE_Pep" typeRef="boolean">
+          <dmn:text>isPep</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="RT_In_Country" label="Country Risk">
+        <dmn:inputExpression id="RT_IE_Country" typeRef="string">
+          <dmn:text>countryRisk</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="RT_In_Product" label="Product Risk">
+        <dmn:inputExpression id="RT_IE_Product" typeRef="string">
+          <dmn:text>productRisk</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="RT_Out_Tier" name="riskTier" typeRef="string" />
+      <dmn:output id="RT_Out_Review" name="reviewLevel" typeRef="string" />
+      <dmn:rule id="RT_R1">
+        <dmn:inputEntry id="RT_R1_1"><dmn:text>== true</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="RT_R1_2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="RT_R1_3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="RT_R1_O1"><dmn:text>"HIGH"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="RT_R1_O2"><dmn:text>"ENHANCED"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="RT_R2">
+        <dmn:inputEntry id="RT_R2_1"><dmn:text>== false</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="RT_R2_2"><dmn:text>"HIGH"</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="RT_R2_3"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="RT_R2_O1"><dmn:text>"HIGH"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="RT_R2_O2"><dmn:text>"ENHANCED"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="RT_R3">
+        <dmn:inputEntry id="RT_R3_1"><dmn:text>== false</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="RT_R3_2"><dmn:text>!= "HIGH"</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="RT_R3_3"><dmn:text>"HIGH"</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="RT_R3_O1"><dmn:text>"HIGH"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="RT_R3_O2"><dmn:text>"ENHANCED"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="RT_R4">
+        <dmn:inputEntry id="RT_R4_1"><dmn:text>== false</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="RT_R4_2"><dmn:text>"MEDIUM"</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="RT_R4_3"><dmn:text>!= "HIGH"</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="RT_R4_O1"><dmn:text>"MEDIUM"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="RT_R4_O2"><dmn:text>"STANDARD"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="RT_R5">
+        <dmn:inputEntry id="RT_R5_1"><dmn:text>== false</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="RT_R5_2"><dmn:text>"LOW"</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="RT_R5_3"><dmn:text>"MEDIUM"</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="RT_R5_O1"><dmn:text>"MEDIUM"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="RT_R5_O2"><dmn:text>"STANDARD"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="RT_R6">
+        <dmn:inputEntry id="RT_R6_1"><dmn:text>== false</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="RT_R6_2"><dmn:text>"LOW"</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="RT_R6_3"><dmn:text>"LOW"</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="RT_R6_O1"><dmn:text>"LOW"</dmn:text></dmn:outputEntry>
+        <dmn:outputEntry id="RT_R6_O2"><dmn:text>"SIMPLIFIED"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- COLLECT (no aggregation): every matching row contributes, so the result
+       is the full list of documents to request. -->
+  <dmn:decision id="kycDocumentRequirements" name="Required Documents">
+    <dmn:informationRequirement id="IR_Docs_Tier">
+      <dmn:requiredDecision href="#kycRiskTier" />
+    </dmn:informationRequirement>
+    <dmn:decisionTable id="DT_Documents" hitPolicy="COLLECT">
+      <dmn:input id="DR_In_Tier" label="Risk Tier">
+        <dmn:inputExpression id="DR_IE_Tier" typeRef="string">
+          <dmn:text>riskTier</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="DR_In_Type" label="Customer Type">
+        <dmn:inputExpression id="DR_IE_Type" typeRef="string">
+          <dmn:text>customerType</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="DR_Out" name="requiredDocument" typeRef="string" />
+      <dmn:rule id="DR_R1">
+        <dmn:inputEntry id="DR_R1_1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="DR_R1_2"><dmn:text>"INDIVIDUAL"</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="DR_R1_O"><dmn:text>"Government ID"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="DR_R2">
+        <dmn:inputEntry id="DR_R2_1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="DR_R2_2"><dmn:text>"INDIVIDUAL"</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="DR_R2_O"><dmn:text>"Proof of Address"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="DR_R3">
+        <dmn:inputEntry id="DR_R3_1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="DR_R3_2"><dmn:text>"CORPORATE"</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="DR_R3_O"><dmn:text>"Certificate of Incorporation"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="DR_R4">
+        <dmn:inputEntry id="DR_R4_1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="DR_R4_2"><dmn:text>"CORPORATE"</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="DR_R4_O"><dmn:text>"Beneficial Ownership Register"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="DR_R5">
+        <dmn:inputEntry id="DR_R5_1"><dmn:text>"HIGH"</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="DR_R5_2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="DR_R5_O"><dmn:text>"Source of Wealth Statement"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- PRIORITY: several rows can match; the result is the matching output
+       ranked highest in outputValues (MONTHLY before QUARTERLY before ANNUAL). -->
+  <dmn:decision id="kycMonitoringFrequency" name="Ongoing Monitoring Frequency">
+    <dmn:informationRequirement id="IR_Monitor_Tier">
+      <dmn:requiredDecision href="#kycRiskTier" />
+    </dmn:informationRequirement>
+    <dmn:decisionTable id="DT_Monitoring" hitPolicy="PRIORITY">
+      <dmn:input id="MF_In_Tier" label="Risk Tier">
+        <dmn:inputExpression id="MF_IE_Tier" typeRef="string">
+          <dmn:text>riskTier</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:input id="MF_In_Type" label="Customer Type">
+        <dmn:inputExpression id="MF_IE_Type" typeRef="string">
+          <dmn:text>customerType</dmn:text>
+        </dmn:inputExpression>
+      </dmn:input>
+      <dmn:output id="MF_Out" name="monitoringFrequency" typeRef="string">
+        <dmn:outputValues id="MF_Out_Values"><dmn:text>"MONTHLY","QUARTERLY","ANNUAL"</dmn:text></dmn:outputValues>
+      </dmn:output>
+      <dmn:rule id="MF_R1">
+        <dmn:inputEntry id="MF_R1_1"><dmn:text>"HIGH"</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="MF_R1_2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="MF_R1_O"><dmn:text>"MONTHLY"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="MF_R2">
+        <dmn:inputEntry id="MF_R2_1"><dmn:text>"MEDIUM"</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="MF_R2_2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="MF_R2_O"><dmn:text>"QUARTERLY"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="MF_R3">
+        <dmn:inputEntry id="MF_R3_1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="MF_R3_2"><dmn:text>"CORPORATE"</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="MF_R3_O"><dmn:text>"QUARTERLY"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+      <dmn:rule id="MF_R4">
+        <dmn:inputEntry id="MF_R4_1"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:inputEntry id="MF_R4_2"><dmn:text>-</dmn:text></dmn:inputEntry>
+        <dmn:outputEntry id="MF_R4_O"><dmn:text>"ANNUAL"</dmn:text></dmn:outputEntry>
+      </dmn:rule>
+    </dmn:decisionTable>
+  </dmn:decision>
+
+  <!-- One entry point for the whole DRD. Output decisions are returned to the
+       caller; encapsulated decisions are evaluated internally. -->
+  <dmn:decisionService id="kycAssessmentService" name="KYC Assessment Service">
+    <dmn:outputDecision href="#kycRiskTier" />
+    <dmn:outputDecision href="#kycDocumentRequirements" />
+    <dmn:outputDecision href="#kycMonitoringFrequency" />
+    <dmn:encapsulatedDecision href="#kycCountryRisk" />
+    <dmn:encapsulatedDecision href="#kycProductRisk" />
+  </dmn:decisionService>
+</dmn:definitions>

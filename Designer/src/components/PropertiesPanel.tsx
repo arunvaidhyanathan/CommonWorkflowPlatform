@@ -1,8 +1,9 @@
 // Dynamic Node Properties Panel (Designer.html Section 11), extended with
 // the fields relevant to each element type.
 import { useWorkbenchStore } from '../store/useWorkbenchStore'
-
-const TASK_TYPES = new Set(['userTask', 'serviceTask', 'businessRuleTask', 'callActivity'])
+import { CmmnProperties } from './CmmnProperties'
+import { BpmnProperties } from './BpmnProperties'
+import { ExpressionTester } from './ExpressionTester'
 
 export function PropertiesPanel() {
   const { selectedNodeId, nodes, updateNodeData } = useWorkbenchStore()
@@ -16,14 +17,7 @@ export function PropertiesPanel() {
     )
   }
 
-  const isTask = TASK_TYPES.has(selectedNode.type ?? '')
   const isUserTask = selectedNode.type === 'userTask'
-  const isServiceTask = selectedNode.type === 'serviceTask'
-  const isGateway = ['exclusiveGateway', 'parallelGateway', 'inclusiveGateway'].includes(
-    selectedNode.type ?? '',
-  )
-  const isCmmnHumanTask = selectedNode.type === 'cmmnHumanTask'
-  const isCmmnStage = selectedNode.type === 'cmmnStage'
   const isCmmnSentry = selectedNode.type === 'cmmnSentry'
 
   return (
@@ -98,61 +92,9 @@ export function PropertiesPanel() {
         </>
       )}
 
-      {isServiceTask && (
-        <Field label="Delegate Expression">
-          <input
-            type="text"
-            value={selectedNode.data.delegateExpression ?? ''}
-            placeholder="${mySpringBean}"
-            onChange={(e) =>
-              updateNodeData(selectedNode.id, { delegateExpression: e.target.value })
-            }
-            className="w-full rounded border border-sky-200 bg-white p-1.5 font-mono text-xs text-slate-800 outline-none focus:border-sky-500"
-          />
-        </Field>
-      )}
+      {!selectedNode.type?.startsWith('cmmn') && <BpmnProperties node={selectedNode} />}
 
-      {isTask && !isUserTask && !isServiceTask && (
-        <p className="text-[11px] text-slate-500">
-          No spec-specific fields for this activity type yet.
-        </p>
-      )}
-
-      {isGateway && (
-        <p className="text-[11px] text-slate-500">
-          Set flow conditions on outgoing sequence flows by selecting the edge.
-        </p>
-      )}
-
-      {isCmmnHumanTask && (
-        <>
-          <Field label="Performer Ref">
-            <input
-              type="text"
-              value={(selectedNode.data.performerRef as string) ?? ''}
-              placeholder="case_analyst_role"
-              onChange={(e) => updateNodeData(selectedNode.id, { performerRef: e.target.value })}
-              className="w-full rounded border border-sky-200 bg-white p-1.5 font-mono text-xs text-slate-800 outline-none focus:border-sky-500"
-            />
-          </Field>
-          <Field label="Blocking">
-            <label className="flex items-center gap-2 text-xs text-slate-700">
-              <input
-                type="checkbox"
-                checked={Boolean(selectedNode.data.isBlocking ?? true)}
-                onChange={(e) => updateNodeData(selectedNode.id, { isBlocking: e.target.checked })}
-              />
-              Stage waits for this task to complete
-            </label>
-          </Field>
-        </>
-      )}
-
-      {isCmmnStage && (
-        <p className="text-[11px] text-slate-500">
-          Stages are opaque in v1 — contents are not individually editable yet.
-        </p>
-      )}
+      {selectedNode.type?.startsWith('cmmn') && <CmmnProperties node={selectedNode} />}
 
       {isCmmnSentry && (
         <Field label="If-Part Condition (FEEL/expression)">
@@ -167,6 +109,8 @@ export function PropertiesPanel() {
           />
         </Field>
       )}
+
+      <ExpressionTester selected={selectedNode.data} />
     </div>
   )
 }
