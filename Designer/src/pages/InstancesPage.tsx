@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSession } from '../lib/useSession'
 import { useMemberNames } from '../lib/useMemberNames'
+import { AdHocWorkPanel, MigrationPanel } from '../components/InstanceChangePanels'
 import {
   getInstance,
   listDefinitions,
@@ -423,6 +424,9 @@ function InstancePanel({
           {JSON.stringify(detail.variables, null, 2)}
         </pre>
       )}
+
+      {running && canEdit && <AdHocWorkPanel detail={detail} onDone={() => run(async () => undefined)} />}
+      {running && role === 'tenant_admin' && <MigrationPanel detail={detail} onDone={() => run(async () => undefined)} />}
 
       {running && role === 'tenant_admin' && (
         <button

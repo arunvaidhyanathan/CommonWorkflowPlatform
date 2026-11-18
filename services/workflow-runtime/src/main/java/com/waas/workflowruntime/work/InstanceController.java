@@ -53,12 +53,12 @@ public class InstanceController {
             @NotBlank String definitionKey, String businessKey, Map<String, Object> variables) {
     }
 
-    public record InstanceSummary(String id, String kind, String definitionKey, String definitionName,
+    public record InstanceSummary(String id, String kind, String definitionId, String definitionKey, String definitionName,
             String businessKey, String state, String startUserId, Instant startTime, Instant endTime) {
     }
 
     /** {@code actions}: what a case worker can do now (see PlanItemController). */
-    public record PlanItem(String id, String name, String type, String state, String stageInstanceId,
+    public record PlanItem(String id, String elementId, String name, String type, String state, String stageInstanceId,
             List<String> actions) {
     }
 
@@ -158,7 +158,7 @@ public class InstanceController {
                 ? cmmnRuntime.createPlanItemInstanceQuery().caseInstanceId(id).includeEnded().list().stream()
                         .map(InstanceController::toPlanItem).toList()
                 : cmmnHistory.createHistoricPlanItemInstanceQuery().planItemInstanceCaseInstanceId(id).list().stream()
-                        .map(p -> new PlanItem(p.getId(), p.getName(), p.getPlanItemDefinitionType(), p.getState(),
+                        .map(p -> new PlanItem(p.getId(), p.getElementId(), p.getName(), p.getPlanItemDefinitionType(), p.getState(),
                                 p.getStageInstanceId(), List.of()))
                         .toList();
         return new InstanceDetail(summary, vars, planItems, List.of(), open);
@@ -238,18 +238,20 @@ public class InstanceController {
     }
 
     private static PlanItem toPlanItem(PlanItemInstance p) {
-        return new PlanItem(p.getId(), p.getName(), p.getPlanItemDefinitionType(), p.getState(), p.getStageInstanceId(),
+        return new PlanItem(p.getId(), p.getElementId(), p.getName(), p.getPlanItemDefinitionType(), p.getState(), p.getStageInstanceId(),
                 PlanItemController.actionsFor(p.getPlanItemDefinitionType(), p.getState()));
     }
 
     private InstanceSummary toSummary(HistoricProcessInstance p) {
         String state = p.getEndTime() == null ? "active" : (p.getDeleteReason() == null ? "completed" : "terminated");
-        return new InstanceSummary(p.getId(), "process", p.getProcessDefinitionKey(), p.getProcessDefinitionName(),
+        return new InstanceSummary(p.getId(), "process", p.getProcessDefinitionId(), p.getProcessDefinitionKey(),
+                p.getProcessDefinitionName(),
                 p.getBusinessKey(), state, p.getStartUserId(), instant(p.getStartTime()), instant(p.getEndTime()));
     }
 
     private InstanceSummary toSummary(HistoricCaseInstance c) {
-        return new InstanceSummary(c.getId(), "case", c.getCaseDefinitionKey(), c.getCaseDefinitionName(),
+        return new InstanceSummary(c.getId(), "case", c.getCaseDefinitionId(), c.getCaseDefinitionKey(),
+                c.getCaseDefinitionName(),
                 c.getBusinessKey(), c.getState(), c.getStartUserId(), instant(c.getStartTime()), instant(c.getEndTime()));
     }
 }

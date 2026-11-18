@@ -205,5 +205,100 @@ check("unknown action -> 409", call("POST", f"/plan-items/{withdraw['id']}/start
 check("trigger the withdrawal", call("POST", f"/plan-items/{withdraw['id']}/trigger", DESIGNER)[0], 204)
 check("withdrawal terminates the case", call("GET", f"/instances/case/{C3}", DESIGNER)[1]["instance"]["state"], "terminated")
 
+# ---- Migration: move running instances to a new version (#8)
+def bpmn(task_id, task_name):
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="http://waas.citi.com/bpmn/e2e">
+  <process id="migrationDemo" name="Migration Demo" isExecutable="true">
+    <startEvent id="start" />
+    <sequenceFlow id="f1" sourceRef="start" targetRef="{task_id}" />
+    <userTask id="{task_id}" name="{task_name}" flowable:candidateGroups="designer" />
+    <sequenceFlow id="f2" sourceRef="{task_id}" targetRef="end" />
+    <endEvent id="end" />
+  </process>
+</definitions>"""
+
+
+def deploy(key, spec, xml):
+    return call("POST", "/deployments", ADMIN, {"name": key, "specType": spec, "manifest": [
+        {"definitionKey": key, "name": key, "specType": spec, "xml": xml}]})[0]
+
+
+import time
+
+deploy("migrationDemo", "BPMN", bpmn("check", "Check Claim"))
+old_def = call("GET", "/definitions/process/migrationDemo/versions", ADMIN)[1][0]
+p1 = call("POST", "/instances", DESIGNER, {"kind": "process", "definitionKey": "migrationDemo"})[1]["id"]
+p2 = call("POST", "/instances", DESIGNER, {"kind": "process", "definitionKey": "migrationDemo"})[1]["id"]
+p3 = call("POST", "/instances", DESIGNER, {"kind": "process", "definitionKey": "migrationDemo"})[1]["id"]
+deploy("migrationDemo", "BPMN", bpmn("verify", "Verify Claim"))
+versions = call("GET", "/definitions/process/migrationDemo/versions", ADMIN)[1]
+new_version = versions[0]["version"]
+check("versions list shows running instances on the old version",
+      next(v["runningInstances"] for v in versions if v["definitionId"] == old_def["definitionId"]) >= 3, True)
+req = {"kind": "process", "instanceIds": [p1], "targetKey": "migrationDemo", "targetVersion": new_version}
+status, report = call("POST", "/migrations/validate", ADMIN, req)
+check("renamed activity without a mapping fails validation", report["valid"], False)
+check("migrating an invalid plan is refused, nothing changes", call("POST", "/migrations", ADMIN, req)[0], 409)
+req["activityMappings"] = [{"from": "check", "to": "verify"}]
+check("with a check->verify mapping it validates", call("POST", "/migrations/validate", ADMIN, req)[1]["valid"], True)
+check("non-admins cannot validate migrations", call("POST", "/migrations/validate", DESIGNER, req)[0], 403)
+check("other tenant cannot touch these instances", call("POST", "/migrations/validate", OTHER, req)[0], 404)
+check("migrate one instance", call("POST", "/migrations", ADMIN, req)[1], {"migrated": 1})
+check("its open task is now the new version's task",
+      [t["name"] for t in call("GET", f"/instances/process/{p1}", DESIGNER)[1]["openTasks"]], ["Verify Claim"])
+
+batch_req = {"kind": "process", "sourceDefinitionId": old_def["definitionId"], "targetKey": "migrationDemo",
+             "targetVersion": new_version, "activityMappings": [{"from": "check", "to": "verify"}]}
+status, batch = call("POST", "/migrations/batch", ADMIN, batch_req)
+check("batch migration of the whole old version starts", status, 200)
+for _ in range(60):
+    batch = call("GET", f"/migrations/batches/process/{batch['id']}", ADMIN)[1]
+    if batch["completeTime"]:
+        break
+    time.sleep(0.5)
+check("batch completes asynchronously", bool(batch["completeTime"]), True)
+check("every remaining old instance moved",
+      [t["name"] for i in (p2, p3) for t in call("GET", f"/instances/process/{i}", DESIGNER)[1]["openTasks"]],
+      ["Verify Claim", "Verify Claim"])
+check("other tenant cannot read the batch", call("GET", f"/migrations/batches/process/{batch['id']}", OTHER)[0], 404)
+
+c_mig = call("POST", "/instances", DESIGNER, {"kind": "case", "definitionKey": "kycOnboardingCase",
+                                               "variables": dict(applicant, country="GB")})[1]["id"]
+deploy("kycOnboardingCase", "CMMN", (SAMPLES / "kyc-onboarding-case.cmmn").read_text())
+case_version = call("GET", "/definitions/case/kycOnboardingCase/versions", ADMIN)[1][0]["version"]
+creq = {"kind": "case", "instanceIds": [c_mig], "targetKey": "kycOnboardingCase", "targetVersion": case_version}
+check("case migration to an identical new version validates", call("POST", "/migrations/validate", ADMIN, creq)[1]["valid"], True)
+check("case migrated", call("POST", "/migrations", ADMIN, creq)[1], {"migrated": 1})
+check("the case keeps its open work after migrating", [t["name"] for t in call("GET", f"/instances/case/{c_mig}", DESIGNER)[1]["openTasks"]],
+      ["Collect Customer Documents"])
+
+# ---- Dynamic injection: ad-hoc work in one running instance (#9)
+check("approver cannot inject tasks", call("POST", f"/instances/process/{p1}/inject-task", APPROVER,
+                                           {"name": "Extra check", "assignee": DESIGNER_ID})[0], 403)
+check("assignee must be a member of the tenant", call("POST", f"/instances/process/{p1}/inject-task", DESIGNER,
+                                                      {"name": "Extra check", "assignee": str(uuid.uuid4())})[0], 400)
+check("designer injects a task into a running process", call("POST", f"/instances/process/{p1}/inject-task", DESIGNER,
+                                                             {"name": "Extra check", "assignee": DESIGNER_ID})[0], 201)
+check("injected task is in the assignee's inbox", "Extra check" in
+      [t["name"] for t in call("GET", "/tasks?filter=mine", DESIGNER)[1] if t["instanceId"] == p1], True)
+check("other tenant cannot inject", call("POST", f"/instances/process/{p1}/inject-task", OTHER,
+                                         {"name": "x", "assignee": DESIGNER_ID})[0], 404)
+stage = next(p for p in call("GET", f"/instances/case/{c_mig}", DESIGNER)[1]["planItems"]
+             if p["name"] == "Document Collection" and p["state"] == "active")
+status, inj = call("POST", f"/instances/case/{c_mig}/inject-plan-item", DESIGNER,
+                   {"elementId": "PI_CollectDocs", "name": "Ad-hoc document check", "stageInstanceId": stage["id"]})
+check("designer injects another instance of a plan item into a stage", status, 201)
+check("injected task is offered to its group (kycAnalyst)", "Ad-hoc document check" in
+      [t["name"] for t in call("GET", "/tasks?filter=available", DESIGNER)[1] if t["instanceId"] == c_mig], True)
+status, gated = call("POST", f"/instances/case/{c_mig}/inject-plan-item", DESIGNER,
+                     {"elementId": "PI_Escalate", "name": "Ad-hoc escalation"})
+check("an injected item keeps its entry criteria (waits for the SLA timer)",
+      next(p["state"] for p in call("GET", f"/instances/case/{c_mig}", DESIGNER)[1]["planItems"]
+           if p["id"] == gated["planItemInstanceId"]), "available")
+for i in (p1, p2, p3):
+    call("DELETE", f"/instances/process/{i}", ADMIN)
+call("DELETE", f"/instances/case/{c_mig}", ADMIN)
+
 print(f"---- {results['pass']} passed, {results['fail']} failed")
 sys.exit(1 if results["fail"] else 0)

@@ -19,6 +19,7 @@ export interface Definition {
 export interface InstanceSummary {
   id: string
   kind: InstanceKind
+  definitionId: string
   definitionKey: string
   definitionName: string | null
   businessKey: string | null
@@ -30,6 +31,8 @@ export interface InstanceSummary {
 
 export interface PlanItem {
   id: string
+  // The plan item's id in the case definition (what ad-hoc injection creates another instance of).
+  elementId: string
   name: string | null
   type: string
   state: string
@@ -129,6 +132,63 @@ export const evaluateDecision = (key: string, variables: Variables) =>
   apiFetch<DecisionEvaluation>(`/runtime/decisions/${encodeURIComponent(key)}/evaluate`, {
     method: 'POST',
     body: JSON.stringify(variables),
+  })
+
+export interface VersionSummary {
+  definitionId: string
+  version: number
+  runningInstances: number
+}
+
+export interface MigrationRequest {
+  kind: InstanceKind
+  instanceIds?: string[]
+  sourceDefinitionId?: string
+  targetKey: string
+  targetVersion: number
+  activityMappings?: { from: string; to: string }[]
+  autoCreateNewPlanItems?: boolean
+}
+
+export interface ValidationReport {
+  valid: boolean
+  instances: { instanceId: string; valid: boolean; messages: string[] }[]
+}
+
+export interface BatchStatus {
+  id: string
+  kind: InstanceKind
+  status: string
+  createTime: string | null
+  completeTime: string | null
+  partsByStatus: Record<string, number>
+}
+
+export const listVersions = (kind: InstanceKind, key: string) =>
+  apiFetch<VersionSummary[]>(`/runtime/definitions/${kind}/${encodeURIComponent(key)}/versions`)
+
+export const validateMigration = (request: MigrationRequest) =>
+  apiFetch<ValidationReport>('/runtime/migrations/validate', { method: 'POST', body: JSON.stringify(request) })
+
+export const migrateInstances = (request: MigrationRequest) =>
+  apiFetch<{ migrated: number }>('/runtime/migrations', { method: 'POST', body: JSON.stringify(request) })
+
+export const startBatchMigration = (request: MigrationRequest) =>
+  apiFetch<BatchStatus>('/runtime/migrations/batch', { method: 'POST', body: JSON.stringify(request) })
+
+export const getBatch = (kind: InstanceKind, id: string) =>
+  apiFetch<BatchStatus>(`/runtime/migrations/batches/${kind}/${id}`)
+
+export const injectTask = (processInstanceId: string, name: string, assignee: string) =>
+  apiFetch<void>(`/runtime/instances/process/${processInstanceId}/inject-task`, {
+    method: 'POST',
+    body: JSON.stringify({ name, assignee }),
+  })
+
+export const injectPlanItem = (caseInstanceId: string, elementId: string, name: string, stageInstanceId?: string) =>
+  apiFetch<void>(`/runtime/instances/case/${caseInstanceId}/inject-plan-item`, {
+    method: 'POST',
+    body: JSON.stringify({ elementId, name, stageInstanceId }),
   })
 
 export const listTasks = (filter: TaskFilter) => apiFetch<TaskSummary[]>(`/runtime/tasks?filter=${filter}`)
