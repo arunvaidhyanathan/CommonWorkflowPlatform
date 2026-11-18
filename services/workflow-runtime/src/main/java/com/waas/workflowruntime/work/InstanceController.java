@@ -65,8 +65,9 @@ public class InstanceController {
     public record OpenTask(String id, String name, String assignee) {
     }
 
+    /** {@code waitingOn}: ad-hoc activities to start and signals/messages a process waits for (ProcessEventController). */
     public record InstanceDetail(InstanceSummary instance, Map<String, Object> variables, List<PlanItem> planItems,
-            List<String> activeActivityIds, List<OpenTask> openTasks) {
+            List<String> activeActivityIds, List<OpenTask> openTasks, List<ProcessEventController.Waiting> waitingOn) {
     }
 
     private final WorkAccess access;
@@ -151,7 +152,8 @@ public class InstanceController {
         if ("process".equals(kind)) {
             Map<String, Object> vars = running ? runtime.getVariables(id) : historicProcessVariables(id);
             return new InstanceDetail(summary, vars, List.of(),
-                    running ? runtime.getActiveActivityIds(id) : List.of(), open);
+                    running ? runtime.getActiveActivityIds(id) : List.of(), open,
+                    running ? ProcessEventController.waitingOn(runtime, id) : List.of());
         }
         Map<String, Object> vars = running ? cmmnRuntime.getVariables(id) : historicCaseVariables(id);
         List<PlanItem> planItems = running
@@ -161,7 +163,7 @@ public class InstanceController {
                         .map(p -> new PlanItem(p.getId(), p.getElementId(), p.getName(), p.getPlanItemDefinitionType(), p.getState(),
                                 p.getStageInstanceId(), List.of()))
                         .toList();
-        return new InstanceDetail(summary, vars, planItems, List.of(), open);
+        return new InstanceDetail(summary, vars, planItems, List.of(), open, List.of());
     }
 
     @PutMapping("/instances/{kind}/{id}/variables")
@@ -173,6 +175,12 @@ public class InstanceController {
         requireRunning(kind, id);
         if ("process".equals(kind)) {
             runtime.setVariables(id, variables);
+            // Conditional catch/boundary events wait on variables; re-check them after a change --
+            // unless the change already ended the instance (e.g. a variable listener event fired),
+            // where evaluating would fail and roll the whole update back.
+            if (runtime.createProcessInstanceQuery().processInstanceId(id).count() > 0) {
+                runtime.evaluateConditionalEvents(id);
+            }
         } else {
             cmmnRuntime.setVariables(id, variables);
         }

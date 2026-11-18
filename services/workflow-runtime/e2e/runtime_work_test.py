@@ -300,5 +300,58 @@ for i in (p1, p2, p3):
     call("DELETE", f"/instances/process/{i}", ADMIN)
 call("DELETE", f"/instances/case/{c_mig}", ADMIN)
 
+# ---- BPMN samples through the API: scripts, mail, signals, ad-hoc, conditional/variable events (#6, #10)
+# Needs the runtime started with CWP_SCRIPTS_ENABLED=true and the dev mailbox (run-local.sh does both).
+MAILBOX = SAMPLES.parents[1] / ".local-logs" / "mailbox.txt"
+check("deploy scripted expense claim", deploy("expenseClaim", "BPMN", (SAMPLES / "expense-claim-process.bpmn").read_text()), 201)
+check("deploy customer onboarding", deploy("customerOnboarding", "BPMN", (SAMPLES / "customer-onboarding-process.bpmn").read_text()), 201)
+
+mail_before = MAILBOX.read_text() if MAILBOX.exists() else ""
+claim = call("POST", "/instances", DESIGNER, {"kind": "process", "definitionKey": "expenseClaim", "variables": {
+    "amount": 120, "employeeEmail": "e2e@example.com", "reviewers": [DESIGNER_ID, APPROVER_ID]}})[1]["id"]
+for token in (DESIGNER, APPROVER):
+    mine = [t for t in call("GET", "/tasks?filter=mine", token)[1] if t["instanceId"] == claim]
+    check("each reviewer gets their own Peer Review", [t["name"] for t in mine], ["Peer Review"])
+    call("POST", f"/tasks/{mine[0]['id']}/complete", token, {"vote": "approve"})
+cd = call("GET", f"/instances/process/{claim}", DESIGNER)[1]
+check("approved claim completed", cd["instance"]["state"], "completed")
+check("script tasks ran (budget reserved, votes tallied)", (cd["variables"]["budgetReserved"], cd["variables"]["approved"]), (True, True))
+time.sleep(0.5)
+new_mail = (MAILBOX.read_text() if MAILBOX.exists() else "")[len(mail_before):]
+check("mail task delivered to the dev mailbox", "e2e@example.com" in new_mail and "Expense claim approved" in new_mail, True)
+
+claim2 = call("POST", "/instances", DESIGNER, {"kind": "process", "definitionKey": "expenseClaim", "variables": {
+    "amount": 120, "employeeEmail": "e2e@example.com", "reviewers": [DESIGNER_ID]}})[1]["id"]
+waiting = call("GET", f"/instances/process/{claim2}", DESIGNER)[1]["waitingOn"]
+check("detail shows the withdrawal signal it waits for", [(w["kind"], w["name"]) for w in waiting], [("signal", "claimWithdrawn")])
+check("a signal it does not wait for -> 409", call("POST", f"/instances/process/{claim2}/signal/other", DESIGNER)[0], 409)
+check("other tenant cannot signal it", call("POST", f"/instances/process/{claim2}/signal/claimWithdrawn", OTHER)[0], 404)
+check("send the withdrawal signal", call("POST", f"/instances/process/{claim2}/signal/claimWithdrawn", DESIGNER)[0], 204)
+cd2 = call("GET", f"/instances/process/{claim2}", DESIGNER)[1]
+check("withdrawal event sub-process ended the claim", (cd2["instance"]["state"], cd2["variables"].get("withdrawn")), ("completed", True))
+
+onb = call("POST", "/instances", DESIGNER, {"kind": "process", "definitionKey": "customerOnboarding",
+                                            "variables": dict(applicant, country="GB")})[1]["id"]
+kyc_tasks = [t for t in call("GET", "/tasks?filter=available", DESIGNER)[1] if t["name"] == "Collect Customer Documents"]
+check("the process started the KYC case (its first task is offered)", len(kyc_tasks) >= 1, True)
+kyc_case = kyc_tasks[0]["instanceId"]
+call("POST", f"/tasks/{kyc_tasks[0]['id']}/complete", DESIGNER, {})
+std = next(t for t in call("GET", "/tasks?filter=available", DESIGNER)[1] if t["instanceId"] == kyc_case and t["name"] == "Standard Review")
+call("POST", f"/tasks/{std['id']}/complete", DESIGNER, {})
+od = call("GET", f"/instances/process/{onb}", DESIGNER)[1]
+check("KYC result came back into the process", od["variables"]["kycResult"]["kycRiskTier"][0]["riskTier"], "LOW")
+check("ad-hoc activities offered, none started", sorted(w["activityId"] for w in od["waitingOn"] if w["kind"] == "adhoc"),
+      ["onlineBanking", "orderCard", "overdraft"])
+for activity, flag in (("orderCard", "cardOrdered"), ("onlineBanking", "onlineBankingReady")):
+    check(f"start ad-hoc {activity}", call("POST", f"/instances/process/{onb}/adhoc/{activity}", DESIGNER)[0], 204)
+    task = next(t for t in call("GET", "/tasks?filter=available", DESIGNER)[1] if t["instanceId"] == onb)
+    call("POST", f"/tasks/{task['id']}/complete", DESIGNER, {flag: True})
+od = call("GET", f"/instances/process/{onb}", DESIGNER)[1]
+check("completion condition closed the ad-hoc sub-process (overdraft never needed)", od["activeActivityIds"], ["awaitRiskReview"])
+call("PUT", f"/instances/process/{onb}/variables", DESIGNER, {"riskReviewed": True})
+check("updating a variable re-evaluates the conditional event", call("GET", f"/instances/process/{onb}", DESIGNER)[1]["activeActivityIds"], ["awaitWelcomeCall"])
+call("PUT", f"/instances/process/{onb}/variables", DESIGNER, {"welcomeCallDone": True})
+check("variable listener event fired and onboarding completed", call("GET", f"/instances/process/{onb}", DESIGNER)[1]["instance"]["state"], "completed")
+
 print(f"---- {results['pass']} passed, {results['fail']} failed")
 sys.exit(1 if results["fail"] else 0)

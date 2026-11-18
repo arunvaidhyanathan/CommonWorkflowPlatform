@@ -57,12 +57,16 @@ public class DeploymentService {
     private final CmmnRepositoryService cmmnRepositoryService;
     private final DmnRepositoryService dmnRepositoryService;
 
+    private final boolean scriptsEnabled;
+
     public DeploymentService(
             DeploymentRepository deploymentRepository,
             ObjectMapper objectMapper,
             RepositoryService repositoryService,
             CmmnRepositoryService cmmnRepositoryService,
-            DmnRepositoryService dmnRepositoryService) {
+            DmnRepositoryService dmnRepositoryService,
+            @org.springframework.beans.factory.annotation.Value("${cwp.scripts.enabled:false}") boolean scriptsEnabled) {
+        this.scriptsEnabled = scriptsEnabled;
         this.deploymentRepository = deploymentRepository;
         this.objectMapper = objectMapper;
         this.repositoryService = repositoryService;
@@ -107,6 +111,9 @@ public class DeploymentService {
     private List<EngineDeploymentRef> deployToEngines(CreateDeploymentRequest request, UUID tenantId) {
         List<EngineDeploymentRef> refs = new ArrayList<>();
         String tenantIdString = tenantId.toString();
+
+        // Refuse the whole manifest before deploying anything if any artifact has a script (ScriptPolicy).
+        request.manifest().forEach(a -> ScriptPolicy.check(a.definitionKey(), a.xml(), scriptsEnabled));
 
         for (ManifestArtifact artifact : request.manifest()) {
             String specType = artifact.specType().toUpperCase(Locale.ROOT);

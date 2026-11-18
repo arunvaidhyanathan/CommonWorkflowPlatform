@@ -116,6 +116,12 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Groovy for BPMN/CMMN script tasks (JSR-223). Deployments with scripts are refused
+             unless cwp.scripts.enabled is set (deployment/ScriptPolicy.java). -->
+        <dependency>
+            <groupId>org.apache.groovy</groupId>
+            <artifactId>groovy-jsr223</artifactId>
+        </dependency>
         <!-- In-memory database for the Flowable sample tests (FlowableKycSampleTest). -->
         <dependency>
             <groupId>com.h2database</groupId>
