@@ -27,6 +27,8 @@ export interface InstanceSummary {
   startUserId: string | null
   startTime: string | null
   endTime: string | null
+  // Flowable 8 business status: a short label case workers set ("Awaiting documents").
+  businessStatus: string | null
 }
 
 export interface PlanItem {
@@ -189,6 +191,55 @@ export const injectPlanItem = (caseInstanceId: string, elementId: string, name: 
   apiFetch<void>(`/runtime/instances/case/${caseInstanceId}/inject-plan-item`, {
     method: 'POST',
     body: JSON.stringify({ elementId, name, stageInstanceId }),
+  })
+
+export interface TimelineEntry {
+  time: string | null
+  what: string
+  elementId: string | null
+  name: string | null
+  type: string | null
+  detail: string | null
+  userId: string | null
+}
+
+export interface JobSummary {
+  id: string
+  state: 'failed' | 'timer' | 'waiting'
+  kind: InstanceKind
+  instanceId: string | null
+  elementId: string | null
+  elementName: string | null
+  handler: string | null
+  retries: number
+  dueDate: string | null
+  createTime: string | null
+  exceptionMessage: string | null
+}
+
+export interface ExpressionResult {
+  ok: boolean
+  value: unknown
+  valueType: string | null
+  error: string | null
+}
+
+export const getTimeline = (kind: InstanceKind, id: string) =>
+  apiFetch<TimelineEntry[]>(`/runtime/instances/${kind}/${id}/timeline`)
+
+export const setBusinessStatus = (kind: InstanceKind, id: string, status: string) =>
+  apiFetch<void>(`/runtime/instances/${kind}/${id}/business-status`, { method: 'PUT', body: JSON.stringify({ status }) })
+
+export const listJobs = (state: JobSummary['state']) => apiFetch<JobSummary[]>(`/runtime/jobs?state=${state}`)
+export const jobStacktrace = (id: string) => apiFetch<{ stacktrace: string }>(`/runtime/jobs/${id}/stacktrace`)
+export const retryJob = (id: string) => apiFetch<void>(`/runtime/jobs/${id}/retry`, { method: 'POST' })
+export const deleteJob = (id: string) => apiFetch<void>(`/runtime/jobs/${id}`, { method: 'DELETE' })
+export const fireTimer = (id: string) => apiFetch<void>(`/runtime/jobs/${id}/fire`, { method: 'POST' })
+
+export const evaluateExpression = (expression: string, variables: Variables) =>
+  apiFetch<ExpressionResult>('/runtime/expressions/evaluate', {
+    method: 'POST',
+    body: JSON.stringify({ expression, variables }),
   })
 
 export const listTasks = (filter: TaskFilter) => apiFetch<TaskSummary[]>(`/runtime/tasks?filter=${filter}`)

@@ -58,6 +58,7 @@ public class DeploymentService {
     private final DmnRepositoryService dmnRepositoryService;
 
     private final boolean scriptsEnabled;
+    private final com.waas.workflowruntime.design.DesignDb designDb;
 
     public DeploymentService(
             DeploymentRepository deploymentRepository,
@@ -65,7 +66,9 @@ public class DeploymentService {
             RepositoryService repositoryService,
             CmmnRepositoryService cmmnRepositoryService,
             DmnRepositoryService dmnRepositoryService,
-            @org.springframework.beans.factory.annotation.Value("${cwp.scripts.enabled:false}") boolean scriptsEnabled) {
+            @org.springframework.beans.factory.annotation.Value("${cwp.scripts.enabled:false}") boolean scriptsEnabled,
+            com.waas.workflowruntime.design.DesignDb designDb) {
+        this.designDb = designDb;
         this.scriptsEnabled = scriptsEnabled;
         this.deploymentRepository = deploymentRepository;
         this.objectMapper = objectMapper;
@@ -188,11 +191,18 @@ public class DeploymentService {
         }
     }
 
+    /**
+     * Deploying runs the model's expressions in the shared engines, so the role
+     * and active status are re-read from the database (DesignDb.writer), not
+     * trusted from the login token: a demoted or deactivated admin loses deploy
+     * authority at once, not when their token expires.
+     */
     private void assertDeployAuthority() {
         String role = TenantContext.currentRole();
         if (role == null || !DEPLOY_AUTHORITY_ROLES.contains(role)) {
             throw new DeployAuthorityDeniedException(
                     "Role '" + role + "' does not have deploy authority (Governance.html Section 11.3, Phase 4 provisional rule: tenant_admin only).");
         }
+        designDb.writer(DEPLOY_AUTHORITY_ROLES.toArray(String[]::new));
     }
 }

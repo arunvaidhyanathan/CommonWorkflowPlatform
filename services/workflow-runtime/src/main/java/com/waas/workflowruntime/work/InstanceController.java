@@ -54,7 +54,7 @@ public class InstanceController {
     }
 
     public record InstanceSummary(String id, String kind, String definitionId, String definitionKey, String definitionName,
-            String businessKey, String state, String startUserId, Instant startTime, Instant endTime) {
+            String businessKey, String state, String startUserId, Instant startTime, Instant endTime, String businessStatus) {
     }
 
     /** {@code actions}: what a case worker can do now (see PlanItemController). */
@@ -254,12 +254,14 @@ public class InstanceController {
         String state = p.getEndTime() == null ? "active" : (p.getDeleteReason() == null ? "completed" : "terminated");
         return new InstanceSummary(p.getId(), "process", p.getProcessDefinitionId(), p.getProcessDefinitionKey(),
                 p.getProcessDefinitionName(),
-                p.getBusinessKey(), state, p.getStartUserId(), instant(p.getStartTime()), instant(p.getEndTime()));
+                p.getBusinessKey(), state, p.getStartUserId(), instant(p.getStartTime()), instant(p.getEndTime()),
+                p.getBusinessStatus());
     }
 
     private InstanceSummary toSummary(HistoricCaseInstance c) {
         return new InstanceSummary(c.getId(), "case", c.getCaseDefinitionId(), c.getCaseDefinitionKey(),
                 c.getCaseDefinitionName(),
-                c.getBusinessKey(), c.getState(), c.getStartUserId(), instant(c.getStartTime()), instant(c.getEndTime()));
+                c.getBusinessKey(), c.getState(), c.getStartUserId(), instant(c.getStartTime()), instant(c.getEndTime()),
+                c.getBusinessStatus());
     }
 }

@@ -19,6 +19,8 @@ export SPEND_TRACKER_URL="${SPEND_TRACKER_URL:-http://localhost:8095}"
 # Local only: allow script tasks (they run inside the runtime JVM) and send mail to the dev mailbox.
 export CWP_SCRIPTS_ENABLED="${CWP_SCRIPTS_ENABLED:-true}"
 export CWP_MAIL_PORT="${CWP_MAIL_PORT:-2525}"
+# Keep every variable change, so instance timelines show them.
+export CWP_HISTORY_LEVEL="${CWP_HISTORY_LEVEL:-full}"
 
 mkdir -p .local-logs
 pids=()

@@ -3,6 +3,7 @@
 import { useWorkbenchStore } from '../store/useWorkbenchStore'
 import { CmmnProperties } from './CmmnProperties'
 import { BpmnProperties } from './BpmnProperties'
+import { ExpressionTester } from './ExpressionTester'
 
 export function PropertiesPanel() {
   const { selectedNodeId, nodes, updateNodeData } = useWorkbenchStore()
@@ -108,6 +109,8 @@ export function PropertiesPanel() {
           />
         </Field>
       )}
+
+      <ExpressionTester selected={selectedNode.data} />
     </div>
   )
 }

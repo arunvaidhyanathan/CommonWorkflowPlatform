@@ -13,6 +13,7 @@ import { SpendPage } from './pages/SpendPage'
 import { TasksPage } from './pages/TasksPage'
 import { InstancesPage } from './pages/InstancesPage'
 import { DecisionsPage } from './pages/DecisionsPage'
+import { JobsPage } from './pages/JobsPage'
 
 function App() {
   const { session, loading } = useSession()
@@ -56,6 +57,14 @@ function App() {
             element={
               <RequireRole allow={['tenant_admin', 'approver']}>
                 <ApprovalsPage />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/jobs"
+            element={
+              <RequireRole allow={['tenant_admin']}>
+                <JobsPage />
               </RequireRole>
             }
           />

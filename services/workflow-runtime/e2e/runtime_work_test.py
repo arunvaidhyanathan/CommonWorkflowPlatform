@@ -399,5 +399,84 @@ for label, attack in ATTACKS.items():
     check(f"DMN {label} attempt is reported as a failed evaluation",
           isinstance(body, dict) and any(t.get("failed") for t in body.get("decisions", [])) or status >= 400, True)
 
+# ---- Expression tester (#12): Flowable 8 expressions, same sandbox as deployed models
+def evaluate(token, expression, variables):
+    return call("POST", "/expressions/evaluate", token, {"expression": expression, "variables": variables})
+
+
+check("condition evaluates", evaluate(DESIGNER, "${amount > 100}", {"amount": 150})[1]["value"], True)
+check("Flowable 8 lambda + stream()", evaluate(DESIGNER, "${items.stream().filter(i -> i > 2).toList()}", {"items": [1, 2, 3, 4]})[1]["value"], [3, 4])
+check("vars:getOrDefault for a missing variable", evaluate(DESIGNER, "${vars:getOrDefault('riskTier', 'none')}", {})[1]["value"], "none")
+status, refused = evaluate(DESIGNER, "${''.getClass()}", {})
+check("tester is sandboxed too (reflection refused)", (status, refused["ok"]), (200, False))
+check("approvers cannot use the tester", evaluate(APPROVER, "${1}", {})[0], 403)
+
+# ---- History and business status (#11)
+claim3 = call("POST", "/instances", DESIGNER, {"kind": "process", "definitionKey": "expenseClaim", "variables": {
+    "amount": 80, "employeeEmail": "e2e@example.com", "reviewers": [DESIGNER_ID]}})[1]["id"]
+check("set a business status", call("PUT", f"/instances/process/{claim3}/business-status", DESIGNER, {"status": "Awaiting review"})[0], 204)
+check("business status shows on the instance", call("GET", f"/instances/process/{claim3}", DESIGNER)[1]["instance"]["businessStatus"], "Awaiting review")
+check("viewers' tenant isolation applies to status", call("PUT", f"/instances/process/{claim3}/business-status", OTHER, {"status": "x"})[0], 404)
+review3 = next(t for t in call("GET", "/tasks?filter=mine", DESIGNER)[1] if t["instanceId"] == claim3)
+call("POST", f"/tasks/{review3['id']}/complete", DESIGNER, {"vote": "approve"})
+timeline = call("GET", f"/instances/process/{claim3}/timeline", DESIGNER)[1]
+steps = [(e["what"], e["name"]) for e in timeline]
+check("timeline lists the steps in order", [s for s in steps if s[1] in ("Assess Claim", "Peer Review", "Notify Employee") and s[0] == "completed"],
+      [("completed", "Assess Claim"), ("completed", "Peer Review"), ("completed", "Notify Employee")])
+check("timeline records who did the review", any(e["name"] == "Peer Review" and e["userId"] == DESIGNER_ID for e in timeline), True)
+check("timeline includes variable changes (history level full)", any(e["what"] == "variable" and e["name"] == "approved" for e in timeline), True)
+case_tl = call("GET", f"/instances/case/{C3}/timeline", DESIGNER)[1]
+ends = {e["name"]: e["what"] for e in case_tl if e["what"] in ("occurred", "completed", "terminated", "exited")}
+check("case timeline shows the withdrawal fired", ends.get("Customer Withdraws") in ("occurred", "completed"), True)
+check("case timeline shows the open work ended by the exit", ends.get("Collect Customer Documents") in ("terminated", "exited"), True)
+check("other tenant cannot read a timeline", call("GET", f"/instances/process/{claim3}/timeline", OTHER)[0], 404)
+
+# ---- Jobs (#14): timers can be fired early; failed jobs can be inspected, retried, deleted
+sla_case = call("POST", "/instances", DESIGNER, {"kind": "case", "definitionKey": "kycOnboardingCase",
+                                                  "variables": dict(applicant, country="GB")})[1]["id"]
+timer = next(j for j in call("GET", "/jobs?state=timer", ADMIN)[1] if j["instanceId"] == sla_case)
+check("the case's SLA timer is listed", timer["elementName"], "Review SLA (5 days)")
+check("non-admins cannot see jobs", call("GET", "/jobs?state=timer", DESIGNER)[0], 403)
+check("other tenant cannot fire it", call("POST", f"/jobs/{timer['id']}/fire", OTHER)[0], 404)
+check("admin fires the timer now", call("POST", f"/jobs/{timer['id']}/fire", ADMIN)[0], 204)
+for _ in range(40):
+    if "Escalate Overdue Review" in [t["name"] for t in call("GET", f"/instances/case/{sla_case}", ADMIN)[1]["openTasks"]]:
+        break
+    time.sleep(0.5)
+check("firing the SLA timer opened the escalation task",
+      "Escalate Overdue Review" in [t["name"] for t in call("GET", f"/instances/case/{sla_case}", ADMIN)[1]["openTasks"]], True)
+call("DELETE", f"/instances/case/{sla_case}", ADMIN)
+
+deploy("failingJob", "BPMN", """<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="jobs">
+  <process id="failingJob" isExecutable="true">
+    <startEvent id="s"/><sequenceFlow id="f1" sourceRef="s" targetRef="t"/>
+    <serviceTask id="t" name="Call Ledger" flowable:async="true" flowable:expression="${ledger.post(amount)}">
+      <extensionElements><flowable:failedJobRetryTimeCycle>R1/PT1S</flowable:failedJobRetryTimeCycle></extensionElements>
+    </serviceTask>
+    <sequenceFlow id="f2" sourceRef="t" targetRef="e"/><endEvent id="e"/>
+  </process>
+</definitions>""")
+failing = call("POST", "/instances", DESIGNER, {"kind": "process", "definitionKey": "failingJob", "variables": {"amount": 1}})[1]["id"]
+failed = None
+for _ in range(60):
+    failed = next((j for j in call("GET", "/jobs?state=failed", ADMIN)[1] if j["instanceId"] == failing), None)
+    if failed:
+        break
+    time.sleep(0.5)
+check("an async step that keeps failing ends up in failed jobs", bool(failed), True)
+if failed:
+    check("failed job shows the engine's error", "ledger" in (failed["exceptionMessage"] or ""), True)
+    check("its stack trace is readable", "ledger" in call("GET", f"/jobs/{failed['id']}/stacktrace", ADMIN)[1]["stacktrace"], True)
+    check("retry moves it back to run", call("POST", f"/jobs/{failed['id']}/retry", ADMIN)[0], 204)
+    refailed = None
+    for _ in range(60):
+        refailed = next((j for j in call("GET", "/jobs?state=failed", ADMIN)[1] if j["instanceId"] == failing), None)
+        if refailed:
+            break
+        time.sleep(0.5)
+    check("delete a failed job", call("DELETE", f"/jobs/{refailed['id']}", ADMIN)[0] if refailed else None, 204)
+call("DELETE", f"/instances/process/{failing}", ADMIN)
+
 print(f"---- {results['pass']} passed, {results['fail']} failed")
 sys.exit(1 if results["fail"] else 0)

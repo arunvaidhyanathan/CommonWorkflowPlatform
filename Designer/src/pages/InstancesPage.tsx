@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSession } from '../lib/useSession'
 import { useMemberNames } from '../lib/useMemberNames'
 import { AdHocWorkPanel, MigrationPanel } from '../components/InstanceChangePanels'
+import { BusinessStatusField, TimelinePanel } from '../components/InstanceHistoryPanels'
 import {
   getInstance,
   listDefinitions,
@@ -321,6 +322,8 @@ function InstancePanel({
         <dd className="font-mono">{instance.id}</dd>
       </dl>
 
+      <BusinessStatusField key={instance.businessStatus ?? ''} detail={detail} canEdit={canAct} onSaved={() => run(async () => undefined)} />
+
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
       {detail.openTasks.length > 0 && (
@@ -424,6 +427,8 @@ function InstancePanel({
           {JSON.stringify(detail.variables, null, 2)}
         </pre>
       )}
+
+      <TimelinePanel detail={detail} nameOf={nameOf} />
 
       {running && canEdit && <AdHocWorkPanel detail={detail} onDone={() => run(async () => undefined)} />}
       {running && role === 'tenant_admin' && <MigrationPanel detail={detail} onDone={() => run(async () => undefined)} />}

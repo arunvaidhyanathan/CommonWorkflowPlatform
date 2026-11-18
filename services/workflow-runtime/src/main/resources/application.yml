@@ -51,6 +51,21 @@ spring:
 # Liquibase changelog above -- no collision, just two schema-management
 # mechanisms sharing one Postgres connection.
 flowable:
+  # History (#11): "audit" keeps instances, steps and final variable values;
+  # "full" also keeps every variable change (the instance timeline shows them).
+  history-level: ${CWP_HISTORY_LEVEL:audit}
+  # Optional history cleanup: delete finished instances' history after the
+  # retention period, on the given cron cycle.
+  enable-history-cleaning: ${CWP_HISTORY_CLEANING:false}
+  history-cleaning-after: ${CWP_HISTORY_RETENTION:365d}
+  history-cleaning-cycle: "${CWP_HISTORY_CLEANING_CYCLE:0 0 1 * * ?}"
+  # Async executor (#14): runs timers, async steps and batch parts.
+  async-executor-activate: ${CWP_ASYNC_EXECUTOR:true}
+  process:
+    async:
+      executor:
+        max-async-jobs-due-per-acquisition: ${CWP_ASYNC_JOBS_PER_ACQUISITION:16}
+        async-job-lock-time: ${CWP_ASYNC_JOB_LOCK_TIME:PT5M}
   # Mail tasks (#6). Point at a real SMTP relay outside local development.
   mail:
     server:
