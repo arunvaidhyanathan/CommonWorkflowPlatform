@@ -1,5 +1,5 @@
 // Identity hook (Designer.html Section 2): the login session issued by
-// workflow-runtime (POST /runtime/auth/login). Single source of truth for
+// flowable-wrapper (POST /runtime/auth/login). Single source of truth for
 // "who is this and which tenant are they in" across the app. The session is
 // kept in localStorage so a reload stays signed in until the token expires.
 import { useSyncExternalStore } from 'react'

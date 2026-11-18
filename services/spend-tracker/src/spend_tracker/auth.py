@@ -1,6 +1,6 @@
 """Who may see what (SpendTracker.html Section 3.5).
 
-The same Supabase JWT check as agentic-designer and workflow-runtime
+The same Supabase JWT check as agentic-designer and flowable-wrapper
 (signature + expiry against the project's JWKS; tenant and role from
 app_metadata). This is copied rather than shared on purpose: each service
 owns its auth code, and it is small.

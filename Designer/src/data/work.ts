@@ -1,5 +1,5 @@
 // Runtime work: deployed definitions, process/case instances and the task
-// inbox, via workflow-runtime's /runtime/definitions, /runtime/instances and
+// inbox, via flowable-wrapper's /runtime/definitions, /runtime/instances and
 // /runtime/tasks. The service scopes everything to the caller's tenant and
 // decides who may claim, complete, update or terminate.
 import { apiFetch } from '../lib/apiClient'

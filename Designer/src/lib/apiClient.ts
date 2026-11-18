@@ -2,8 +2,8 @@
 // gateway (gateway/ at the repo root). VITE_API_BASE_URL is the gateway's
 // /api prefix -- e.g. http://localhost:8080/api in Vite dev, or /api when the
 // SPA is served by the gateway itself -- and each service lives under its own
-// path: /runtime/** -> workflow-runtime, /agent/** -> agentic-designer.
-// Every call attaches the login token issued by workflow-runtime
+// path: /runtime/** -> flowable-wrapper, /agent/** -> agentic-designer.
+// Every call attaches the login token issued by flowable-wrapper
 // (POST /runtime/auth/login) as a Bearer token; each service verifies it.
 import { getSession, setSession, type Session } from './useSession'
 
@@ -27,7 +27,7 @@ export class ApiError extends Error {
   body: unknown
 
   constructor(status: number, body: unknown) {
-    // workflow-runtime (Spring) errors carry `message`; agentic-designer
+    // flowable-wrapper (Spring) errors carry `message`; agentic-designer
     // (FastAPI) errors carry `detail`, a string for the errors it raises itself.
     const fields = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
     const message =

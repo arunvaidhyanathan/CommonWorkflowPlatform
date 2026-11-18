@@ -51,12 +51,24 @@ server {
   # Each API route includes snippets/cwp-api.conf (CORS, preflight, proxy
   # headers). It can't live in a shared parent location: an `if` in a parent
   # location doesn't run for requests matched by a nested one.
+  # flowable-wrapper: the Flowable engine host. Its controllers still serve
+  # /runtime/**, so both public prefixes rewrite onto that.
+  location /api/flowable/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_api burst=40 nodelay;
+    set $flowable_wrapper ${FLOWABLE_WRAPPER_UPSTREAM};
+    rewrite ^/api/flowable(/.*)$ /runtime$1 break;
+    proxy_pass http://$flowable_wrapper;
+  }
+
+  # Legacy alias kept until the SPA moves to /api/flowable, /api/identity
+  # and /api/design (microservice split, final phase); then delete it.
   location /api/runtime/ {
     include /etc/nginx/snippets/cwp-api.conf;
     limit_req zone=cwp_api burst=40 nodelay;
-    set $workflow_runtime ${WORKFLOW_RUNTIME_UPSTREAM};
+    set $flowable_wrapper ${FLOWABLE_WRAPPER_UPSTREAM};
     rewrite ^/api(/runtime/.*)$ $1 break;
-    proxy_pass http://$workflow_runtime;
+    proxy_pass http://$flowable_wrapper;
   }
 
   location /api/agent/ {

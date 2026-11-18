@@ -5,11 +5,11 @@
 --   createdb cwp
 --   psql -d cwp -f Database/schema.sql -f Database/policies.sql -f Database/local.sql
 --
--- workflow-runtime checks passwords against app_auth.users.password_hash
+-- flowable-wrapper checks passwords against app_auth.users.password_hash
 -- (bcrypt) and issues its own JWT. It connects as the tables' owner, so the
--- RLS policies are not enforced at the database; workflow-runtime enforces
+-- RLS policies are not enforced at the database; flowable-wrapper enforces
 -- the same tenant/role rules in code. The audit and status triggers still
--- run, reading the actor from request.jwt.claims, which workflow-runtime
+-- run, reading the actor from request.jwt.claims, which flowable-wrapper
 -- sets on each transaction.
 -- ============================================================================
 
@@ -18,7 +18,7 @@ begin;
 alter table app_auth.users add column if not exists username text unique;
 alter table app_auth.users add column if not exists password_hash text;
 
--- workflow-runtime's own schema (Liquibase + Flowable ACT_* tables).
+-- flowable-wrapper's own schema (Liquibase + Flowable ACT_* tables).
 create schema if not exists runtime;
 
 -- Seed: one tenant and one user per role. LOCAL DEVELOPMENT ONLY -- the

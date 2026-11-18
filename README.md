@@ -8,7 +8,7 @@
 |---|---|
 | `Designer/` | The React SPA (app shell: Designer, Workbench, Approvals, Administration, Workflow Wrapper screens) |
 | `gateway/` | nginx edge gateway: serves the SPA, routes `/api/*` to services, owns CORS / rate limits / request ids |
-| `services/workflow-runtime/` | Java 21 / Spring Boot 4 / Flowable 8 engine host |
+| `services/flowable-wrapper/` | Java 21 / Spring Boot 4 / Flowable 8 engine host |
 | `services/agentic-designer/` | Agentic Designer: LLM-assisted workflow authoring (Python / FastAPI) |
 | `services/spend-tracker/` | API spend tracker: usage events, spend summaries, API key health (Python / FastAPI) |
 | `Database/` | Portable schema + RLS for the Supabase design-time data |
@@ -30,7 +30,8 @@ built into the gateway image and reads its Supabase settings from
 |---|---|
 | `/` | SPA |
 | `/healthz` | Gateway health |
-| `/api/runtime/**` | workflow-runtime (`/runtime/**`) |
+| `/api/flowable/**` | flowable-wrapper (`/runtime/**`) |
+| `/api/runtime/**` | flowable-wrapper, legacy alias until the SPA moves to `/api/flowable` |
 | `/api/agent/**` | agentic-designer (`/**`) |
 | `/api/spend/**` | spend-tracker (`/**`); `/api/spend/events` is blocked (internal only) |
 

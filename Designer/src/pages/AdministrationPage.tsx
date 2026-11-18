@@ -2,7 +2,7 @@
 // tenant-wide workflow governance (archive/delete regardless of who created
 // them), plus an audit log tab. Reached only via /admin, which RequireRole
 // gates client-side to tenant_admin; the real enforcement is server-side
-// (workflow-runtime's /runtime/design API checks role and tenant).
+// (flowable-wrapper's /runtime/design API checks role and tenant).
 //
 // Governance.html Section 3.2 (roles), Section 7 (audit log), Section 8
 // (invite/deactivate). Onboarding.html Section 2.2/3.3 (invite flow, role

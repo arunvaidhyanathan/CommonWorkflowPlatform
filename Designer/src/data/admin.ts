@@ -1,6 +1,6 @@
 // Administration data layer (Section 21, extended by Governance.html):
 // tenant member/role management and tenant-wide workflow governance, via
-// workflow-runtime's /runtime/design API. Role changes take effect at the
+// flowable-wrapper's /runtime/design API. Role changes take effect at the
 // member's next sign-in (the role rides in their login token); the service
 // re-reads role and status from the database for every write, so a
 // deactivated member or demoted admin can't keep writing in the meantime.

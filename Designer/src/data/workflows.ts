@@ -1,5 +1,5 @@
 // Design-time data layer (Designer.html Sections 3 and 4): workflows and their
-// immutable versions, via workflow-runtime's /runtime/design API. The service
+// immutable versions, via flowable-wrapper's /runtime/design API. The service
 // scopes every call to the caller's tenant and checks designer/admin write
 // access; these functions rely on that, not client checks. The tenantId and
 // createdBy parameters are kept for callers but the server uses the token's.

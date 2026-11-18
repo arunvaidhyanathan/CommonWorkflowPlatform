@@ -1,6 +1,6 @@
 // Governance.html Section 7: read side of the audit log. Rows are written
 // by DB triggers (profiles/workflows/approval_requests) or, for role
-// changes, by workflow-runtime -- this module is read-only by design
+// changes, by flowable-wrapper -- this module is read-only by design
 // (tenant_admin only).
 import { apiFetch } from '../lib/apiClient'
 

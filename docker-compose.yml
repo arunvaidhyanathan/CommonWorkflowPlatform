@@ -1,7 +1,8 @@
 # CWP local stack. Supabase (auth + design-time data) stays hosted; these
 # are CWP's own services. Entry point: http://localhost:${GATEWAY_PORT:-8080}
 #   /            -> SPA (built from Designer/)
-#   /api/runtime -> workflow-runtime (Flowable engine host)
+#   /api/flowable -> flowable-wrapper (Flowable engine host)
+#   /api/runtime  -> flowable-wrapper (legacy alias, removed after SPA cutover)
 #   /api/agent   -> agentic-designer (LLM-assisted authoring)
 #   /api/spend   -> spend-tracker (API spend and key health; POST /events is internal only)
 name: cwp
@@ -16,12 +17,12 @@ services:
     environment:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-^http://localhost:5173$$}
     depends_on:
-      - workflow-runtime
+      - flowable-wrapper
       - agentic-designer
       - spend-tracker
 
-  workflow-runtime:
-    build: services/workflow-runtime
+  flowable-wrapper:
+    build: services/flowable-wrapper
     environment:
       WORKFLOW_RUNTIME_DB_URL: jdbc:postgresql://runtime-db:5432/cwp_runtime?currentSchema=runtime
       WORKFLOW_RUNTIME_DB_USER: workflow_runtime
@@ -106,7 +107,7 @@ services:
       POSTGRES_PASSWORD: ${WORKFLOW_RUNTIME_DB_PASSWORD:?set WORKFLOW_RUNTIME_DB_PASSWORD in .env}
     volumes:
       - runtime-db-data:/var/lib/postgresql/data
-      - ./services/workflow-runtime/docker/initdb:/docker-entrypoint-initdb.d:ro
+      - ./services/flowable-wrapper/docker/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U workflow_runtime -d cwp_runtime"]
       interval: 5s

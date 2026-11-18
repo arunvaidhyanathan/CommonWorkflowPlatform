@@ -1,4 +1,4 @@
-// Workflow Wrapper: the workflow-runtime service's operator-facing surface
+// Workflow Wrapper: the flowable-wrapper service's operator-facing surface
 // (WorkflowWrapper.html; Workbench.html Section 7.1's Case Instance View
 // lives here rather than inside WorkbenchPage.tsx -- this route already
 // existed as the reserved home for "the Flowable runtime wrapper's

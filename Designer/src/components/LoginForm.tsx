@@ -1,4 +1,4 @@
-// Username/password sign-in against workflow-runtime (POST /runtime/auth/login).
+// Username/password sign-in against flowable-wrapper (POST /runtime/auth/login).
 // Accounts are created by a tenant admin (Administration > Users) or the
 // seed script (Database/local.sql); there is no self sign-up.
 import { useState, type FormEvent } from 'react'

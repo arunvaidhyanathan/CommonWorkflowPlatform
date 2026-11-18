@@ -1,4 +1,4 @@
-"""Supabase JWT verification, mirroring workflow-runtime's SecurityConfig /
+"""Supabase JWT verification, mirroring flowable-wrapper's SecurityConfig /
 TenantContext: signature and expiry checked against the project's JWKS (or,
 for HS256 tokens, the legacy secret or Supabase Auth);
 tenant and role read from ``app_metadata``, the same claims the database's
@@ -66,7 +66,7 @@ class JwtVerifier:
             self.signing_key(token),
             algorithms=["ES256", "RS256"],
             # Supabase access tokens carry aud "authenticated"; like
-            # workflow-runtime, identity comes from the signature, so the
+            # flowable-wrapper, identity comes from the signature, so the
             # audience isn't pinned here.
             options={"verify_aud": False, "require": ["exp", "sub"]},
         )
