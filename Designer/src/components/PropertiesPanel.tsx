@@ -2,8 +2,7 @@
 // the fields relevant to each element type.
 import { useWorkbenchStore } from '../store/useWorkbenchStore'
 import { CmmnProperties } from './CmmnProperties'
-
-const TASK_TYPES = new Set(['userTask', 'serviceTask', 'businessRuleTask', 'callActivity'])
+import { BpmnProperties } from './BpmnProperties'
 
 export function PropertiesPanel() {
   const { selectedNodeId, nodes, updateNodeData } = useWorkbenchStore()
@@ -17,12 +16,7 @@ export function PropertiesPanel() {
     )
   }
 
-  const isTask = TASK_TYPES.has(selectedNode.type ?? '')
   const isUserTask = selectedNode.type === 'userTask'
-  const isServiceTask = selectedNode.type === 'serviceTask'
-  const isGateway = ['exclusiveGateway', 'parallelGateway', 'inclusiveGateway'].includes(
-    selectedNode.type ?? '',
-  )
   const isCmmnSentry = selectedNode.type === 'cmmnSentry'
 
   return (
@@ -97,31 +91,7 @@ export function PropertiesPanel() {
         </>
       )}
 
-      {isServiceTask && (
-        <Field label="Delegate Expression">
-          <input
-            type="text"
-            value={selectedNode.data.delegateExpression ?? ''}
-            placeholder="${mySpringBean}"
-            onChange={(e) =>
-              updateNodeData(selectedNode.id, { delegateExpression: e.target.value })
-            }
-            className="w-full rounded border border-sky-200 bg-white p-1.5 font-mono text-xs text-slate-800 outline-none focus:border-sky-500"
-          />
-        </Field>
-      )}
-
-      {isTask && !isUserTask && !isServiceTask && (
-        <p className="text-[11px] text-slate-500">
-          No spec-specific fields for this activity type yet.
-        </p>
-      )}
-
-      {isGateway && (
-        <p className="text-[11px] text-slate-500">
-          Set flow conditions on outgoing sequence flows by selecting the edge.
-        </p>
-      )}
+      {!selectedNode.type?.startsWith('cmmn') && <BpmnProperties node={selectedNode} />}
 
       {selectedNode.type?.startsWith('cmmn') && <CmmnProperties node={selectedNode} />}
 

@@ -2,6 +2,12 @@ import { memo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { useWorkbenchStore } from '../store/useWorkbenchStore'
 import type { NodeData } from '../store/useWorkbenchStore'
+import type { BpmnNodeData, EventKind } from '../adapters/bpmnAdapter'
+
+const GLYPH: Record<EventKind, string> = {
+  timer: 'T', message: 'M', signal: 'S', error: 'E', escalation: '^', conditional: 'C',
+  compensate: '<<', terminate: 'X', variableListener: 'V',
+}
 
 interface EventNodeProps extends NodeProps {
   data: NodeData
@@ -17,14 +23,20 @@ const VARIANT_STYLE: Record<EventNodeProps['variant'], string> = {
 
 export const EventNode = memo(({ id, data, selected, variant }: EventNodeProps) => {
   const updateNodeData = useWorkbenchStore((s) => s.updateNodeData)
+  const d = data as NodeData & BpmnNodeData
+  const def = d.eventDefinition
+  // Non-interrupting boundary / event-sub-process starts draw dashed; throwing events are filled.
+  const nonInterrupting = d.cancelActivity === false || d.interrupting === false
 
   return (
     <div className="flex flex-col items-center gap-1">
       <div
-        className={`relative flex h-9 w-9 items-center justify-center rounded-full border-2 bg-white ${
-          VARIANT_STYLE[variant]
-        } ${selected ? 'ring-2 ring-sky-600/30' : ''}`}
+        className={`relative flex h-9 w-9 items-center justify-center rounded-full border-2 ${
+          d.throwing ? 'bg-amber-100' : 'bg-white'
+        } ${VARIANT_STYLE[variant]} ${nonInterrupting ? '!border-dashed' : ''} ${selected ? 'ring-2 ring-sky-600/30' : ''}`}
+        title={def ? `${def.type}${def.name ? `: ${def.name}` : ''}${def.code ? ` (${def.code})` : ''}` : undefined}
       >
+        {def && <span className="font-mono text-[10px] font-bold">{GLYPH[def.type]}</span>}
         <Handle type="target" position={Position.Left} className="!h-2 !w-2 !bg-sky-600" />
         <Handle type="source" position={Position.Right} className="!h-2 !w-2 !bg-sky-600" />
       </div>

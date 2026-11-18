@@ -47,8 +47,8 @@
         <multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${reviewers}" flowable:elementVariable="reviewer">
           <extensionElements>
             <flowable:variableAggregation target="reviews">
-              <variable source="vote" target="vote" />
-              <variable source="reviewer" target="reviewer" />
+              <flowable:variable source="vote" target="vote" />
+              <flowable:variable source="reviewer" target="reviewer" />
             </flowable:variableAggregation>
           </extensionElements>
         </multiInstanceLoopCharacteristics>

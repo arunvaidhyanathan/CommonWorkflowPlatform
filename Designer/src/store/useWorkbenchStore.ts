@@ -64,6 +64,8 @@ interface WorkbenchState {
   addNode: (node: Node<NodeData>) => void
   removeNode: (id: string) => void
   setGraph: (nodes: Node<NodeData>[], edges: Edge[]) => void
+  // An edit to the edges (e.g. a compensation association) that marks the workflow dirty.
+  replaceEdges: (edges: Edge[]) => void
   markSaved: (versionId: string) => void
   resetWorkspace: () => void
 
@@ -162,6 +164,8 @@ export const useWorkbenchStore = create<WorkbenchState>()(
         }),
 
       setGraph: (nodes, edges) => set({ nodes, edges, isDirty: false }),
+
+      replaceEdges: (edges) => set({ edges, isDirty: true }),
 
       markSaved: (versionId) =>
         set({ draftVersionId: versionId, isDirty: false }),

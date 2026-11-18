@@ -44,7 +44,8 @@ import org.junit.jupiter.api.Test;
  */
 class FlowableBpmnSampleTest {
 
-    private static final Path SAMPLES = Path.of("../../Designer/samples");
+    // -Dcwp.samples=<dir> runs the same checks on other copies (e.g. files re-saved by the Designer).
+    private static final Path SAMPLES = Path.of(System.getProperty("cwp.samples", "../../Designer/samples"));
 
     private static ProcessEngine engine;
     private static RuntimeService runtime;
