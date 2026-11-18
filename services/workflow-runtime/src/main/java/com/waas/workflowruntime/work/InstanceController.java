@@ -57,7 +57,9 @@ public class InstanceController {
             String businessKey, String state, String startUserId, Instant startTime, Instant endTime) {
     }
 
-    public record PlanItem(String id, String name, String type, String state, String stageInstanceId) {
+    /** {@code actions}: what a case worker can do now (see PlanItemController). */
+    public record PlanItem(String id, String name, String type, String state, String stageInstanceId,
+            List<String> actions) {
     }
 
     public record OpenTask(String id, String name, String assignee) {
@@ -157,7 +159,7 @@ public class InstanceController {
                         .map(InstanceController::toPlanItem).toList()
                 : cmmnHistory.createHistoricPlanItemInstanceQuery().planItemInstanceCaseInstanceId(id).list().stream()
                         .map(p -> new PlanItem(p.getId(), p.getName(), p.getPlanItemDefinitionType(), p.getState(),
-                                p.getStageInstanceId()))
+                                p.getStageInstanceId(), List.of()))
                         .toList();
         return new InstanceDetail(summary, vars, planItems, List.of(), open);
     }
@@ -236,7 +238,8 @@ public class InstanceController {
     }
 
     private static PlanItem toPlanItem(PlanItemInstance p) {
-        return new PlanItem(p.getId(), p.getName(), p.getPlanItemDefinitionType(), p.getState(), p.getStageInstanceId());
+        return new PlanItem(p.getId(), p.getName(), p.getPlanItemDefinitionType(), p.getState(), p.getStageInstanceId(),
+                PlanItemController.actionsFor(p.getPlanItemDefinitionType(), p.getState()));
     }
 
     private InstanceSummary toSummary(HistoricProcessInstance p) {

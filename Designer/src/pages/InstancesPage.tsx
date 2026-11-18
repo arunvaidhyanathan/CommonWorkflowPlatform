@@ -11,6 +11,7 @@ import {
   listDefinitions,
   listInstances,
   parseVariables,
+  planItemAction,
   setInstanceVariables,
   startInstance,
   terminateInstance,
@@ -18,7 +19,15 @@ import {
   type InstanceDetail,
   type InstanceKind,
   type InstanceSummary,
+  type PlanItemAction,
 } from '../data/work'
+
+const ACTION_LABEL: Record<PlanItemAction, string> = {
+  start: 'Start',
+  disable: 'Disable',
+  enable: 'Enable',
+  trigger: 'Trigger',
+}
 
 const STATE_STYLE: Record<string, string> = {
   active: 'bg-sky-100 text-sky-700',
@@ -287,6 +296,8 @@ function InstancePanel({
   const { instance } = detail
   const running = instance.endTime === null
   const canEdit = running && (role === 'designer' || role === 'tenant_admin')
+  // Case workers (not viewers) start manual items and fire user event listeners.
+  const canAct = running && role !== 'viewer'
 
   return (
     <div className="max-w-4xl">
@@ -334,6 +345,7 @@ function InstancePanel({
                 <th className="p-2">Name</th>
                 <th className="p-2">Type</th>
                 <th className="p-2">State</th>
+                {canAct && <th className="p-2" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-sky-100">
@@ -344,6 +356,21 @@ function InstancePanel({
                   <td className="p-2">
                     <StateBadge state={p.state} />
                   </td>
+                  {canAct && (
+                    <td className="space-x-1 p-2 text-right">
+                      {p.actions.map((a) => (
+                        <button
+                          key={a}
+                          type="button"
+                          disabled={busy}
+                          onClick={() => run(() => planItemAction(p.id, a))}
+                          className="rounded border border-sky-300 px-2 py-0.5 text-[10px] font-semibold text-[#0066b2] hover:bg-sky-50 disabled:opacity-50"
+                        >
+                          {ACTION_LABEL[a]}
+                        </button>
+                      ))}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

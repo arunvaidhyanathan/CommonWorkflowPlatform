@@ -10,7 +10,7 @@ import {
   applyEdgeChanges,
   addEdge,
 } from '@xyflow/react'
-import type { DmnDecision, DmnModel } from '../adapters/dmnAdapter'
+import type { DmnDecision, DmnDecisionService, DmnModel } from '../adapters/dmnAdapter'
 import { createEmptyDecision } from '../adapters/dmnAdapter'
 
 export type SpecType = 'BPMN' | 'CMMN' | 'DMN'
@@ -72,6 +72,7 @@ interface WorkbenchState {
   updateDecision: (id: string, patch: Partial<DmnDecision>) => void
   addDecision: (name: string) => void
   removeDecision: (id: string) => void
+  setDecisionServices: (services: DmnDecisionService[]) => void
 }
 
 const initialWorkspace = {
@@ -200,13 +201,28 @@ export const useWorkbenchStore = create<WorkbenchState>()(
       removeDecision: (id) => {
         const model = get().dmnModel
         if (!model) return
-        const decisions = model.decisions.filter((d) => d.id !== id)
+        // Drop references to the removed decision too: a dangling requirement
+        // or service reference makes the whole file fail to deploy.
+        const decisions = model.decisions
+          .filter((d) => d.id !== id)
+          .map((d) => (d.requires?.includes(id) ? { ...d, requires: d.requires.filter((r) => r !== id) } : d))
+        const decisionServices = model.decisionServices?.map((svc) => ({
+          ...svc,
+          outputDecisions: svc.outputDecisions.filter((r) => r !== id),
+          encapsulatedDecisions: svc.encapsulatedDecisions.filter((r) => r !== id),
+        }))
         set({
-          dmnModel: { ...model, decisions },
+          dmnModel: { ...model, decisions, decisionServices },
           activeDecisionId:
             get().activeDecisionId === id ? (decisions[0]?.id ?? null) : get().activeDecisionId,
           isDirty: true,
         })
+      },
+
+      setDecisionServices: (decisionServices) => {
+        const model = get().dmnModel
+        if (!model) return
+        set({ dmnModel: { ...model, decisionServices }, isDirty: true })
       },
     }),
     {

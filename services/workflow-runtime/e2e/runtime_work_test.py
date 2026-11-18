@@ -161,5 +161,49 @@ members = {m["email"]: m["groups"] for m in call("GET", "/design/members", ADMIN
 check("member list shows groups", members["designer"], ["kycAnalyst"])
 call("DELETE", f"/instances/case/{proc2['id']}", ADMIN)
 
+# ---- Decisions: list, evaluate a decision service, explain which rules matched
+decisions = {d["key"]: d["type"] for d in call("GET", "/decisions", DESIGNER)[1]}
+check("decision service is listed with its type", decisions.get("kycAssessmentService"), "decision_service")
+check("other tenant does not see the decision", "kycAssessmentService" in
+      {d["key"] for d in call("GET", "/decisions", OTHER)[1]}, False)
+status, ev = call("POST", "/decisions/kycAssessmentService/evaluate", DESIGNER,
+                  dict(applicant, country="GB", isPep=True))
+check("evaluate a decision service", status, 200)
+check("PEP is HIGH risk regardless of country", ev["result"]["kycRiskTier"][0]["riskTier"], "HIGH")
+traces = {t["key"]: t for t in ev["decisions"]}
+check("trace covers every decision in the service", sorted(traces),
+      ["kycCountryRisk", "kycDocumentRequirements", "kycMonitoringFrequency", "kycProductRisk", "kycRiskTier"])
+check("trace shows the PEP rule (rule 1) matched", traces["kycRiskTier"]["matchedRules"], [1])
+check("trace shows the hit policy", traces["kycMonitoringFrequency"]["hitPolicy"], "PRIORITY")
+check("unknown decision -> 404", call("POST", "/decisions/nope/evaluate", DESIGNER, {})[0], 404)
+check("other tenant cannot evaluate it", call("POST", "/decisions/kycAssessmentService/evaluate", OTHER, {})[0], 404)
+
+# ---- Plan item actions: manual activation, disable/enable, user event listener
+status, c3 = call("POST", "/instances", DESIGNER, {"kind": "case", "definitionKey": "kycOnboardingCase",
+                                                    "variables": dict(applicant, country="GB")})
+C3 = c3["id"]
+
+
+def plan_item(name):
+    return next(p for p in call("GET", f"/instances/case/{C3}", DESIGNER)[1]["planItems"]
+                if p["name"] == name and p["state"] not in ("completed", "terminated"))
+
+
+req = plan_item("Request Additional Document")
+check("manual item is offered (enabled) with start/disable", (req["state"], req["actions"]), ("enabled", ["start", "disable"]))
+check("disable sets it aside", call("POST", f"/plan-items/{req['id']}/disable", DESIGNER)[0], 204)
+check("disabled item can only be enabled", plan_item("Request Additional Document")["actions"], ["enable"])
+check("a disabled item cannot be started", call("POST", f"/plan-items/{req['id']}/start", DESIGNER)[0], 409)
+check("enable offers it again", call("POST", f"/plan-items/{req['id']}/enable", DESIGNER)[0], 204)
+check("start activates it", call("POST", f"/plan-items/{req['id']}/start", DESIGNER)[0], 204)
+check("starting it creates its human task", "Request Additional Document" in
+      [t["name"] for t in call("GET", f"/instances/case/{C3}", DESIGNER)[1]["openTasks"]], True)
+withdraw = plan_item("Customer Withdraws")
+check("user event listener offers trigger", withdraw["actions"], ["trigger"])
+check("other tenant cannot act on plan items", call("POST", f"/plan-items/{withdraw['id']}/trigger", OTHER)[0], 404)
+check("unknown action -> 409", call("POST", f"/plan-items/{withdraw['id']}/start", DESIGNER)[0], 409)
+check("trigger the withdrawal", call("POST", f"/plan-items/{withdraw['id']}/trigger", DESIGNER)[0], 204)
+check("withdrawal terminates the case", call("GET", f"/instances/case/{C3}", DESIGNER)[1]["instance"]["state"], "terminated")
+
 print(f"---- {results['pass']} passed, {results['fail']} failed")
 sys.exit(1 if results["fail"] else 0)

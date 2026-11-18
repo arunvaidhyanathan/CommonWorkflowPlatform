@@ -36,10 +36,25 @@ function nextId(prefix: string) {
 interface DmnEditorProps {
   decision: DmnDecision
   onChange: (decision: DmnDecision) => void
+  // The other decisions in the file: candidates for "Requires", and used to
+  // warn when something depends on this decision.
+  otherDecisions: DmnDecision[]
 }
 
-export function DmnEditor({ decision, onChange }: DmnEditorProps) {
+// Hit policies that rank results by the output clause's allowed values.
+const RANKED_POLICIES: HitPolicy[] = ['PRIORITY', 'OUTPUT ORDER']
+
+export function DmnEditor({ decision, onChange, otherDecisions }: DmnEditorProps) {
   const table = decision.decisionTable
+  const requires = decision.requires ?? []
+  const ranked = RANKED_POLICIES.includes(table.hitPolicy)
+  const dependents = otherDecisions.filter((d) => d.requires?.includes(decision.id))
+
+  const toggleRequires = (id: string) =>
+    onChange({
+      ...decision,
+      requires: requires.includes(id) ? requires.filter((r) => r !== id) : [...requires, id],
+    })
 
   const updateTable = (patch: Partial<typeof table>) => {
     onChange({ ...decision, decisionTable: { ...table, ...patch } })
@@ -232,6 +247,41 @@ export function DmnEditor({ decision, onChange }: DmnEditorProps) {
         )}
       </div>
 
+      {otherDecisions.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="font-semibold text-slate-500" title="Decisions whose outputs this decision reads (informationRequirement)">
+            Requires:
+          </span>
+          {otherDecisions.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => toggleRequires(d.id)}
+              className={`rounded-full border px-2 py-0.5 text-[11px] ${
+                requires.includes(d.id)
+                  ? 'border-sky-500 bg-sky-100 font-semibold text-sky-900'
+                  : 'border-slate-200 text-slate-500 hover:bg-sky-50'
+              }`}
+            >
+              {d.name || d.id}
+            </button>
+          ))}
+        </div>
+      )}
+      {ranked && table.outputs.some((o) => !o.outputValues?.trim()) && (
+        <p className="mb-3 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+          {table.hitPolicy} ranks results by each output's allowed values. Fill in "Ranked values" for every
+          output, highest priority first, e.g. "HIGH","MEDIUM","LOW".
+        </p>
+      )}
+      {table.hitPolicy === 'PRIORITY' && dependents.length > 0 && (
+        <p className="mb-3 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+          {dependents.map((d) => d.name || d.id).join(', ')} {dependents.length > 1 ? 'depend' : 'depends'} on
+          this PRIORITY decision. Inside a decision service, Flowable passes dependents the output of the last
+          matching rule, not the PRIORITY winner. Use FIRST with rows ordered by priority instead.
+        </p>
+      )}
+
       <div className="mb-4 flex flex-wrap gap-4">
         <div className="min-w-[280px] flex-1 rounded border border-sky-200 bg-sky-50 p-3">
           <div className="mb-2 flex items-center justify-between">
@@ -325,6 +375,19 @@ export function DmnEditor({ decision, onChange }: DmnEditorProps) {
                   placeholder="type"
                   className="w-16 border-b border-emerald-200 p-0.5 text-xs outline-none"
                 />
+                {(ranked || output.outputValues) && (
+                  <input
+                    value={output.outputValues ?? ''}
+                    onChange={(e) => {
+                      const outputs = [...table.outputs]
+                      outputs[index] = { ...output, outputValues: e.target.value || undefined }
+                      updateTable({ outputs })
+                    }}
+                    placeholder='Ranked values: "HIGH","LOW"'
+                    title="Allowed output values, highest priority first (used by PRIORITY / OUTPUT ORDER)"
+                    className="w-40 border-b border-emerald-200 p-0.5 font-mono text-[11px] outline-none"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => removeOutput(index)}

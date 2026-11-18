@@ -12,6 +12,7 @@ import { WorkflowWrapperPage } from './pages/WorkflowWrapperPage'
 import { SpendPage } from './pages/SpendPage'
 import { TasksPage } from './pages/TasksPage'
 import { InstancesPage } from './pages/InstancesPage'
+import { DecisionsPage } from './pages/DecisionsPage'
 
 function App() {
   const { session, loading } = useSession()
@@ -38,6 +39,7 @@ function App() {
           <Route path="/workbench" element={<WorkbenchPage />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/instances" element={<InstancesPage />} />
+          <Route path="/decisions" element={<DecisionsPage />} />
           <Route path="/workflow-wrapper" element={<WorkflowWrapperPage />} />
           {/* The Agentic Designer lives in the Designer (AI Designer panel); keep old links working. */}
           <Route path="/agentic-designer" element={<Navigate to="/designer" replace />} />

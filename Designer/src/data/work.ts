@@ -34,6 +34,35 @@ export interface PlanItem {
   type: string
   state: string
   stageInstanceId: string | null
+  // What a case worker can do now: start, disable, enable (manual items), trigger (user event listeners).
+  actions: PlanItemAction[]
+}
+
+export type PlanItemAction = 'start' | 'disable' | 'enable' | 'trigger'
+
+export interface DecisionSummary {
+  id: string
+  key: string
+  name: string | null
+  version: number
+  type: 'decision_table' | 'decision_service' | string
+}
+
+export interface DecisionTrace {
+  key: string
+  name: string | null
+  hitPolicy: string | null
+  result: Record<string, unknown>[]
+  matchedRules: number[]
+  failed: boolean
+  message: string | null
+}
+
+export interface DecisionEvaluation {
+  key: string
+  type: string
+  result: unknown
+  decisions: DecisionTrace[]
 }
 
 export interface InstanceDetail {
@@ -90,6 +119,17 @@ export const setInstanceVariables = (kind: InstanceKind, id: string, variables: 
 
 export const terminateInstance = (kind: InstanceKind, id: string) =>
   apiFetch<void>(`/runtime/instances/${kind}/${id}`, { method: 'DELETE' })
+
+export const planItemAction = (id: string, action: PlanItemAction) =>
+  apiFetch<void>(`/runtime/plan-items/${id}/${action}`, { method: 'POST' })
+
+export const listDecisions = () => apiFetch<DecisionSummary[]>('/runtime/decisions')
+
+export const evaluateDecision = (key: string, variables: Variables) =>
+  apiFetch<DecisionEvaluation>(`/runtime/decisions/${encodeURIComponent(key)}/evaluate`, {
+    method: 'POST',
+    body: JSON.stringify(variables),
+  })
 
 export const listTasks = (filter: TaskFilter) => apiFetch<TaskSummary[]>(`/runtime/tasks?filter=${filter}`)
 

@@ -11,6 +11,7 @@ import { Canvas } from '../components/Canvas'
 import { PropertiesPanel } from '../components/PropertiesPanel'
 import { AgentPanel } from '../components/AgentPanel'
 import { DmnEditor } from '../components/DmnEditor'
+import { DecisionServicesPanel } from '../components/DecisionServicesPanel'
 import { GettingStartedPanel } from '../components/GettingStartedPanel'
 import {
   WorkflowIdentityDialog,
@@ -770,11 +771,19 @@ export function DesignerPage() {
                 </div>
               ))}
             </div>
+            {dmnModel && (
+              <DecisionServicesPanel
+                decisions={dmnModel.decisions}
+                services={dmnModel.decisionServices ?? []}
+                onChange={(services) => useWorkbenchStore.getState().setDecisionServices(services)}
+              />
+            )}
           </aside>
           {activeDecision ? (
             <DmnEditor
               decision={activeDecision}
               onChange={(updated) => updateDecision(updated.id, updated)}
+              otherDecisions={dmnModel?.decisions.filter((d) => d.id !== activeDecision.id) ?? []}
             />
           ) : (
             <div className="flex flex-1 items-center justify-center text-sm text-slate-500">

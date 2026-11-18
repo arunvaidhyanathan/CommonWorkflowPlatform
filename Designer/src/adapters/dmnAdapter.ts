@@ -1,8 +1,9 @@
 // DMN Adapter (Designer.html Section 7.3): converts between DMN 1.3 XML and
-// an internal decision-table model edited by the TanStack grid. DRD
-// (multi-decision dependency) support is out of v1 scope per the design
-// doc — this reads every standalone decision table in the file so a
-// multi-decision file is still fully usable, just without dependency wiring.
+// an internal decision-table model edited by the TanStack grid. Besides the
+// tables it keeps what the engine depends on: decision requirements (which
+// decisions feed which), output value ranking (PRIORITY / OUTPUT ORDER need
+// it) and decision services (the key a CMMN decision task calls). Saving a
+// model must not change how it evaluates -- see dmnAdapter.test.ts.
 import { DmnModdle, type ModdleElement } from 'dmn-moddle'
 
 const moddle = new DmnModdle()
@@ -21,6 +22,8 @@ export interface DmnOutputClause {
   id: string
   name: string
   typeRef: string
+  // Ranked allowed values, e.g. '"HIGH","MEDIUM","LOW"'. Required for PRIORITY / OUTPUT ORDER.
+  outputValues?: string
 }
 
 export interface DmnRule {
@@ -42,6 +45,17 @@ export interface DmnDecision {
   id: string
   name: string
   decisionTable: DmnDecisionTable
+  // Ids of decisions whose outputs this decision reads (informationRequirement).
+  requires?: string[]
+}
+
+// One entry point over several decisions: outputs are returned to the
+// caller, encapsulated decisions are evaluated internally.
+export interface DmnDecisionService {
+  id: string
+  name: string
+  outputDecisions: string[]
+  encapsulatedDecisions: string[]
 }
 
 export interface DmnModel {
@@ -49,6 +63,21 @@ export interface DmnModel {
   definitionsName: string
   namespace: string
   decisions: DmnDecision[]
+  decisionServices?: DmnDecisionService[]
+}
+
+/** '#kycRiskTier' -> 'kycRiskTier' */
+function refId(ref: ModdleElement | undefined): string | null {
+  const href = ref?.href as string | undefined
+  return href ? href.replace(/^#/, '') : null
+}
+
+function refs(list: unknown): string[] {
+  return ((list as ModdleElement[] | undefined) ?? []).map(refId).filter((id): id is string => id !== null)
+}
+
+function href(id: string): ModdleElement {
+  return moddle.create('dmn:DMNElementReference', { href: `#${id}` })
 }
 
 let counter = 0
@@ -79,6 +108,7 @@ export async function parseDmnXml(xmlString: string): Promise<DmnModel> {
       return {
         id: (decisionEl.id as string) ?? nextId('decision'),
         name: (decisionEl.name as string) ?? 'Untitled Decision',
+        requires: requiredDecisions(decisionEl),
         decisionTable: {
           id: nextId('table'),
           hitPolicy: 'UNIQUE',
@@ -99,11 +129,15 @@ export async function parseDmnXml(xmlString: string): Promise<DmnModel> {
       }
     })
 
-    const outputs = ((decisionLogic.output as ModdleElement[] | undefined) ?? []).map((clause) => ({
-      id: (clause.id as string) ?? nextId('output'),
-      name: (clause.name as string) ?? 'result',
-      typeRef: (clause.typeRef as string) ?? 'string',
-    }))
+    const outputs = ((decisionLogic.output as ModdleElement[] | undefined) ?? []).map((clause) => {
+      const outputValues = (clause.outputValues as ModdleElement | undefined)?.text as string | undefined
+      return {
+        id: (clause.id as string) ?? nextId('output'),
+        name: (clause.name as string) ?? 'result',
+        typeRef: (clause.typeRef as string) ?? 'string',
+        ...(outputValues ? { outputValues } : {}),
+      }
+    })
 
     const rules = ((decisionLogic.rule as ModdleElement[] | undefined) ?? []).map((rule) => ({
       id: (rule.id as string) ?? nextId('rule'),
@@ -118,6 +152,7 @@ export async function parseDmnXml(xmlString: string): Promise<DmnModel> {
     return {
       id: (decisionEl.id as string) ?? nextId('decision'),
       name: (decisionEl.name as string) ?? 'Untitled Decision',
+      requires: requiredDecisions(decisionEl),
       decisionTable: {
         id: (decisionLogic.id as string) ?? nextId('table'),
         hitPolicy: ((decisionLogic.hitPolicy as HitPolicy) || 'UNIQUE') as HitPolicy,
@@ -129,12 +164,28 @@ export async function parseDmnXml(xmlString: string): Promise<DmnModel> {
     }
   })
 
+  const decisionServices = drgElements
+    .filter((el) => el.$type === 'dmn:DecisionService')
+    .map((el) => ({
+      id: el.id as string,
+      name: (el.name as string) ?? (el.id as string),
+      outputDecisions: refs(el.outputDecision),
+      encapsulatedDecisions: refs(el.encapsulatedDecision),
+    }))
+
   return {
     definitionsId: (rootElement.id as string) ?? nextId('definitions'),
     definitionsName: (rootElement.name as string) ?? 'DMN Definitions',
     namespace: (rootElement.namespace as string) ?? 'http://waas.citi.com/dmn',
     decisions,
+    decisionServices,
   }
+}
+
+function requiredDecisions(decisionEl: ModdleElement): string[] {
+  return ((decisionEl.informationRequirement as ModdleElement[] | undefined) ?? [])
+    .map((ir) => refId(ir.requiredDecision as ModdleElement | undefined))
+    .filter((id): id is string => id !== null)
 }
 
 export async function serializeDmnXml(model: DmnModel): Promise<string> {
@@ -156,6 +207,9 @@ export async function serializeDmnXml(model: DmnModel): Promise<string> {
         id: output.id,
         name: output.name,
         typeRef: output.typeRef,
+        ...(output.outputValues?.trim()
+          ? { outputValues: moddle.create('dmn:UnaryTests', { id: nextId('OV'), text: output.outputValues.trim() }) }
+          : {}),
       }),
     )
 
@@ -183,15 +237,27 @@ export async function serializeDmnXml(model: DmnModel): Promise<string> {
     return moddle.create('dmn:Decision', {
       id: decision.id,
       name: decision.name,
+      informationRequirement: (decision.requires ?? []).map((required) =>
+        moddle.create('dmn:InformationRequirement', { id: nextId('IR'), requiredDecision: href(required) }),
+      ),
       decisionLogic: decisionTable,
     })
   })
+
+  const services = (model.decisionServices ?? []).map((service) =>
+    moddle.create('dmn:DecisionService', {
+      id: service.id,
+      name: service.name,
+      outputDecision: service.outputDecisions.map(href),
+      encapsulatedDecision: service.encapsulatedDecisions.map(href),
+    }),
+  )
 
   const definitions = moddle.create('dmn:Definitions', {
     id: model.definitionsId,
     name: model.definitionsName,
     namespace: model.namespace,
-    drgElement: drgElements,
+    drgElement: [...drgElements, ...services],
   })
 
   const { xml } = await moddle.toXML(definitions, { format: true, preamble: true })
