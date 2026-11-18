@@ -88,18 +88,21 @@ flowable:
   dmn:
     deploy-resources: false
 
-# Read by SecurityConfig.java / AuthController.java. flowable-wrapper signs
-# login tokens with this HS256 secret; agentic-designer and spend-tracker
-# verify them with the same value (their SUPABASE_JWT_HS256_SECRET). The
-# fallback is for local development only -- set CWP_JWT_SECRET anywhere else.
 cwp:
   # Script tasks/listeners run arbitrary code in this shared JVM; off unless a
   # platform operator enables them (deployment/ScriptPolicy.java).
   scripts:
     enabled: ${CWP_SCRIPTS_ENABLED:false}
-  jwt:
-    secret: ${CWP_JWT_SECRET:local-dev-only-cwp-jwt-secret-change-me-0123456789}
-    ttl: ${CWP_JWT_TTL:PT8H}
+  # identity-service issues login tokens (verified here against its JWKS)
+  # and answers role/status/group lookups (identity/HttpIdentityDirectory.java).
+  identity:
+    url: ${IDENTITY_SERVICE_URL:http://localhost:8082}
+    jwks-url: ${IDENTITY_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+    # How long a member lookup is reused: the most a role change or
+    # deactivation can lag behind for running work.
+    cache-ttl: ${IDENTITY_CACHE_TTL:PT30S}
+  # Presented to identity-service's /internal/** endpoints.
+  internal-token: ${CWP_INTERNAL_TOKEN:}
 
 server:
   port: ${PORT:8081}

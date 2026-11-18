@@ -1,0 +1,36 @@
+# identity-service configuration. Every secret-shaped value is env-var driven
+# with a local-dev-only fallback -- nothing here is a real credential.
+spring:
+  application:
+    name: identity-service
+
+  datasource:
+    # Until the database split, identity's tables (app_auth.users,
+    # public.profiles / group_members / invites / tenants) live in the same
+    # local `cwp` database as everything else.
+    url: ${IDENTITY_DB_URL:jdbc:postgresql://localhost:5432/cwp?currentSchema=public}
+    username: ${IDENTITY_DB_USER:${USER}}
+    password: ${IDENTITY_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${IDENTITY_DB_POOL_SIZE:5}
+
+cwp:
+  jwt:
+    # PKCS#8 PEM RSA private key that signs login tokens. Unset: a new key is
+    # generated at startup (local dev only -- every restart logs everyone out,
+    # and two replicas would not accept each other's tokens).
+    private-key: ${CWP_JWT_PRIVATE_KEY:}
+    ttl: ${CWP_JWT_TTL:PT8H}
+    issuer: ${CWP_JWT_ISSUER:cwp-identity}
+  # Shared with the services that call /internal/** (flowable-wrapper).
+  # Unset: every internal call is refused.
+  internal-token: ${CWP_INTERNAL_TOKEN:}
+
+server:
+  port: ${PORT:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

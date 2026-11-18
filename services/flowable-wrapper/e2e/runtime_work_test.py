@@ -1,11 +1,13 @@
 """End-to-end checks for the runtime work API against a running local stack.
 
-Needs flowable-wrapper on :8081 with the seeded users (Database/local.sql) and
-the "other" tenant user created by this script. Run:
+Needs flowable-wrapper on :8081 (started with IDENTITY_CACHE_TTL=PT0S, so group
+changes apply at once) and identity-service on :8082, with the seeded users
+(Database/local.sql) and the "other" tenant user created by this script. Run:
     python3 -I services/flowable-wrapper/e2e/runtime_work_test.py
 Exits non-zero if any check fails.
 """
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -13,18 +15,19 @@ import urllib.error
 import urllib.request
 import uuid
 
-BASE = "http://localhost:8081/runtime"
+BASE = os.environ.get("CWP_RUNTIME_BASE", "http://localhost:8081/runtime")
+IDENTITY = os.environ.get("CWP_IDENTITY_BASE", "http://localhost:8082/identity")
 SAMPLES = pathlib.Path(__file__).resolve().parents[3] / "Designer" / "samples"
 PASSWORD = "password"  # seeded local-only users (Database/local.sql)
 results = {"pass": 0, "fail": 0}
 
 
-def call(method, path, token=None, body=None):
+def call(method, path, token=None, body=None, base=BASE):
     data = None if body is None else json.dumps(body).encode()
     headers = {"Content-Type": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    req = urllib.request.Request(BASE + path, data=data, method=method, headers=headers)
+    req = urllib.request.Request(base + path, data=data, method=method, headers=headers)
     try:
         with urllib.request.urlopen(req) as r:
             raw = r.read()
@@ -41,7 +44,7 @@ def check(name, actual, expected):
 
 
 def login(username):
-    status, body = call("POST", "/auth/login", body={"username": username, "password": PASSWORD})
+    status, body = call("POST", "/auth/login", body={"username": username, "password": PASSWORD}, base=IDENTITY)
     assert status == 200, f"login {username}: {status} {body}"
     return body["token"], body["user"]["id"]
 
@@ -149,15 +152,16 @@ status, pdetail = call("GET", f"/instances/process/{PROC}", DESIGNER)
 check("process completed", pdetail["instance"]["state"], "completed")
 check("ended process still shows its variables (history)", pdetail["variables"], {"amount": 120, "approved": True})
 
-# ---- Group management drives task visibility
+# ---- Group management drives task visibility (immediately only with IDENTITY_CACHE_TTL=PT0S;
+# by default flowable-wrapper reuses identity lookups for up to 30s)
 status, proc2 = call("POST", "/instances", DESIGNER, {"kind": "case", "definitionKey": "kycOnboardingCase",
                                                        "variables": dict(applicant, country="GB")})
-check("admin removes designer from kycAnalyst", call("PUT", f"/design/members/{DESIGNER_ID}/groups", ADMIN, {"groups": []})[0], 204)
+check("admin removes designer from kycAnalyst", call("PUT", f"/members/{DESIGNER_ID}/groups", ADMIN, {"groups": []}, base=IDENTITY)[0], 204)
 check("designer no longer offered kycAnalyst work",
       any(t["instanceId"] == proc2["id"] for t in call("GET", "/tasks?filter=available", DESIGNER)[1]), False)
-check("only admins manage groups", call("PUT", f"/design/members/{DESIGNER_ID}/groups", DESIGNER, {"groups": ["x"]})[0], 403)
-check("admin restores the group", call("PUT", f"/design/members/{DESIGNER_ID}/groups", ADMIN, {"groups": ["kycAnalyst"]})[0], 204)
-members = {m["email"]: m["groups"] for m in call("GET", "/design/members", ADMIN)[1]}
+check("only admins manage groups", call("PUT", f"/members/{DESIGNER_ID}/groups", DESIGNER, {"groups": ["x"]}, base=IDENTITY)[0], 403)
+check("admin restores the group", call("PUT", f"/members/{DESIGNER_ID}/groups", ADMIN, {"groups": ["kycAnalyst"]}, base=IDENTITY)[0], 204)
+members = {m["email"]: m["groups"] for m in call("GET", "/members", ADMIN, base=IDENTITY)[1]}
 check("member list shows groups", members["designer"], ["kycAnalyst"])
 call("DELETE", f"/instances/case/{proc2['id']}", ADMIN)
 

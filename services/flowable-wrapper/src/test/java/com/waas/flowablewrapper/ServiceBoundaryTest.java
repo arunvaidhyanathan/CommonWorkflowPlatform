@@ -26,7 +26,7 @@ class ServiceBoundaryTest {
     private static final Path ROOT = Path.of("src/main/java/com/waas/flowablewrapper");
 
     /** The packages that stay in flowable-wrapper after the split. */
-    private static final List<String> FLOWABLE_PACKAGES = List.of("work", "deployment", "runtimeview");
+    private static final List<String> FLOWABLE_PACKAGES = List.of("work", "deployment", "runtimeview", "identity");
 
     private static final Pattern FORBIDDEN_IMPORT =
             Pattern.compile("com\\.waas\\.flowablewrapper\\.(design|auth)\\b");

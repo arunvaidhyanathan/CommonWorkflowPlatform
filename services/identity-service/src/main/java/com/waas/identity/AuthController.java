@@ -1,4 +1,4 @@
-package com.waas.flowablewrapper.auth;
+package com.waas.identity;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -13,7 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -25,11 +25,11 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Username/password login against {@code app_auth.users}. Returns a JWT the
- * SPA sends as a Bearer token to every CWP service.
+ * Username/password login against {@code app_auth.users}. Returns an RS256
+ * JWT the SPA sends as a Bearer token to every CWP service.
  */
 @RestController
-@RequestMapping("/runtime/auth")
+@RequestMapping("/identity/auth")
 public class AuthController {
 
     public record LoginRequest(@NotBlank String username, @NotBlank String password) {
@@ -48,13 +48,15 @@ public class AuthController {
     private final PasswordEncoder passwords;
     private final JwtEncoder jwtEncoder;
     private final Duration tokenTtl;
+    private final String issuer;
 
     AuthController(JdbcTemplate jdbc, PasswordEncoder passwords, JwtEncoder jwtEncoder,
-            @Value("${cwp.jwt.ttl:PT8H}") Duration tokenTtl) {
+            @Value("${cwp.jwt.ttl:PT8H}") Duration tokenTtl, @Value("${cwp.jwt.issuer:cwp-identity}") String issuer) {
         this.jdbc = jdbc;
         this.passwords = passwords;
         this.jwtEncoder = jwtEncoder;
         this.tokenTtl = tokenTtl;
+        this.issuer = issuer;
     }
 
     @PostMapping("/login")
@@ -85,7 +87,7 @@ public class AuthController {
         Instant now = Instant.now();
         Instant expiresAt = now.plus(tokenTtl);
         JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer("cwp-flowable-wrapper")
+                .issuer(issuer)
                 .subject(account.id().toString())
                 .issuedAt(now)
                 .expiresAt(expiresAt)
@@ -93,7 +95,7 @@ public class AuthController {
                 .claim("app_metadata", Map.of("tenant_id", account.tenantId().toString(), "role", account.role()))
                 .build();
         String token = jwtEncoder.encode(JwtEncoderParameters.from(
-                JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
+                JwsHeader.with(SignatureAlgorithm.RS256).build(), claims)).getTokenValue();
 
         return new LoginResponse(token, expiresAt,
                 new SessionUser(account.id(), account.username(), account.tenantId(), account.role()));

@@ -18,6 +18,7 @@ COPY gateway/snippets/ /etc/nginx/snippets/
 COPY gateway/templates/ /etc/nginx/templates/
 COPY --from=spa /app/dist /usr/share/nginx/html
 ENV FLOWABLE_WRAPPER_UPSTREAM=flowable-wrapper:8081 \
+    IDENTITY_SERVICE_UPSTREAM=identity-service:8082 \
     AGENTIC_DESIGNER_UPSTREAM=agentic-designer:8090 \
     SPEND_TRACKER_UPSTREAM=spend-tracker:8095 \
     CORS_ALLOWED_ORIGINS=^http://localhost:5173$

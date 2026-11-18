@@ -61,6 +61,33 @@ server {
     proxy_pass http://$flowable_wrapper;
   }
 
+  # identity-service: login, members, groups, invites, the caller's profile.
+  location /api/identity/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_api burst=40 nodelay;
+    set $identity_service ${IDENTITY_SERVICE_UPSTREAM};
+    rewrite ^/api(/identity/.*)$ $1 break;
+    proxy_pass http://$identity_service;
+  }
+
+  # Legacy paths the SPA still calls, now served by identity-service. Regex
+  # locations win over the /api/runtime/ prefix below. Delete at SPA cutover.
+  location ~ ^/api/runtime/auth/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_api burst=40 nodelay;
+    set $identity_service ${IDENTITY_SERVICE_UPSTREAM};
+    rewrite ^/api/runtime(/auth/.*)$ /identity$1 break;
+    proxy_pass http://$identity_service;
+  }
+
+  location ~ ^/api/runtime/design/(members|invites|me)(/|$) {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_api burst=40 nodelay;
+    set $identity_service ${IDENTITY_SERVICE_UPSTREAM};
+    rewrite ^/api/runtime/design(/.*)$ /identity$1 break;
+    proxy_pass http://$identity_service;
+  }
+
   # Legacy alias kept until the SPA moves to /api/flowable, /api/identity
   # and /api/design (microservice split, final phase); then delete it.
   location /api/runtime/ {

@@ -3,6 +3,7 @@
 #   /            -> SPA (built from Designer/)
 #   /api/flowable -> flowable-wrapper (Flowable engine host)
 #   /api/runtime  -> flowable-wrapper (legacy alias, removed after SPA cutover)
+#   /api/identity -> identity-service (login, members, groups, invites; issues RS256 tokens)
 #   /api/agent   -> agentic-designer (LLM-assisted authoring)
 #   /api/spend   -> spend-tracker (API spend and key health; POST /events is internal only)
 name: cwp
@@ -17,6 +18,7 @@ services:
     environment:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-^http://localhost:5173$$}
     depends_on:
+      - identity-service
       - flowable-wrapper
       - agentic-designer
       - spend-tracker
@@ -27,11 +29,26 @@ services:
       WORKFLOW_RUNTIME_DB_URL: jdbc:postgresql://runtime-db:5432/cwp_runtime?currentSchema=runtime
       WORKFLOW_RUNTIME_DB_USER: workflow_runtime
       WORKFLOW_RUNTIME_DB_PASSWORD: ${WORKFLOW_RUNTIME_DB_PASSWORD:?set WORKFLOW_RUNTIME_DB_PASSWORD in .env}
-      SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:?set SUPABASE_JWKS_URL in .env}
-      SUPABASE_JWT_HS256_SECRET: ${SUPABASE_JWT_HS256_SECRET:-}
-      # HS256 logins are checked by Supabase Auth when the secret above is unset.
-      SUPABASE_URL: ${SUPABASE_URL:-}
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      # Tokens come from identity-service; role/status/groups are looked up there too.
+      IDENTITY_SERVICE_URL: http://identity-service:8082
+      IDENTITY_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
+      CWP_INTERNAL_TOKEN: ${CWP_INTERNAL_TOKEN:?set CWP_INTERNAL_TOKEN in .env}
+    depends_on:
+      runtime-db:
+        condition: service_healthy
+      identity-service:
+        condition: service_started
+
+  identity-service:
+    build: services/identity-service
+    environment:
+      # Until the database split, identity's tables share runtime-db.
+      IDENTITY_DB_URL: jdbc:postgresql://runtime-db:5432/cwp_runtime?currentSchema=public
+      IDENTITY_DB_USER: workflow_runtime
+      IDENTITY_DB_PASSWORD: ${WORKFLOW_RUNTIME_DB_PASSWORD:?set WORKFLOW_RUNTIME_DB_PASSWORD in .env}
+      # PKCS#8 PEM. Unset: a throwaway key per start (everyone is logged out on restart).
+      CWP_JWT_PRIVATE_KEY: ${CWP_JWT_PRIVATE_KEY:-}
+      CWP_INTERNAL_TOKEN: ${CWP_INTERNAL_TOKEN:?set CWP_INTERNAL_TOKEN in .env}
     depends_on:
       runtime-db:
         condition: service_healthy
@@ -39,8 +56,8 @@ services:
   agentic-designer:
     build: services/agentic-designer
     environment:
-      SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:?set SUPABASE_JWKS_URL in .env}
-      SUPABASE_JWT_HS256_SECRET: ${SUPABASE_JWT_HS256_SECRET:-}
+      # Login tokens are RS256, verified against identity-service's key set.
+      SUPABASE_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
       # gemini | nvidia | openrouter. Without the chosen provider's key the
       # service still starts and /generate returns 503.
       AGENT_PROVIDER: ${AGENT_PROVIDER:-gemini}
@@ -66,8 +83,8 @@ services:
     build: services/spend-tracker
     environment:
       SPEND_DATABASE_URL: postgresql://spend_tracker:${SPEND_DB_PASSWORD:?set SPEND_DB_PASSWORD in .env}@spend-db:5432/cwp_spend
-      SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:?set SUPABASE_JWKS_URL in .env}
-      SUPABASE_JWT_HS256_SECRET: ${SUPABASE_JWT_HS256_SECRET:-}
+      # Login tokens are RS256, verified against identity-service's key set.
+      SUPABASE_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
       SPEND_INGEST_TOKEN: ${SPEND_INGEST_TOKEN:?set SPEND_INGEST_TOKEN in .env}

@@ -1,14 +1,15 @@
 #!/bin/bash
-# End-to-end checks for the design-time API and login against flowable-wrapper on :8081
+# End-to-end checks for the design-time API (flowable-wrapper on :8081) and login/members (identity-service on :8082)
 # (seeded users from Database/local.sql). Run: bash services/flowable-wrapper/e2e/design_api_test.sh
-B=http://localhost:8081/runtime
+B=${CWP_RUNTIME_BASE:-http://localhost:8081/runtime}
+I=${CWP_IDENTITY_BASE:-http://localhost:8082/identity}
 pass=0; fail=0
 check() { if [ "$2" == "$3" ]; then echo "PASS $1"; pass=$((pass+1)); else echo "FAIL $1 (expected $3, got $2)"; fail=$((fail+1)); fi; }
 code() { curl -s -o /tmp/cwp_body -w '%{http_code}' "$@"; }
-tok() { curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d "{\"username\":\"$1\",\"password\":\"$2\"}" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("token",""))'; }
+tok() { curl -s -X POST $I/auth/login -H 'Content-Type: application/json' -d "{\"username\":\"$1\",\"password\":\"$2\"}" | python3 -c 'import sys,json;print(json.load(sys.stdin).get("token",""))'; }
 j() { python3 -c "import json;print(json.load(open('/tmp/cwp_body'))$1)"; }
 
-check "wrong password -> 401" $(code -X POST $B/auth/login -H 'Content-Type: application/json' -d '{"username":"admin","password":"nope"}') 401
+check "wrong password -> 401" $(code -X POST $I/auth/login -H 'Content-Type: application/json' -d '{"username":"admin","password":"nope"}') 401
 check "no token -> 401" $(code $B/design/workflows) 401
 ADMIN=$(tok admin password); DES=$(tok designer password); APP=$(tok approver password)
 [ -n "$DES" ] && check "designer login" ok ok || check "designer login" none ok
@@ -32,17 +33,17 @@ check "audit actor is the approver" $(psql -d cwp -Atc "select p.username from a
 check "designer cannot read audit -> 403" $(code $B/design/audit -H "$(H $DES)") 403
 check "admin reads audit -> 200" $(code $B/design/audit -H "$(H $ADMIN)") 200
 NEWU=u_$RANDOM
-check "designer cannot create users -> 403" $(code -X POST $B/design/members -H "$(H $DES)" -H 'Content-Type: application/json' -d "{\"username\":\"$NEWU\",\"password\":\"password1\",\"role\":\"viewer\"}") 403
-check "admin creates user -> 201" $(code -X POST $B/design/members -H "$(H $ADMIN)" -H 'Content-Type: application/json' -d "{\"username\":\"$NEWU\",\"password\":\"password1\",\"role\":\"viewer\"}") 201
+check "designer cannot create users -> 403" $(code -X POST $I/members -H "$(H $DES)" -H 'Content-Type: application/json' -d "{\"username\":\"$NEWU\",\"password\":\"password1\",\"role\":\"viewer\"}") 403
+check "admin creates user -> 201" $(code -X POST $I/members -H "$(H $ADMIN)" -H 'Content-Type: application/json' -d "{\"username\":\"$NEWU\",\"password\":\"password1\",\"role\":\"viewer\"}") 201
 NID=$(j "['id']"); NTOK=$(tok $NEWU password1)
 [ -n "$NTOK" ] && check "new user can sign in" ok ok || check "new user can sign in" none ok
 check "viewer cannot save versions -> 403" $(code -X POST $B/design/workflows/$WF/versions -H "$(H $NTOK)" -H 'Content-Type: application/json' -d '{"graph":{}}') 403
-check "admin promotes to designer -> 204" $(code -X PUT $B/design/members/$NID/role -H "$(H $ADMIN)" -H 'Content-Type: application/json' -d '{"role":"designer"}') 204
+check "admin promotes to designer -> 204" $(code -X PUT $I/members/$NID/role -H "$(H $ADMIN)" -H 'Content-Type: application/json' -d '{"role":"designer"}') 204
 check "promotion applies to writes at once" $(code -X POST $B/design/workflows/$WF/versions -H "$(H $NTOK)" -H 'Content-Type: application/json' -d '{"graph":{"nodes":[],"edges":[]}}') 201
 check "new version reset approved -> draft" $(psql -d cwp -Atc "select status from workflows where id='$WF'") draft
-check "admin deactivates user -> 204" $(code -X PUT $B/design/members/$NID/status -H "$(H $ADMIN)" -H 'Content-Type: application/json' -d '{"status":"deactivated"}') 204
+check "admin deactivates user -> 204" $(code -X PUT $I/members/$NID/status -H "$(H $ADMIN)" -H 'Content-Type: application/json' -d '{"status":"deactivated"}') 204
 check "deactivated token cannot write -> 403" $(code -X POST $B/design/workflows/$WF/versions -H "$(H $NTOK)" -H 'Content-Type: application/json' -d '{"graph":{}}') 403
-check "deactivated user cannot sign in -> 403" $(code -X POST $B/auth/login -H 'Content-Type: application/json' -d "{\"username\":\"$NEWU\",\"password\":\"password1\"}") 403
+check "deactivated user cannot sign in -> 403" $(code -X POST $I/auth/login -H 'Content-Type: application/json' -d "{\"username\":\"$NEWU\",\"password\":\"password1\"}") 403
 # Tenant isolation: a user in a second tenant sees none of tenant 1's data.
 psql -q -d cwp -c "insert into tenants(id,name,slug) values ('00000000-0000-0000-0000-000000000002','Other','other') on conflict do nothing;
  insert into app_auth.users(id,email,username,password_hash) values ('00000000-0000-0000-0000-0000000000b1','other','other',crypt('password',gen_salt('bf'))) on conflict do nothing;
