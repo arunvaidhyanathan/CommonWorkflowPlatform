@@ -1,15 +1,12 @@
-package com.waas.flowablewrapper.design;
+package com.waas.design;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
-import com.waas.flowablewrapper.common.TenantContext;
 
-import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -19,9 +16,9 @@ import org.springframework.web.server.ResponseStatusException;
  * Shared access checks for the design-time API (public.* tables). These
  * replace the Supabase RLS policies in Database/policies.sql: every query
  * filters by the caller's tenant, and every write goes through
- * {@link #writer}, which checks the caller's role and active status from
- * {@code profiles} (not the token, so a role change or deactivation applies
- * at once).
+ * {@link #writer}, which checks the caller's role and active status with
+ * identity-service (not the token, so a role change or deactivation applies
+ * within the identity cache TTL).
  */
 @Component
 public class DesignDb {
@@ -31,10 +28,12 @@ public class DesignDb {
 
     final JdbcTemplate jdbc;
     final ObjectMapper json;
+    private final IdentityClient identity;
 
-    DesignDb(JdbcTemplate jdbc, ObjectMapper json) {
+    DesignDb(JdbcTemplate jdbc, ObjectMapper json, IdentityClient identity) {
         this.jdbc = jdbc;
         this.json = json;
+        this.identity = identity;
     }
 
     public UUID tenantId() {
@@ -48,27 +47,12 @@ public class DesignDb {
      * triggers (policies.sql) record who acted.
      */
     public Actor writer(String... roles) {
-        UUID userId = TenantContext.currentUserId();
-        UUID tenantId = tenantId();
-        Map<String, Object> profile;
-        try {
-            profile = jdbc.queryForMap(
-                    "select role, status from public.profiles where id = ? and tenant_id = ?", userId, tenantId);
-        } catch (EmptyResultDataAccessException e) {
-            throw forbidden("You are not a member of this tenant.");
-        }
-        if (!"active".equals(profile.get("status"))) {
-            throw forbidden("Your account is deactivated.");
-        }
-        String role = (String) profile.get("role");
-        if (!List.of(roles).contains(role)) {
-            throw forbidden("This action needs one of these roles: " + String.join(", ", roles) + ".");
-        }
+        IdentityClient.Actor actor = identity.requireActive(roles);
         Map<String, Object> claims = Map.of(
-                "sub", userId.toString(),
-                "app_metadata", Map.of("tenant_id", tenantId.toString(), "role", role));
+                "sub", actor.userId().toString(),
+                "app_metadata", Map.of("tenant_id", actor.tenantId().toString(), "role", actor.role()));
         jdbc.queryForObject("select set_config('request.jwt.claims', ?, true)", String.class, toJson(claims));
-        return new Actor(userId, tenantId, role);
+        return new Actor(actor.userId(), actor.tenantId(), actor.role());
     }
 
     String toJson(Object value) {

@@ -9,6 +9,7 @@
 | `Designer/` | The React SPA (app shell: Designer, Workbench, Approvals, Administration, Workflow Wrapper screens) |
 | `gateway/` | nginx edge gateway: serves the SPA, routes `/api/*` to services, owns CORS / rate limits / request ids |
 | `services/flowable-wrapper/` | Java 21 / Spring Boot 4 / Flowable 8 engine host |
+| `services/design-service/` | Workflows, immutable versions, approvals, audit log (Java 21 / Spring Boot 4) |
 | `services/identity-service/` | Login, RS256 tokens + JWKS, tenant members, groups, invites (Java 21 / Spring Boot 4) |
 | `services/agentic-designer/` | Agentic Designer: LLM-assisted workflow authoring (Python / FastAPI) |
 | `services/spend-tracker/` | API spend tracker: usage events, spend summaries, API key health (Python / FastAPI) |
@@ -33,7 +34,9 @@ built into the gateway image and reads its Supabase settings from
 | `/healthz` | Gateway health |
 | `/api/flowable/**` | flowable-wrapper (`/runtime/**`) |
 | `/api/identity/**` | identity-service (`/identity/**`) |
+| `/api/design/**` | design-service (`/design/**`) |
 | `/api/runtime/auth/**`, `/api/runtime/design/{members,invites,me}` | identity-service, legacy aliases until the SPA cutover |
+| `/api/runtime/design/**` (everything else) | design-service, legacy alias until the SPA cutover |
 | `/api/runtime/**` | flowable-wrapper, legacy alias until the SPA moves to `/api/flowable` |
 | `/api/agent/**` | agentic-designer (`/**`) |
 | `/api/spend/**` | spend-tracker (`/**`); `/api/spend/events` is blocked (internal only) |

@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Service-to-service lookups (flowable-wrapper's IdentityDirectory). Never
+ * Service-to-service lookups (flowable-wrapper's IdentityDirectory, design-service's IdentityClient). Never
  * routed by the gateway; callers present the shared internal token. Fails
  * closed: with no token configured, every call is refused.
  */

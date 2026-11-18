@@ -1,4 +1,4 @@
-package com.waas.flowablewrapper.design;
+package com.waas.design;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Workflows and their immutable versions (was direct Supabase CRUD in Designer/src/data/workflows.ts). */
 @RestController
-@RequestMapping("/runtime/design")
+@RequestMapping("/design")
 public class WorkflowController {
 
     private static final String[] AUTHORS = {"designer", "tenant_admin"};

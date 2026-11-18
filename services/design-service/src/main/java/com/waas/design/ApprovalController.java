@@ -1,4 +1,4 @@
-package com.waas.flowablewrapper.design;
+package com.waas.design;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -25,7 +25,7 @@ import org.springframework.web.server.ResponseStatusException;
  * and record the decision, as before.
  */
 @RestController
-@RequestMapping("/runtime/design/approvals")
+@RequestMapping("/design/approvals")
 public class ApprovalController {
 
     public record SubmitRequest(@NotNull UUID workflowId, @NotNull UUID versionId) {

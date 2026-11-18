@@ -4,6 +4,7 @@
 #   /api/flowable -> flowable-wrapper (Flowable engine host)
 #   /api/runtime  -> flowable-wrapper (legacy alias, removed after SPA cutover)
 #   /api/identity -> identity-service (login, members, groups, invites; issues RS256 tokens)
+#   /api/design   -> design-service (workflows, versions, approvals, audit log)
 #   /api/agent   -> agentic-designer (LLM-assisted authoring)
 #   /api/spend   -> spend-tracker (API spend and key health; POST /events is internal only)
 name: cwp
@@ -19,6 +20,7 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-^http://localhost:5173$$}
     depends_on:
       - identity-service
+      - design-service
       - flowable-wrapper
       - agentic-designer
       - spend-tracker
@@ -30,6 +32,22 @@ services:
       WORKFLOW_RUNTIME_DB_USER: workflow_runtime
       WORKFLOW_RUNTIME_DB_PASSWORD: ${WORKFLOW_RUNTIME_DB_PASSWORD:?set WORKFLOW_RUNTIME_DB_PASSWORD in .env}
       # Tokens come from identity-service; role/status/groups are looked up there too.
+      IDENTITY_SERVICE_URL: http://identity-service:8082
+      IDENTITY_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
+      CWP_INTERNAL_TOKEN: ${CWP_INTERNAL_TOKEN:?set CWP_INTERNAL_TOKEN in .env}
+    depends_on:
+      runtime-db:
+        condition: service_healthy
+      identity-service:
+        condition: service_started
+
+  design-service:
+    build: services/design-service
+    environment:
+      # Until the database split, the design tables share runtime-db.
+      DESIGN_DB_URL: jdbc:postgresql://runtime-db:5432/cwp_runtime?currentSchema=public
+      DESIGN_DB_USER: workflow_runtime
+      DESIGN_DB_PASSWORD: ${WORKFLOW_RUNTIME_DB_PASSWORD:?set WORKFLOW_RUNTIME_DB_PASSWORD in .env}
       IDENTITY_SERVICE_URL: http://identity-service:8082
       IDENTITY_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
       CWP_INTERNAL_TOKEN: ${CWP_INTERNAL_TOKEN:?set CWP_INTERNAL_TOKEN in .env}

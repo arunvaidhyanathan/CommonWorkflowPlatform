@@ -8,7 +8,7 @@ members, task groups, invites and the caller's own profile. Port 8082.
 | `POST /identity/auth/login` | anyone | Returns `{token, expiresAt, user}` |
 | `GET /.well-known/jwks.json` | other services | Public signing key; every service verifies tokens with it |
 | `/identity/members`, `/identity/invites`, `/identity/me` | logged-in users | Tenant admin screens and own profile |
-| `GET /internal/identity/tenants/{t}/members/{u}` | flowable-wrapper | Role, status, groups. Needs `X-Internal-Token`; never routed by the gateway |
+| `GET /internal/identity/tenants/{t}/members/{u}` | flowable-wrapper, design-service | Role, status, groups. Needs `X-Internal-Token`; never routed by the gateway |
 
 Through the gateway these are `/api/identity/**`. Until the SPA cutover the
 old paths (`/api/runtime/auth/**`, `/api/runtime/design/{members,invites,me}`)

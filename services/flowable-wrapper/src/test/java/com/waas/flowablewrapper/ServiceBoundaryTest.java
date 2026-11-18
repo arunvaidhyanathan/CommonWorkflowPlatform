@@ -13,45 +13,43 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
- * flowable-wrapper is being split into microservices: design time (workflows,
- * versions, approvals) goes to design-service and login/members/groups go to
- * identity-service. That only works if the Flowable code never reaches into
- * those modules or their tables. Identity data must come through
- * {@code identity.IdentityDirectory}, the one seam that becomes an HTTP
- * client when identity-service is extracted. A violation here means the
- * extraction would break that code at runtime.
+ * flowable-wrapper owns only the Flowable engine and the {@code runtime}
+ * schema. Identity data (users, roles, groups) belongs to identity-service
+ * and design-time data (workflows, versions, approvals, audit) to
+ * design-service; identity data reaches this service only through
+ * {@code identity.IdentityDirectory}. Once each service has its own
+ * database, any direct query on those tables here fails at runtime.
  */
 class ServiceBoundaryTest {
 
     private static final Path ROOT = Path.of("src/main/java/com/waas/flowablewrapper");
 
-    /** The packages that stay in flowable-wrapper after the split. */
-    private static final List<String> FLOWABLE_PACKAGES = List.of("work", "deployment", "runtimeview", "identity");
-
-    private static final Pattern FORBIDDEN_IMPORT =
-            Pattern.compile("com\\.waas\\.flowablewrapper\\.(design|auth)\\b");
+    /** Every package in this service. */
+    private static final List<String> PACKAGES = List.of("");
 
     /** Identity and design-time tables live in the public / app_auth schemas. */
     private static final Pattern FORBIDDEN_TABLE = Pattern.compile("\\b(public|app_auth)\\.[a-z_]+");
 
+    /** The extracted modules must not come back. */
+    private static final Pattern FORBIDDEN_IMPORT =
+            Pattern.compile("com\\.waas\\.flowablewrapper\\.(design|auth)\\b");
+
     @Test
-    void flowableCodeDoesNotDependOnDesignOrAuthModules() throws IOException {
-        assertThat(violations(FORBIDDEN_IMPORT))
-                .as("work/deployment/runtimeview must not import design or auth (they move to other services)")
+    void flowableWrapperDoesNotQueryIdentityOrDesignTables() throws IOException {
+        assertThat(violations(FORBIDDEN_TABLE))
+                .as("ask identity-service via IdentityDirectory; design tables belong to design-service")
                 .isEmpty();
     }
 
     @Test
-    void flowableCodeReadsIdentityAndDesignDataOnlyThroughIdentityDirectory() throws IOException {
-        assertThat(violations(FORBIDDEN_TABLE))
-                .as("query identity data via IdentityDirectory; design tables are not flowable-wrapper's")
-                .isEmpty();
+    void extractedDesignAndAuthModulesStayOut() throws IOException {
+        assertThat(violations(FORBIDDEN_IMPORT)).isEmpty();
     }
 
     private static List<String> violations(Pattern pattern) throws IOException {
         List<String> found = new ArrayList<>();
         int scanned = 0;
-        for (String pkg : FLOWABLE_PACKAGES) {
+        for (String pkg : PACKAGES) {
             Path dir = ROOT.resolve(pkg);
             assertThat(dir).as("boundary test scans " + dir + "; update it if the package moved").isDirectory();
             try (Stream<Path> files = Files.walk(dir)) {

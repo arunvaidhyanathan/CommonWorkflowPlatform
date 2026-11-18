@@ -88,6 +88,26 @@ server {
     proxy_pass http://$identity_service;
   }
 
+  # design-service: workflows, versions, approvals, audit log.
+  location /api/design/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_api burst=40 nodelay;
+    set $design_service ${DESIGN_SERVICE_UPSTREAM};
+    rewrite ^/api(/design/.*)$ $1 break;
+    proxy_pass http://$design_service;
+  }
+
+  # Legacy design paths, now served by design-service. A longer prefix than
+  # /api/runtime/, and the identity regexes above still win for
+  # members/invites/me. Delete at SPA cutover.
+  location /api/runtime/design/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_api burst=40 nodelay;
+    set $design_service ${DESIGN_SERVICE_UPSTREAM};
+    rewrite ^/api/runtime(/design/.*)$ $1 break;
+    proxy_pass http://$design_service;
+  }
+
   # Legacy alias kept until the SPA moves to /api/flowable, /api/identity
   # and /api/design (microservice split, final phase); then delete it.
   location /api/runtime/ {

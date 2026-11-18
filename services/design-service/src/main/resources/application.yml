@@ -1,0 +1,37 @@
+# design-service configuration. Every secret-shaped value is env-var driven
+# with a local-dev-only fallback -- nothing here is a real credential.
+spring:
+  application:
+    name: design-service
+
+  datasource:
+    # Until the database split, the design tables (public.workflows,
+    # workflow_versions, approval_requests, audit_logs) live in the same local
+    # `cwp` database as everything else. The audit and status triggers
+    # (Database/policies.sql) run here and read request.jwt.claims.
+    url: ${DESIGN_DB_URL:jdbc:postgresql://localhost:5432/cwp?currentSchema=public}
+    username: ${DESIGN_DB_USER:${USER}}
+    password: ${DESIGN_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${DESIGN_DB_POOL_SIZE:5}
+
+cwp:
+  # identity-service issues login tokens (verified here against its JWKS)
+  # and answers role/status lookups (IdentityClient.java).
+  identity:
+    url: ${IDENTITY_SERVICE_URL:http://localhost:8082}
+    jwks-url: ${IDENTITY_JWKS_URL:http://localhost:8082/.well-known/jwks.json}
+    # How long a member lookup is reused: the most a role change or
+    # deactivation can lag behind for design writes.
+    cache-ttl: ${IDENTITY_CACHE_TTL:PT30S}
+  # Presented to identity-service's /internal/** endpoints.
+  internal-token: ${CWP_INTERNAL_TOKEN:}
+
+server:
+  port: ${PORT:8083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

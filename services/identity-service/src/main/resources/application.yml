@@ -22,7 +22,7 @@ cwp:
     private-key: ${CWP_JWT_PRIVATE_KEY:}
     ttl: ${CWP_JWT_TTL:PT8H}
     issuer: ${CWP_JWT_ISSUER:cwp-identity}
-  # Shared with the services that call /internal/** (flowable-wrapper).
+  # Shared with the services that call /internal/** (flowable-wrapper, design-service).
   # Unset: every internal call is refused.
   internal-token: ${CWP_INTERNAL_TOKEN:}
 

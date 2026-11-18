@@ -7,6 +7,7 @@ import path from 'node:path'
 // so `npm run dev` works against services run natively, with VITE_API_BASE_URL=/api.
 const RUNTIME = process.env.CWP_RUNTIME_URL ?? 'http://localhost:8081'
 const IDENTITY = process.env.CWP_IDENTITY_URL ?? 'http://localhost:8082'
+const DESIGN = process.env.CWP_DESIGN_URL ?? 'http://localhost:8083'
 const AGENT = process.env.CWP_AGENT_URL ?? 'http://localhost:8091'
 const SPEND = process.env.CWP_SPEND_URL ?? 'http://localhost:8095'
 
@@ -28,6 +29,9 @@ export default defineConfig({
         target: IDENTITY,
         rewrite: (p) => p.replace(/^\/api\/runtime\/design/, '/identity'),
       },
+      '/api/design': { target: DESIGN, rewrite: (p) => p.replace(/^\/api/, '') },
+      // Legacy design paths (after the identity ones above), now served by design-service.
+      '^/api/runtime/design/': { target: DESIGN, rewrite: (p) => p.replace(/^\/api\/runtime/, '') },
       '/api/flowable': { target: RUNTIME, rewrite: (p) => p.replace(/^\/api\/flowable/, '/runtime') },
       '/api/runtime': { target: RUNTIME, rewrite: (p) => p.replace(/^\/api/, '') },
       '/api/agent': { target: AGENT, rewrite: (p) => p.replace(/^\/api\/agent/, '') },

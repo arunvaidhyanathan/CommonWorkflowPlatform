@@ -1,11 +1,10 @@
-package com.waas.flowablewrapper.design;
+package com.waas.design;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
 import tools.jackson.databind.JsonNode;
-import com.waas.flowablewrapper.common.TenantContext;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
  * the caller's profile moved to identity-service.
  */
 @RestController
-@RequestMapping("/runtime/design")
+@RequestMapping("/design")
 public class AuditController {
 
     public record AuditLogEntry(UUID id, UUID actorId, String actorEmail, String action, String entityType,
