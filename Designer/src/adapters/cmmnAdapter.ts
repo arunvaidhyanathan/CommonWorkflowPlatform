@@ -1,13 +1,23 @@
 // CMMN Adapter (Designer.html Section 7.2): converts between CMMN 1.1 XML
-// and React Flow graph state. v1 scope: a single, flat case plan model —
-// Stage plan items render as opaque nodes rather than true nested
-// containers (matches the design doc's stated simplification). Sentries
-// become diamond nodes; onPart/entry/exit criteria become typed edges.
+// and React Flow graph state. The graph stays flat (no nested containers on
+// the canvas), but nothing the engine depends on is lost on a save -- see
+// cmmnAdapter.test.ts:
+//   - the case plan model is a `cmmnCasePlan` node carrying case-level
+//     settings (autoComplete, case roles); an exit edge into it is a
+//     case-level exit criterion;
+//   - plan items and sentries inside a stage carry `parentStage` (the stage
+//     plan item's node id), so stages keep their contents;
+//   - item controls (required, manual activation, repetition with Flowable's
+//     counter variable), timer and user event listeners, decision / process /
+//     case tasks and Flowable attributes (assignee, candidateGroups, formKey,
+//     autoComplete) round-trip.
+// Sentries are diamond nodes; onPart / entry / exit become typed edges.
 import CmmnModdle, { type ModdleElement } from 'cmmn-moddle'
 import type { Node, Edge } from '@xyflow/react'
 import type { NodeData } from '../store/useWorkbenchStore'
 
 const moddle = new CmmnModdle()
+const FLOWABLE_NS = 'http://flowable.org/cmmn'
 
 function fromXML(xml: string): Promise<{ rootElement: ModdleElement; warnings: unknown[] }> {
   return new Promise((resolve, reject) => {
@@ -34,136 +44,170 @@ export interface CmmnParseResult {
   caseName: string
 }
 
-function mapDefinitionToNodeType(defType: string | undefined): string {
-  switch (defType) {
-    case 'cmmn:HumanTask':
-      return 'cmmnHumanTask'
-    case 'cmmn:Milestone':
-      return 'cmmnMilestone'
-    case 'cmmn:Stage':
-      return 'cmmnStage'
-    case 'cmmn:Task':
-    case 'cmmn:ProcessTask':
-    case 'cmmn:CaseTask':
-    case 'cmmn:DecisionTask':
-    default:
-      return 'cmmnTask'
-  }
+export interface CaseRole {
+  id: string
+  name: string
 }
+
+/** CMMN-specific node data (stored in NodeData's open record). */
+export interface CmmnNodeData {
+  parentStage?: string
+  definitionId?: string
+  required?: boolean
+  manualActivation?: boolean
+  repetition?: boolean
+  repetitionCounter?: string
+  repetitionCondition?: string
+  autoComplete?: boolean
+  timerExpression?: string
+  decisionKey?: string
+  processKey?: string
+  caseKey?: string
+  roles?: CaseRole[]
+}
+
+const DEFINITION_TO_NODE: Record<string, string> = {
+  'cmmn:HumanTask': 'cmmnHumanTask',
+  'cmmn:Milestone': 'cmmnMilestone',
+  'cmmn:Stage': 'cmmnStage',
+  'cmmn:DecisionTask': 'cmmnDecisionTask',
+  'cmmn:ProcessTask': 'cmmnProcessTask',
+  'cmmn:CaseTask': 'cmmnCaseTask',
+  'cmmn:TimerEventListener': 'cmmnTimerListener',
+  'cmmn:UserEventListener': 'cmmnUserListener',
+}
+
+const attrOf = (el: ModdleElement | undefined, name: string) =>
+  (el?.$attrs as Record<string, string> | undefined)?.[`flowable:${name}`]
+const bodyOf = (expr: unknown) => ((expr as ModdleElement | undefined)?.body as string | undefined)?.trim() || undefined
+const isTrue = (value: unknown) => value === true || value === 'true'
 
 export async function parseCmmnXml(xmlString: string): Promise<CmmnParseResult> {
   const { rootElement } = await fromXML(xmlString)
-
-  const cases = (rootElement.cases as ModdleElement[] | undefined) ?? []
-  const theCase = cases[0]
-
+  const theCase = ((rootElement.cases as ModdleElement[] | undefined) ?? [])[0]
   if (!theCase) {
     throw new Error('CMMN-E101: No <case> element found in the document.')
   }
-
-  const casePlanModel = theCase.casePlanModel as ModdleElement | undefined
-  if (!casePlanModel) {
+  const plan = theCase.casePlanModel as ModdleElement | undefined
+  if (!plan) {
     throw new Error('CMMN-E102: Case has no casePlanModel (case plan stage).')
   }
 
-  const planItems = (casePlanModel.planItems as ModdleElement[] | undefined) ?? []
-  const sentries = (casePlanModel.sentries as ModdleElement[] | undefined) ?? []
-
   const nodes: Node<NodeData>[] = []
   const edges: Edge[] = []
-  let xCursor = 100
+  const planItems: ModdleElement[] = []
+  const planId = (plan.id as string) ?? `${theCase.id}_PlanModel`
+  const roles = (((theCase.caseRoles as ModdleElement | undefined)?.role as ModdleElement[] | undefined) ?? []).map(
+    (r) => ({ id: r.id as string, name: (r.name as string) ?? (r.id as string) }),
+  )
 
-  const planItemNodeId = new Map<string, string>() // plan item element id -> node id
-  const sentryNodeId = new Map<string, string>() // sentry element id -> node id
-
-  planItems.forEach((planItem) => {
-    const definitionRef = planItem.definitionRef as ModdleElement | undefined
-    const nodeType = mapDefinitionToNodeType(definitionRef?.$type)
-    const id = (planItem.id as string) ?? crypto.randomUUID()
-    planItemNodeId.set(id, id)
-
-    nodes.push({
-      id,
-      type: nodeType,
-      position: { x: xCursor, y: 200 },
-      data: {
-        label: (planItem.name as string) || (definitionRef?.name as string) || id,
-        documentation: undefined,
-        isBlocking: definitionRef?.isBlocking as boolean | undefined,
-        performerRef: (definitionRef?.performerRef as ModdleElement | undefined)?.id,
-      },
-    })
-    xCursor += 220
+  nodes.push({
+    id: planId,
+    type: 'cmmnCasePlan',
+    position: { x: 100, y: 40 },
+    data: {
+      label: (plan.name as string) || (theCase.name as string) || 'Case Plan',
+      autoComplete: isTrue(attrOf(plan, 'autoComplete')) || isTrue(plan.autoComplete) || undefined,
+      roles: roles.length ? roles : undefined,
+    },
   })
 
-  sentries.forEach((sentry) => {
-    const id = (sentry.id as string) ?? crypto.randomUUID()
-    sentryNodeId.set(id, id)
-    const onParts = (sentry.onParts as ModdleElement[] | undefined) ?? []
-    const ifPart = sentry.ifPart as ModdleElement | undefined
-    const ifPartExpr = ifPart?.condition as ModdleElement | undefined
+  let xCursor = 100
+  const walk = (stage: ModdleElement, parentStage: string | undefined, depth: number) => {
+    for (const planItem of (stage.planItems as ModdleElement[] | undefined) ?? []) {
+      planItems.push(planItem)
+      const def = planItem.definitionRef as ModdleElement | undefined
+      const control = planItem.itemControl as ModdleElement | undefined
+      const repetition = control?.repetitionRule as ModdleElement | undefined
+      const candidateGroups = attrOf(def, 'candidateGroups')
+      const data: NodeData & CmmnNodeData = {
+        label: (planItem.name as string) || (def?.name as string) || (planItem.id as string),
+        parentStage,
+        definitionId: def?.id as string | undefined,
+        isBlocking: def?.isBlocking as boolean | undefined,
+        performerRef: (def?.performerRef as ModdleElement | undefined)?.id,
+        assignee: attrOf(def, 'assignee'),
+        candidateGroups: candidateGroups ? candidateGroups.split(',').map((g) => g.trim()).filter(Boolean) : undefined,
+        formKey: attrOf(def, 'formKey'),
+        required: control?.requiredRule ? true : undefined,
+        manualActivation: control?.manualActivationRule ? true : undefined,
+        repetition: repetition ? true : undefined,
+        repetitionCounter: attrOf(repetition, 'counterVariable'),
+        repetitionCondition: bodyOf(repetition?.condition),
+        autoComplete:
+          def?.$type === 'cmmn:Stage' && (isTrue(attrOf(def, 'autoComplete')) || isTrue(def.autoComplete)) ? true : undefined,
+        timerExpression: bodyOf(def?.timerExpression),
+        decisionKey: bodyOf(def?.decisionRefExpression) ?? (def?.decisionRef as string | undefined),
+        processKey: bodyOf(def?.processRefExpression) ?? (def?.processRef as string | undefined),
+        caseKey: bodyOf(def?.caseRefExpression) ?? (def?.caseRef as string | undefined),
+      }
+      nodes.push({
+        id: planItem.id as string,
+        type: DEFINITION_TO_NODE[def?.$type as string] ?? 'cmmnTask',
+        position: { x: xCursor, y: 200 + depth * 160 },
+        data: Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)) as NodeData,
+      })
+      xCursor += 220
+      if (def?.$type === 'cmmn:Stage') walk(def, planItem.id as string, depth + 1)
+    }
 
-    nodes.push({
-      id,
-      type: 'cmmnSentry',
-      position: { x: xCursor, y: 350 },
-      data: {
-        label: (sentry.name as string) || 'Sentry',
-        conditionExpression: (ifPartExpr?.body as string) || undefined,
-      },
-    })
-    xCursor += 180
-
-    // onPart.sourceRef -> this sentry (the referenced plan item's event triggers the sentry)
-    onParts.forEach((onPart) => {
-      const sourceRef = onPart.sourceRef as ModdleElement | undefined
-      if (sourceRef?.id && planItemNodeId.has(sourceRef.id)) {
+    for (const sentry of (stage.sentries as ModdleElement[] | undefined) ?? []) {
+      const id = sentry.id as string
+      const condition = bodyOf((sentry.ifPart as ModdleElement | undefined)?.condition)
+      nodes.push({
+        id,
+        type: 'cmmnSentry',
+        position: { x: xCursor, y: 330 + depth * 160 },
+        data: {
+          label: (sentry.name as string) || 'Sentry',
+          ...(condition ? { conditionExpression: condition } : {}),
+          ...(parentStage ? { parentStage } : {}),
+        },
+      })
+      xCursor += 180
+      for (const onPart of (sentry.onParts as ModdleElement[] | undefined) ?? []) {
+        const source = (onPart.sourceRef as ModdleElement | undefined)?.id as string | undefined
+        if (!source) continue
         edges.push({
           id: `onpart_${onPart.id ?? crypto.randomUUID()}`,
-          source: sourceRef.id,
+          source,
           target: id,
           type: 'smoothstep',
           label: (onPart.standardEvent as string) || '',
           data: { criterionType: 'onPart', standardEvent: onPart.standardEvent },
         })
       }
-    })
-  })
+    }
+  }
+  walk(plan, undefined, 0)
 
-  // entry/exit criteria -> edge FROM the sentry TO the gated plan item
-  planItems.forEach((planItem) => {
-    const targetId = planItem.id as string
-    const entryCriteria = (planItem.entryCriteria as ModdleElement[] | undefined) ?? []
-    const exitCriteria = (planItem.exitCriteria as ModdleElement[] | undefined) ?? []
-
-    entryCriteria.forEach((criterion) => {
-      const sentryRef = criterion.sentryRef as ModdleElement | undefined
-      if (sentryRef?.id && sentryNodeId.has(sentryRef.id)) {
-        edges.push({
-          id: `entry_${criterion.id ?? crypto.randomUUID()}`,
-          source: sentryRef.id,
-          target: targetId,
+  const criterionEdge = (criterion: ModdleElement, target: string, kind: 'entry' | 'exit'): Edge | null => {
+    const sentryId = (criterion.sentryRef as ModdleElement | undefined)?.id as string | undefined
+    return sentryId
+      ? {
+          id: `${kind}_${criterion.id ?? crypto.randomUUID()}`,
+          source: sentryId,
+          target,
           type: 'smoothstep',
-          label: 'entry',
-          data: { criterionType: 'entry' },
-        })
-      }
-    })
-
-    exitCriteria.forEach((criterion) => {
-      const sentryRef = criterion.sentryRef as ModdleElement | undefined
-      if (sentryRef?.id && sentryNodeId.has(sentryRef.id)) {
-        edges.push({
-          id: `exit_${criterion.id ?? crypto.randomUUID()}`,
-          source: sentryRef.id,
-          target: targetId,
-          type: 'smoothstep',
-          label: 'exit',
-          data: { criterionType: 'exit' },
-        })
-      }
-    })
-  })
+          label: kind,
+          data: { criterionType: kind },
+        }
+      : null
+  }
+  for (const planItem of planItems) {
+    for (const c of (planItem.entryCriteria as ModdleElement[] | undefined) ?? []) {
+      const e = criterionEdge(c, planItem.id as string, 'entry')
+      if (e) edges.push(e)
+    }
+    for (const c of (planItem.exitCriteria as ModdleElement[] | undefined) ?? []) {
+      const e = criterionEdge(c, planItem.id as string, 'exit')
+      if (e) edges.push(e)
+    }
+  }
+  for (const c of (plan.exitCriteria as ModdleElement[] | undefined) ?? []) {
+    const e = criterionEdge(c, planId, 'exit')
+    if (e) edges.push(e)
+  }
 
   return {
     nodes,
@@ -173,132 +217,215 @@ export async function parseCmmnXml(xmlString: string): Promise<CmmnParseResult> 
   }
 }
 
+// moddle.create ignores an `$attrs` property; foreign (flowable:) attributes
+// must be written onto the created element's $attrs.
+function withAttrs(element: ModdleElement, attrs: Record<string, string> | undefined): ModdleElement {
+  if (attrs) Object.assign(element.$attrs as Record<string, string>, attrs)
+  return element
+}
+
+function expression(body: string) {
+  return moddle.create('cmmn:Expression', { body })
+}
+
+function flowableAttrs(values: Record<string, string | undefined>): Record<string, string> | undefined {
+  const entries = Object.entries(values).filter(([, v]) => v !== undefined && v !== '')
+  return entries.length ? Object.fromEntries(entries.map(([k, v]) => [`flowable:${k}`, v as string])) : undefined
+}
+
+function createDefinition(node: Node<NodeData>, roleById: Map<string, ModdleElement>): ModdleElement {
+  const d = node.data as NodeData & CmmnNodeData
+  const attrs: Record<string, unknown> = { id: d.definitionId || `Def_${node.id}`, name: d.label }
+  switch (node.type) {
+    case 'cmmnHumanTask': {
+      if (d.isBlocking !== undefined) attrs.isBlocking = d.isBlocking
+      const role = d.performerRef ? roleById.get(d.performerRef as string) : undefined
+      if (role) attrs.performerRef = role
+      return withAttrs(
+        moddle.create('cmmn:HumanTask', attrs),
+        flowableAttrs({
+          assignee: d.assignee,
+          candidateGroups: d.candidateGroups?.length ? d.candidateGroups.join(',') : undefined,
+          formKey: d.formKey,
+        }),
+      )
+    }
+    case 'cmmnMilestone':
+      return moddle.create('cmmn:Milestone', attrs)
+    case 'cmmnStage':
+      return withAttrs(
+        moddle.create('cmmn:Stage', attrs),
+        flowableAttrs({ autoComplete: d.autoComplete ? 'true' : undefined }),
+      )
+    case 'cmmnDecisionTask':
+      if (d.decisionKey) attrs.decisionRefExpression = expression(d.decisionKey)
+      return moddle.create('cmmn:DecisionTask', attrs)
+    case 'cmmnProcessTask':
+      if (d.processKey) attrs.processRefExpression = expression(d.processKey)
+      return moddle.create('cmmn:ProcessTask', attrs)
+    case 'cmmnCaseTask':
+      if (d.caseKey) attrs.caseRefExpression = expression(d.caseKey)
+      return moddle.create('cmmn:CaseTask', attrs)
+    case 'cmmnTimerListener':
+      if (d.timerExpression) attrs.timerExpression = expression(d.timerExpression)
+      return moddle.create('cmmn:TimerEventListener', attrs)
+    case 'cmmnUserListener':
+      return moddle.create('cmmn:UserEventListener', attrs)
+    default:
+      if (d.isBlocking !== undefined) attrs.isBlocking = d.isBlocking
+      return moddle.create('cmmn:Task', attrs)
+  }
+}
+
+function createItemControl(node: Node<NodeData>): ModdleElement | undefined {
+  const d = node.data as NodeData & CmmnNodeData
+  if (!d.required && !d.manualActivation && !d.repetition) return undefined
+  return moddle.create('cmmn:PlanItemControl', {
+    id: `IC_${node.id}`,
+    ...(d.repetition
+      ? {
+          repetitionRule: withAttrs(
+            moddle.create('cmmn:RepetitionRule', {
+              id: `Rep_${node.id}`,
+              ...(d.repetitionCondition ? { condition: expression(d.repetitionCondition) } : {}),
+            }),
+            flowableAttrs({ counterVariable: d.repetitionCounter }),
+          ),
+        }
+      : {}),
+    ...(d.required ? { requiredRule: moddle.create('cmmn:RequiredRule', { id: `Req_${node.id}` }) } : {}),
+    ...(d.manualActivation
+      ? { manualActivationRule: moddle.create('cmmn:ManualActivationRule', { id: `Man_${node.id}` }) }
+      : {}),
+  })
+}
+
 export async function serializeToCmmnXml(
   nodes: Node<NodeData>[],
   edges: Edge[],
   caseId: string,
   caseName: string,
 ): Promise<string> {
-  const definitionElements: ModdleElement[] = []
-  const planItemElements: ModdleElement[] = []
-  const sentryElements: ModdleElement[] = []
+  const planNode = nodes.find((n) => n.type === 'cmmnCasePlan')
+  const planData = (planNode?.data ?? {}) as NodeData & CmmnNodeData
+  const roles = (planData.roles ?? []).map((r) => moddle.create('cmmn:Role', { id: r.id, name: r.name }))
+  const roleById = new Map(roles.map((r) => [r.id as string, r]))
+
+  const plan = withAttrs(
+    moddle.create('cmmn:Stage', {
+      id: planNode?.id ?? `${caseId}_PlanModel`,
+      name: planData.label || caseName,
+      planItemDefinitions: [],
+      planItems: [],
+      sentries: [],
+    }),
+    flowableAttrs({ autoComplete: planData.autoComplete ? 'true' : undefined }),
+  )
+
   const planItemById = new Map<string, ModdleElement>()
   const sentryById = new Map<string, ModdleElement>()
+  const stageDefById = new Map<string, ModdleElement>() // stage plan item node id -> its cmmn:Stage definition
+  const placed: { node: Node<NodeData>; element: ModdleElement; definition?: ModdleElement }[] = []
 
-  const taskNodes = nodes.filter((n) => n.type !== 'cmmnSentry')
-  const sentryNodes = nodes.filter((n) => n.type === 'cmmnSentry')
-
-  for (const node of taskNodes) {
-    let definition: ModdleElement
-    const attrs: Record<string, unknown> = { id: `Def_${node.id}`, name: node.data.label }
-
-    switch (node.type) {
-      case 'cmmnHumanTask':
-        if (node.data.isBlocking !== undefined) attrs.isBlocking = node.data.isBlocking
-        definition = moddle.create('cmmn:HumanTask', attrs)
-        break
-      case 'cmmnMilestone':
-        definition = moddle.create('cmmn:Milestone', attrs)
-        break
-      case 'cmmnStage':
-        definition = moddle.create('cmmn:Stage', attrs)
-        break
-      default:
-        definition = moddle.create('cmmn:Task', attrs)
+  for (const node of nodes) {
+    if (node.type === 'cmmnCasePlan') continue
+    if (node.type === 'cmmnSentry') {
+      const condition = node.data.conditionExpression as string | undefined
+      const sentry = moddle.create('cmmn:Sentry', {
+        id: node.id,
+        ...(node.data.label && node.data.label !== 'Sentry' ? { name: node.data.label } : {}),
+        onParts: [],
+        ...(condition
+          ? { ifPart: moddle.create('cmmn:IfPart', { id: `If_${node.id}`, condition: expression(condition) }) }
+          : {}),
+      })
+      sentryById.set(node.id, sentry)
+      placed.push({ node, element: sentry })
+      continue
     }
-    definitionElements.push(definition)
-
+    const definition = createDefinition(node, roleById)
+    const control = createItemControl(node)
     const planItem = moddle.create('cmmn:PlanItem', {
       id: node.id,
       name: node.data.label,
       definitionRef: definition,
+      ...(control ? { itemControl: control } : {}),
     })
-    planItemElements.push(planItem)
     planItemById.set(node.id, planItem)
+    if (node.type === 'cmmnStage') {
+      definition.planItemDefinitions = []
+      definition.planItems = []
+      definition.sentries = []
+      stageDefById.set(node.id, definition)
+    }
+    placed.push({ node, element: planItem, definition })
   }
 
-  for (const node of sentryNodes) {
-    const conditionExpr = node.data.conditionExpression as string | undefined
-    const sentry = moddle.create('cmmn:Sentry', {
-      id: node.id,
-      name: node.data.label,
-      ...(conditionExpr
-        ? {
-            ifPart: moddle.create('cmmn:IfPart', {
-              condition: moddle.create('cmmn:Expression', { body: conditionExpr }),
-            }),
-          }
-        : {}),
-    })
-    sentryElements.push(sentry)
-    sentryById.set(node.id, sentry)
-  }
-
-  // Wire onParts (edges INTO a sentry from a plan item)
-  for (const edge of edges) {
-    if (edge.data?.criterionType === 'onPart') {
-      const sentry = sentryById.get(edge.target)
-      const sourcePlanItem = planItemById.get(edge.source)
-      if (sentry && sourcePlanItem) {
-        const onPart = moddle.create('cmmn:PlanItemOnPart', {
-          id: `OnPart_${edge.id}`,
-          sourceRef: sourcePlanItem,
-          standardEvent: (edge.data as { standardEvent?: string }).standardEvent || 'complete',
-        })
-        sentry.onParts = [...((sentry.onParts as ModdleElement[]) ?? []), onPart]
-      }
+  // Place every element in its stage (or the case plan when the stage is missing).
+  const containerOf = (node: Node<NodeData>) =>
+    stageDefById.get((node.data as CmmnNodeData).parentStage ?? '') ?? plan
+  for (const { node, element, definition } of placed) {
+    const container = containerOf(node)
+    if (node.type === 'cmmnSentry') {
+      ;(container.sentries as ModdleElement[]).push(element)
+    } else {
+      ;(container.planItems as ModdleElement[]).push(element)
+      ;(container.planItemDefinitions as ModdleElement[]).push(definition as ModdleElement)
     }
   }
 
-  // Wire entry/exit criteria (edges FROM a sentry to a gated plan item)
   for (const edge of edges) {
     const criterionType = edge.data?.criterionType as string | undefined
-    if (criterionType !== 'entry' && criterionType !== 'exit') continue
-
-    const sentry = sentryById.get(edge.source)
-    const targetPlanItem = planItemById.get(edge.target)
-    if (!sentry || !targetPlanItem) continue
-
-    if (criterionType === 'entry') {
-      const criterion = moddle.create('cmmn:EntryCriterion', {
-        id: `Entry_${edge.id}`,
-        sentryRef: sentry,
-      })
-      targetPlanItem.entryCriteria = [
-        ...((targetPlanItem.entryCriteria as ModdleElement[]) ?? []),
-        criterion,
-      ]
-    } else {
-      const criterion = moddle.create('cmmn:ExitCriterion', {
-        id: `Exit_${edge.id}`,
-        sentryRef: sentry,
-      })
-      targetPlanItem.exitCriteria = [
-        ...((targetPlanItem.exitCriteria as ModdleElement[]) ?? []),
-        criterion,
-      ]
+    if (criterionType === 'onPart') {
+      const sentry = sentryById.get(edge.target)
+      const source = planItemById.get(edge.source)
+      if (sentry && source) {
+        ;(sentry.onParts as ModdleElement[]).push(
+          moddle.create('cmmn:PlanItemOnPart', {
+            id: `OnPart_${edge.id}`,
+            sourceRef: source,
+            standardEvent: (edge.data as { standardEvent?: string }).standardEvent || 'complete',
+          }),
+        )
+      }
+      continue
     }
+    if (criterionType !== 'entry' && criterionType !== 'exit') continue
+    const sentry = sentryById.get(edge.source)
+    if (!sentry) continue
+    if (criterionType === 'exit' && planNode && edge.target === planNode.id) {
+      plan.exitCriteria = [
+        ...((plan.exitCriteria as ModdleElement[]) ?? []),
+        moddle.create('cmmn:ExitCriterion', { id: `Exit_${edge.id}`, sentryRef: sentry }),
+      ]
+      continue
+    }
+    const target = planItemById.get(edge.target)
+    if (!target) continue
+    const key = criterionType === 'entry' ? 'entryCriteria' : 'exitCriteria'
+    const type = criterionType === 'entry' ? 'cmmn:EntryCriterion' : 'cmmn:ExitCriterion'
+    const prefix = criterionType === 'entry' ? 'Entry' : 'Exit'
+    target[key] = [
+      ...((target[key] as ModdleElement[]) ?? []),
+      moddle.create(type, { id: `${prefix}_${edge.id}`, sentryRef: sentry }),
+    ]
   }
-
-  const casePlanModel = moddle.create('cmmn:Stage', {
-    id: `${caseId}_PlanModel`,
-    name: caseName,
-    planItemDefinitions: definitionElements,
-    planItems: planItemElements,
-    sentries: sentryElements,
-  })
 
   const theCase = moddle.create('cmmn:Case', {
     id: caseId,
     name: caseName,
-    casePlanModel,
+    casePlanModel: plan,
+    ...(roles.length ? { caseRoles: moddle.create('cmmn:CaseRoles', { id: `${caseId}_Roles`, role: roles }) } : {}),
   })
 
-  const definitions = moddle.create('cmmn:Definitions', {
-    id: `Definitions_${caseId}`,
-    targetNamespace: 'http://waas.citi.com/cmmn',
-    cases: [theCase],
-  })
+  const definitions = withAttrs(
+    moddle.create('cmmn:Definitions', {
+      id: `Definitions_${caseId}`,
+      targetNamespace: 'http://waas.citi.com/cmmn',
+      cases: [theCase],
+    }),
+    { 'xmlns:flowable': FLOWABLE_NS },
+  )
 
   return toXML(definitions)
 }

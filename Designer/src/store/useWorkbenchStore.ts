@@ -23,6 +23,7 @@ export interface NodeData extends Record<string, unknown> {
   delegateExpression?: string
   conditionExpression?: string
   formKey?: string
+  // CMMN fields (see adapters/cmmnAdapter.ts CmmnNodeData) live in the open record.
 }
 
 interface WorkbenchState {

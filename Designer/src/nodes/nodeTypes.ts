@@ -25,6 +25,12 @@ import {
   CmmnMilestoneNode,
   CmmnStageNode,
   CmmnSentryNode,
+  CmmnDecisionTaskNode,
+  CmmnProcessTaskNode,
+  CmmnCaseTaskNode,
+  CmmnTimerListenerNode,
+  CmmnUserListenerNode,
+  CmmnCasePlanNode,
 } from './CmmnNodes'
 
 // All node types are registered together (keys never collide across specs),
@@ -51,6 +57,12 @@ export const nodeTypes: NodeTypes = {
   cmmnMilestone: CmmnMilestoneNode,
   cmmnStage: CmmnStageNode,
   cmmnSentry: CmmnSentryNode,
+  cmmnDecisionTask: CmmnDecisionTaskNode,
+  cmmnProcessTask: CmmnProcessTaskNode,
+  cmmnCaseTask: CmmnCaseTaskNode,
+  cmmnTimerListener: CmmnTimerListenerNode,
+  cmmnUserListener: CmmnUserListenerNode,
+  cmmnCasePlan: CmmnCasePlanNode,
 }
 
 interface PaletteItem {
@@ -79,7 +91,13 @@ export const CMMN_PALETTE_ITEMS: PaletteItem[] = [
   { type: 'cmmnTask', label: 'Task', category: 'Plan Items' },
   { type: 'cmmnMilestone', label: 'Milestone', category: 'Plan Items' },
   { type: 'cmmnStage', label: 'Stage', category: 'Plan Items' },
+  { type: 'cmmnDecisionTask', label: 'Decision Task', category: 'Plan Items' },
+  { type: 'cmmnProcessTask', label: 'Process Task', category: 'Plan Items' },
+  { type: 'cmmnCaseTask', label: 'Case Task', category: 'Plan Items' },
+  { type: 'cmmnTimerListener', label: 'Timer Listener', category: 'Event Listeners' },
+  { type: 'cmmnUserListener', label: 'User Event Listener', category: 'Event Listeners' },
   { type: 'cmmnSentry', label: 'Sentry', category: 'Sentries' },
+  { type: 'cmmnCasePlan', label: 'Case Plan (settings)', category: 'Case' },
 ]
 
 export function getPaletteItems(spec: SpecType): PaletteItem[] {

@@ -796,7 +796,14 @@ export function DesignerPage() {
         <div className="flex flex-1 overflow-hidden">
           <Palette
             onPlace={(type) => {
-              useWorkbenchStore.getState().addNode({
+              const store = useWorkbenchStore.getState()
+              // A case has exactly one plan model: select the existing one instead of adding another.
+              const existingPlan = type === 'cmmnCasePlan' ? store.nodes.find((n) => n.type === 'cmmnCasePlan') : undefined
+              if (existingPlan) {
+                store.selectNode(existingPlan.id)
+                return
+              }
+              store.addNode({
                 id: `${type}_${Date.now()}`,
                 type,
                 position: { x: 240, y: 240 },

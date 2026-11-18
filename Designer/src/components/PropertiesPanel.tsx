@@ -1,6 +1,7 @@
 // Dynamic Node Properties Panel (Designer.html Section 11), extended with
 // the fields relevant to each element type.
 import { useWorkbenchStore } from '../store/useWorkbenchStore'
+import { CmmnProperties } from './CmmnProperties'
 
 const TASK_TYPES = new Set(['userTask', 'serviceTask', 'businessRuleTask', 'callActivity'])
 
@@ -22,8 +23,6 @@ export function PropertiesPanel() {
   const isGateway = ['exclusiveGateway', 'parallelGateway', 'inclusiveGateway'].includes(
     selectedNode.type ?? '',
   )
-  const isCmmnHumanTask = selectedNode.type === 'cmmnHumanTask'
-  const isCmmnStage = selectedNode.type === 'cmmnStage'
   const isCmmnSentry = selectedNode.type === 'cmmnSentry'
 
   return (
@@ -124,35 +123,7 @@ export function PropertiesPanel() {
         </p>
       )}
 
-      {isCmmnHumanTask && (
-        <>
-          <Field label="Performer Ref">
-            <input
-              type="text"
-              value={(selectedNode.data.performerRef as string) ?? ''}
-              placeholder="case_analyst_role"
-              onChange={(e) => updateNodeData(selectedNode.id, { performerRef: e.target.value })}
-              className="w-full rounded border border-sky-200 bg-white p-1.5 font-mono text-xs text-slate-800 outline-none focus:border-sky-500"
-            />
-          </Field>
-          <Field label="Blocking">
-            <label className="flex items-center gap-2 text-xs text-slate-700">
-              <input
-                type="checkbox"
-                checked={Boolean(selectedNode.data.isBlocking ?? true)}
-                onChange={(e) => updateNodeData(selectedNode.id, { isBlocking: e.target.checked })}
-              />
-              Stage waits for this task to complete
-            </label>
-          </Field>
-        </>
-      )}
-
-      {isCmmnStage && (
-        <p className="text-[11px] text-slate-500">
-          Stages are opaque in v1 — contents are not individually editable yet.
-        </p>
-      )}
+      {selectedNode.type?.startsWith('cmmn') && <CmmnProperties node={selectedNode} />}
 
       {isCmmnSentry && (
         <Field label="If-Part Condition (FEEL/expression)">
