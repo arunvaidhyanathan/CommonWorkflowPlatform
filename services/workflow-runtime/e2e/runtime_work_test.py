@@ -353,5 +353,51 @@ check("updating a variable re-evaluates the conditional event", call("GET", f"/i
 call("PUT", f"/instances/process/{onb}/variables", DESIGNER, {"welcomeCallDone": True})
 check("variable listener event fired and onboarding completed", call("GET", f"/instances/process/{onb}", DESIGNER)[1]["instance"]["state"], "completed")
 
+# ---- Expression sandbox (#14): deployed ${...} must not reach Spring beans or reflection, in any engine
+ATTACKS = {
+    "bean": "environment.getProperty('cwp.jwt.secret') != null",
+    "reflection": "''.getClass().forName('java.lang.Runtime') != null",
+}
+for label, attack in ATTACKS.items():
+    key = f"sandboxBpmn{label}"
+    deploy(key, "BPMN", f"""<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="sandbox">
+  <process id="{key}" isExecutable="true">
+    <startEvent id="s"/><sequenceFlow id="f1" sourceRef="s" targetRef="t"/>
+    <serviceTask id="t" flowable:expression="${{execution.setVariable('probe', {attack})}}"/>
+    <sequenceFlow id="f2" sourceRef="t" targetRef="w"/><userTask id="w"/><sequenceFlow id="f3" sourceRef="w" targetRef="e"/><endEvent id="e"/>
+  </process>
+</definitions>""")
+    status, body = call("POST", "/instances", ADMIN, {"kind": "process", "definitionKey": key})
+    check(f"BPMN expression cannot use {label} (refused, 422)", status, 422)
+
+    key = f"sandboxCmmn{label}"
+    deploy(key, "CMMN", f"""<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/CMMN/20151109/MODEL" targetNamespace="sandbox">
+  <case id="{key}"><casePlanModel id="plan">
+    <planItem id="pi" definitionRef="ht"><entryCriterion sentryRef="sn"/></planItem>
+    <sentry id="sn"><ifPart><condition>${{{attack}}}</condition></ifPart></sentry>
+    <humanTask id="ht" name="Gated"/>
+  </casePlanModel></case>
+</definitions>""")
+    status, _ = call("POST", "/instances", ADMIN, {"kind": "case", "definitionKey": key})
+    check(f"CMMN expression cannot use {label} (refused, 422)", status, 422)
+
+    key = f"sandboxDmn{label}"
+    deploy(key, "DMN", f"""<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" id="d_{key}" name="sandbox" namespace="sandbox">
+  <decision id="{key}" name="sandbox"><decisionTable id="t_{key}" hitPolicy="FIRST">
+    <input id="i1"><inputExpression id="ie1" typeRef="string"><text>x</text></inputExpression></input>
+    <output id="o1" name="probe" typeRef="boolean"/>
+    <rule id="r1"><inputEntry id="e1"><text>-</text></inputEntry><outputEntry id="oe1"><text>${{{attack}}}</text></outputEntry></rule>
+  </decisionTable></decision>
+</definitions>""")
+    # The attack is the output entry, which is always evaluated when the rule matches.
+    status, body = call("POST", f"/decisions/{key}/evaluate", ADMIN, {"x": "any"})
+    reached = isinstance(body, dict) and body.get("result") == [{"probe": True}]
+    check(f"DMN expression cannot use {label} (output not produced)", reached, False)
+    check(f"DMN {label} attempt is reported as a failed evaluation",
+          isinstance(body, dict) and any(t.get("failed") for t in body.get("decisions", [])) or status >= 400, True)
+
 print(f"---- {results['pass']} passed, {results['fail']} failed")
 sys.exit(1 if results["fail"] else 0)

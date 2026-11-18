@@ -66,6 +66,23 @@ public class GlobalExceptionHandler {
                 .body(ApiError.of("conflict", cause.getMessage()));
     }
 
+    // Engine errors (unknown definition key, a refused expression, a failing script) are the
+    // request's fault, not a server crash: say what the engine said.
+    @ExceptionHandler(org.flowable.common.engine.api.FlowableObjectNotFoundException.class)
+    public ResponseEntity<ApiError> handleEngineNotFound(org.flowable.common.engine.api.FlowableObjectNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.of("not_found", ex.getMessage()));
+    }
+
+    @ExceptionHandler(org.flowable.common.engine.api.FlowableException.class)
+    public ResponseEntity<ApiError> handleEngine(org.flowable.common.engine.api.FlowableException ex) {
+        Throwable root = ex;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        String detail = root == ex ? ex.getMessage() : ex.getMessage() + " -- " + root.getMessage();
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiError.of("engine_error", detail));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
