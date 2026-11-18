@@ -478,5 +478,31 @@ if failed:
     check("delete a failed job", call("DELETE", f"/jobs/{refailed['id']}", ADMIN)[0] if refailed else None, 204)
 call("DELETE", f"/instances/process/{failing}", ADMIN)
 
+# ---- Apps (#13): a multi-artifact manifest is released as one Flowable app
+app_manifest = [
+    {"definitionKey": "kycAssessmentService", "name": "KYC decisions", "specType": "DMN", "xml": (SAMPLES / "kyc-risk-decisions.dmn").read_text()},
+    {"definitionKey": "kycOnboardingCase", "name": "KYC case", "specType": "CMMN", "xml": (SAMPLES / "kyc-onboarding-case.cmmn").read_text()},
+    {"definitionKey": "customerOnboarding", "name": "Customer onboarding", "specType": "BPMN", "xml": (SAMPLES / "customer-onboarding-process.bpmn").read_text()},
+]
+status, dep = call("POST", "/deployments", ADMIN, {"name": "Customer Onboarding App", "specType": "APP", "appKey": "customerOnboardingApp", "manifest": app_manifest})
+check("multi-artifact manifest deploys", status, 201)
+check("it is one app deployment with a child per model",
+      sorted(r["specType"] for r in dep["engineDeployments"]), ["APP", "BPMN", "CMMN", "DMN"])
+apps = {d["key"]: d.get("appKey") for d in call("GET", "/definitions", DESIGNER)[1]}
+check("the process reports its app", apps.get("customerOnboarding"), "customerOnboardingApp")
+check("the case released with it reports the same app", apps.get("kycOnboardingCase"), "customerOnboardingApp")
+app_run = call("POST", "/instances", DESIGNER, {"kind": "process", "definitionKey": "customerOnboarding",
+                                                "variables": dict(applicant, country="GB")})
+check("the app's process starts and runs its case", (app_run[0], any(
+    t["name"] == "Collect Customer Documents" for t in call("GET", "/tasks?filter=available", DESIGNER)[1])), (201, True))
+call("DELETE", f"/instances/process/{app_run[1]['id']}", ADMIN)
+status, single = call("POST", "/deployments", ADMIN, {"name": "single", "specType": "BPMN", "manifest": [app_manifest[2]]})
+check("a single artifact still deploys on its own (no app)", [r["specType"] for r in single["engineDeployments"]], ["BPMN"])
+check("...and its definition has no app", {d["key"]: d.get("appKey") for d in call("GET", "/definitions", DESIGNER)[1]}.get("customerOnboarding"), None)
+status, derived = call("POST", "/deployments", ADMIN, {"name": "My KYC Bundle!", "specType": "APP", "manifest": app_manifest[:2]})
+check("app key defaults from the name", (status, {d["key"]: d.get("appKey") for d in call("GET", "/definitions", DESIGNER)[1]}.get("kycOnboardingCase")),
+      (201, "My_KYC_Bundle"))
+check("non-admins cannot deploy apps", call("POST", "/deployments", DESIGNER, {"name": "x", "specType": "APP", "manifest": app_manifest})[0], 403)
+
 print(f"---- {results['pass']} passed, {results['fail']} failed")
 sys.exit(1 if results["fail"] else 0)

@@ -2,7 +2,9 @@ package com.waas.workflowruntime.deployment;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -58,6 +60,7 @@ public class DeploymentService {
     private final DmnRepositoryService dmnRepositoryService;
 
     private final boolean scriptsEnabled;
+    private final org.flowable.app.api.AppRepositoryService appRepositoryService;
     private final com.waas.workflowruntime.design.DesignDb designDb;
 
     public DeploymentService(
@@ -66,6 +69,7 @@ public class DeploymentService {
             RepositoryService repositoryService,
             CmmnRepositoryService cmmnRepositoryService,
             DmnRepositoryService dmnRepositoryService,
+            org.flowable.app.api.AppRepositoryService appRepositoryService,
             @org.springframework.beans.factory.annotation.Value("${cwp.scripts.enabled:false}") boolean scriptsEnabled,
             com.waas.workflowruntime.design.DesignDb designDb) {
         this.designDb = designDb;
@@ -75,6 +79,7 @@ public class DeploymentService {
         this.repositoryService = repositoryService;
         this.cmmnRepositoryService = cmmnRepositoryService;
         this.dmnRepositoryService = dmnRepositoryService;
+        this.appRepositoryService = appRepositoryService;
     }
 
     @Transactional
@@ -118,6 +123,13 @@ public class DeploymentService {
         // Refuse the whole manifest before deploying anything if any artifact has a script (ScriptPolicy).
         request.manifest().forEach(a -> ScriptPolicy.check(a.definitionKey(), a.xml(), scriptsEnabled));
 
+        // #13: several artifacts deploy together as one Flowable app, so the related
+        // definitions (e.g. a process, the case it starts and the decisions the case
+        // uses) are versioned and released as a unit. One artifact deploys as before.
+        if (request.manifest().size() > 1) {
+            return deployAsApp(request, tenantIdString);
+        }
+
         for (ManifestArtifact artifact : request.manifest()) {
             String specType = artifact.specType().toUpperCase(Locale.ROOT);
             String deploymentName = request.name() + " -- " + artifact.name();
@@ -149,6 +161,57 @@ public class DeploymentService {
             refs.add(new EngineDeploymentRef(specType, engineDeploymentId));
         }
 
+        return refs;
+    }
+
+    private static String resourceName(ManifestArtifact artifact) {
+        return switch (artifact.specType().toUpperCase(Locale.ROOT)) {
+            case "BPMN" -> artifact.definitionKey() + ".bpmn20.xml";
+            case "CMMN" -> artifact.definitionKey() + ".cmmn";
+            case "DMN" -> artifact.definitionKey() + ".dmn";
+            default -> throw new UnsupportedSpecTypeException(
+                    "Manifest artifact '" + artifact.definitionKey() + "' has unsupported specType '"
+                            + artifact.specType() + "' (expected BPMN, CMMN, or DMN).");
+        };
+    }
+
+    /** App key: the request's appKey, else derived from its name (letters, digits, _ and -). */
+    static String appKey(CreateDeploymentRequest request) {
+        String raw = request.appKey() != null && !request.appKey().isBlank() ? request.appKey() : request.name();
+        String key = raw.trim().replaceAll("[^A-Za-z0-9_-]+", "_").replaceAll("^_+|_+$", "");
+        if (key.isEmpty() || !Character.isLetter(key.charAt(0)) && key.charAt(0) != '_') {
+            key = "app_" + key;
+        }
+        return key;
+    }
+
+    private List<EngineDeploymentRef> deployAsApp(CreateDeploymentRequest request, String tenantId) {
+        String key = appKey(request);
+        Map<String, String> descriptor = new LinkedHashMap<>();
+        descriptor.put("key", key);
+        descriptor.put("name", request.name());
+        if (request.description() != null) {
+            descriptor.put("description", request.description());
+        }
+        var builder = appRepositoryService.createDeployment()
+                .name(request.name())
+                .key(key)
+                .tenantId(tenantId)
+                .addString(key + ".app", writeJson(descriptor));
+        for (ManifestArtifact artifact : request.manifest()) {
+            builder.addString(resourceName(artifact), artifact.xml());
+        }
+        String appDeploymentId = builder.deploy().getId();
+
+        // The app engine hands each model to its engine as a child deployment.
+        List<EngineDeploymentRef> refs = new ArrayList<>();
+        refs.add(new EngineDeploymentRef("APP", appDeploymentId));
+        repositoryService.createDeploymentQuery().parentDeploymentId(appDeploymentId).list()
+                .forEach(d -> refs.add(new EngineDeploymentRef("BPMN", d.getId())));
+        cmmnRepositoryService.createDeploymentQuery().parentDeploymentId(appDeploymentId).list()
+                .forEach(d -> refs.add(new EngineDeploymentRef("CMMN", d.getId())));
+        dmnRepositoryService.createDeploymentQuery().parentDeploymentId(appDeploymentId).list()
+                .forEach(d -> refs.add(new EngineDeploymentRef("DMN", d.getId())));
         return refs;
     }
 

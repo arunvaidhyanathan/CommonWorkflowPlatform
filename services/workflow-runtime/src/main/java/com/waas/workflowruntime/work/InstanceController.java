@@ -46,7 +46,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/runtime")
 public class InstanceController {
 
-    public record Definition(String id, String kind, String key, String name, int version, String deploymentId) {
+    /** {@code appKey}/{@code appName}: the Flowable app this definition was released in, if any (#13). */
+    public record Definition(String id, String kind, String key, String name, int version, String deploymentId,
+            String appKey, String appName) {
     }
 
     public record StartRequest(@NotNull @Pattern(regexp = "process|case") String kind,
@@ -78,10 +80,13 @@ public class InstanceController {
     private final CmmnRepositoryService cmmnRepository;
     private final CmmnRuntimeService cmmnRuntime;
     private final CmmnHistoryService cmmnHistory;
+    private final org.flowable.app.api.AppRepositoryService appRepository;
 
     InstanceController(WorkAccess access, RepositoryService repository, RuntimeService runtime,
             HistoryService history, TaskService tasks, CmmnRepositoryService cmmnRepository,
-            CmmnRuntimeService cmmnRuntime, CmmnHistoryService cmmnHistory) {
+            CmmnRuntimeService cmmnRuntime, CmmnHistoryService cmmnHistory,
+            org.flowable.app.api.AppRepositoryService appRepository) {
+        this.appRepository = appRepository;
         this.access = access;
         this.repository = repository;
         this.runtime = runtime;
@@ -101,12 +106,25 @@ public class InstanceController {
         String tenant = access.tenantId();
         Stream<Definition> processes = repository.createProcessDefinitionQuery().processDefinitionTenantId(tenant)
                 .latestVersion().active().list().stream()
-                .map(d -> new Definition(d.getId(), "process", d.getKey(), d.getName(), d.getVersion(), d.getDeploymentId()));
+                .map(d -> withApp(new Definition(d.getId(), "process", d.getKey(), d.getName(), d.getVersion(),
+                        d.getDeploymentId(), null, null), repository.createDeploymentQuery().deploymentId(d.getDeploymentId())
+                                .singleResult().getParentDeploymentId()));
         Stream<Definition> cases = cmmnRepository.createCaseDefinitionQuery().caseDefinitionTenantId(tenant)
                 .latestVersion().list().stream()
-                .map(d -> new Definition(d.getId(), "case", d.getKey(), d.getName(), d.getVersion(), d.getDeploymentId()));
+                .map(d -> withApp(new Definition(d.getId(), "case", d.getKey(), d.getName(), d.getVersion(),
+                        d.getDeploymentId(), null, null), cmmnRepository.createDeploymentQuery().deploymentId(d.getDeploymentId())
+                                .singleResult().getParentDeploymentId()));
         return Stream.concat(processes, cases).sorted(Comparator.comparing(Definition::name,
                 Comparator.nullsLast(String::compareToIgnoreCase))).toList();
+    }
+
+    private Definition withApp(Definition d, String parentDeploymentId) {
+        if (parentDeploymentId == null) {
+            return d;
+        }
+        var app = appRepository.createAppDefinitionQuery().deploymentId(parentDeploymentId).singleResult();
+        return app == null ? d : new Definition(d.id(), d.kind(), d.key(), d.name(), d.version(), d.deploymentId(),
+                app.getKey(), app.getName());
     }
 
     @PostMapping("/instances")

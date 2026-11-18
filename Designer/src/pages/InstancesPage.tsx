@@ -206,7 +206,7 @@ function StartForm({ onStarted }: { onStarted: (s: InstanceSummary) => void }) {
         {definitions.length === 0 && <option value="">No deployed definitions</option>}
         {definitions.map((d) => (
           <option key={d.id} value={d.id}>
-            {d.name || d.key} ({d.kind}, v{d.version})
+            {d.name || d.key} ({d.kind}, v{d.version}){d.appName ? ` -- app: ${d.appName}` : ''}
           </option>
         ))}
       </select>

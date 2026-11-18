@@ -14,6 +14,9 @@ export interface Definition {
   name: string | null
   version: number
   deploymentId: string
+  // #13: the app this definition was released in, if any.
+  appKey: string | null
+  appName: string | null
 }
 
 export interface InstanceSummary {

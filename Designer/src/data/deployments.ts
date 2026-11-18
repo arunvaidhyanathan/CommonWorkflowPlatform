@@ -51,6 +51,8 @@ export async function createDeployment(params: {
   specType: string
   description?: string
   manifest: ManifestArtifact[]
+  // #13: key of the app a multi-artifact manifest is released as.
+  appKey?: string
 }): Promise<Deployment> {
   return apiFetch<Deployment>('/runtime/deployments', {
     method: 'POST',
@@ -59,6 +61,7 @@ export async function createDeployment(params: {
       specType: params.specType,
       description: params.description ?? null,
       manifest: params.manifest,
+      appKey: params.appKey ?? null,
     }),
   })
 }
