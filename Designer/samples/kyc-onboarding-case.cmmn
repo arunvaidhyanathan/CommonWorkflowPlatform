@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cmmn:definitions xmlns:cmmn="http://www.omg.org/spec/CMMN/20151109/MODEL" xmlns:flowable="http://flowable.org/cmmn" id="Definitions_KycOnboarding" name="KYC Onboarding Case Definitions" targetNamespace="http://waas.citi.com/cmmn/kyc">
+  <!--
+    KYC onboarding case. Flowable OSS 8 CMMN capabilities shown here:
+      - Stages with autoComplete (Document Collection, Enhanced Due Diligence).
+      - Required rule: the stage cannot complete until the customer documents
+        are collected.
+      - Manual activation + repetition: "Request Additional Document" is offered
+        to the analyst and can be started any number of times; each instance gets
+        a local counter variable (additionalDocRequests = 1, 2, ...).
+      - Decision task calling a DMN decision service (kyc-risk-decisions.dmn,
+        key kycAssessmentService). Flowable stores the whole result as ONE JSON
+        case variable named after the service key, e.g.
+        kycAssessmentService.kycRiskTier[0].riskTier.
+      - Sentries with ifPart conditions routing HIGH risk to enhanced due
+        diligence and everything else to a standard review. Flowable evaluates an
+        ifPart before its onPart has fired, so each condition first checks the
+        result exists; with no result, neither route opens (fail closed, never a
+        silent fall-through to the standard review).
+      - Milestone with two alternative entry criteria (KYC Approved).
+      - Timer event listener: a 5-day review SLA that, when it fires, creates an
+        escalation task (and does not block case completion while waiting).
+      - User event listener + case-level exit criterion: the customer withdrawing
+        terminates the whole case from any state.
+      - Flowable extensions: candidate groups and form keys on human tasks.
+    Start variables: country, productType, expectedMonthlyVolume, isPep, customerType.
+  -->
+  <cmmn:case id="kycOnboardingCase" name="KYC Onboarding Case">
+    <cmmn:casePlanModel id="CasePlanModel_Kyc" name="KYC Onboarding" flowable:autoComplete="true">
+
+      <cmmn:planItem id="PI_DocCollection" name="Document Collection" definitionRef="Stage_DocCollection" />
+
+      <cmmn:planItem id="PI_AssessRisk" name="Assess KYC Risk" definitionRef="Def_AssessRisk">
+        <cmmn:entryCriterion id="Entry_AssessRisk" sentryRef="Sentry_DocsCollected" />
+      </cmmn:planItem>
+
+      <cmmn:planItem id="PI_Edd" name="Enhanced Due Diligence" definitionRef="Stage_Edd">
+        <cmmn:entryCriterion id="Entry_Edd" sentryRef="Sentry_HighRisk" />
+      </cmmn:planItem>
+
+      <cmmn:planItem id="PI_StandardReview" name="Standard Review" definitionRef="Def_StandardReview">
+        <cmmn:entryCriterion id="Entry_StandardReview" sentryRef="Sentry_NotHighRisk" />
+      </cmmn:planItem>
+
+      <cmmn:planItem id="PI_Approved" name="KYC Approved" definitionRef="Def_Approved">
+        <cmmn:entryCriterion id="Entry_Approved_Edd" sentryRef="Sentry_EddDone" />
+        <cmmn:entryCriterion id="Entry_Approved_Std" sentryRef="Sentry_StandardDone" />
+      </cmmn:planItem>
+
+      <cmmn:planItem id="PI_SlaTimer" name="Review SLA (5 days)" definitionRef="Def_SlaTimer" />
+
+      <cmmn:planItem id="PI_Escalate" name="Escalate Overdue Review" definitionRef="Def_Escalate">
+        <cmmn:entryCriterion id="Entry_Escalate" sentryRef="Sentry_SlaBreached" />
+      </cmmn:planItem>
+
+      <cmmn:planItem id="PI_Withdraw" name="Customer Withdraws" definitionRef="Def_Withdraw" />
+
+      <!-- Sentries -->
+      <cmmn:sentry id="Sentry_DocsCollected">
+        <cmmn:planItemOnPart id="OP_DocsCollected" sourceRef="PI_DocCollection">
+          <cmmn:standardEvent>complete</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+      </cmmn:sentry>
+      <cmmn:sentry id="Sentry_HighRisk">
+        <cmmn:planItemOnPart id="OP_HighRisk" sourceRef="PI_AssessRisk">
+          <cmmn:standardEvent>complete</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+        <cmmn:ifPart id="If_HighRisk">
+          <cmmn:condition>${vars:exists('kycAssessmentService') &amp;&amp; kycAssessmentService.kycRiskTier[0].riskTier == 'HIGH'}</cmmn:condition>
+        </cmmn:ifPart>
+      </cmmn:sentry>
+      <cmmn:sentry id="Sentry_NotHighRisk">
+        <cmmn:planItemOnPart id="OP_NotHighRisk" sourceRef="PI_AssessRisk">
+          <cmmn:standardEvent>complete</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+        <cmmn:ifPart id="If_NotHighRisk">
+          <cmmn:condition>${vars:exists('kycAssessmentService') &amp;&amp; kycAssessmentService.kycRiskTier[0].riskTier != 'HIGH'}</cmmn:condition>
+        </cmmn:ifPart>
+      </cmmn:sentry>
+      <cmmn:sentry id="Sentry_EddDone">
+        <cmmn:planItemOnPart id="OP_EddDone" sourceRef="PI_Edd">
+          <cmmn:standardEvent>complete</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+      </cmmn:sentry>
+      <cmmn:sentry id="Sentry_StandardDone">
+        <cmmn:planItemOnPart id="OP_StandardDone" sourceRef="PI_StandardReview">
+          <cmmn:standardEvent>complete</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+      </cmmn:sentry>
+      <cmmn:sentry id="Sentry_SlaBreached">
+        <cmmn:planItemOnPart id="OP_SlaBreached" sourceRef="PI_SlaTimer">
+          <cmmn:standardEvent>occur</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+      </cmmn:sentry>
+      <cmmn:sentry id="Sentry_Withdrawn">
+        <cmmn:planItemOnPart id="OP_Withdrawn" sourceRef="PI_Withdraw">
+          <cmmn:standardEvent>occur</cmmn:standardEvent>
+        </cmmn:planItemOnPart>
+      </cmmn:sentry>
+
+      <!-- Stage: Document Collection -->
+      <cmmn:stage id="Stage_DocCollection" name="Document Collection" flowable:autoComplete="true">
+        <cmmn:planItem id="PI_CollectDocs" name="Collect Customer Documents" definitionRef="Def_CollectDocs">
+          <cmmn:itemControl id="IC_CollectDocs">
+            <cmmn:requiredRule id="Req_CollectDocs" />
+          </cmmn:itemControl>
+        </cmmn:planItem>
+        <cmmn:planItem id="PI_RequestDoc" name="Request Additional Document" definitionRef="Def_RequestDoc">
+          <cmmn:itemControl id="IC_RequestDoc">
+            <cmmn:repetitionRule id="Rep_RequestDoc" flowable:counterVariable="additionalDocRequests" />
+            <cmmn:manualActivationRule id="Man_RequestDoc" />
+          </cmmn:itemControl>
+        </cmmn:planItem>
+        <cmmn:humanTask id="Def_CollectDocs" name="Collect Customer Documents" flowable:candidateGroups="kycAnalyst" flowable:formKey="kyc-document-collection" />
+        <cmmn:humanTask id="Def_RequestDoc" name="Request Additional Document" flowable:candidateGroups="kycAnalyst" flowable:formKey="kyc-additional-document" />
+      </cmmn:stage>
+
+      <!-- Decision task: evaluates the DMN decision service by key. -->
+      <cmmn:decisionTask id="Def_AssessRisk" name="Assess KYC Risk">
+        <cmmn:decisionRefExpression>kycAssessmentService</cmmn:decisionRefExpression>
+      </cmmn:decisionTask>
+
+      <!-- Stage: Enhanced Due Diligence (HIGH risk only) -->
+      <cmmn:stage id="Stage_Edd" name="Enhanced Due Diligence" flowable:autoComplete="true">
+        <cmmn:planItem id="PI_SourceOfWealth" name="Source of Wealth Review" definitionRef="Def_SourceOfWealth" />
+        <cmmn:planItem id="PI_SeniorSignOff" name="Senior Compliance Sign-off" definitionRef="Def_SeniorSignOff">
+          <cmmn:entryCriterion id="Entry_SeniorSignOff" sentryRef="Sentry_WealthReviewed" />
+        </cmmn:planItem>
+        <cmmn:sentry id="Sentry_WealthReviewed">
+          <cmmn:planItemOnPart id="OP_WealthReviewed" sourceRef="PI_SourceOfWealth">
+            <cmmn:standardEvent>complete</cmmn:standardEvent>
+          </cmmn:planItemOnPart>
+        </cmmn:sentry>
+        <cmmn:humanTask id="Def_SourceOfWealth" name="Source of Wealth Review" flowable:candidateGroups="eddTeam" flowable:formKey="kyc-source-of-wealth" />
+        <cmmn:humanTask id="Def_SeniorSignOff" name="Senior Compliance Sign-off" flowable:candidateGroups="seniorCompliance" flowable:formKey="kyc-senior-sign-off" />
+      </cmmn:stage>
+
+      <cmmn:humanTask id="Def_StandardReview" name="Standard Review" flowable:candidateGroups="kycAnalyst" flowable:formKey="kyc-standard-review" />
+      <cmmn:humanTask id="Def_Escalate" name="Escalate Overdue Review" flowable:candidateGroups="kycManager" />
+      <cmmn:milestone id="Def_Approved" name="KYC Approved" />
+
+      <cmmn:timerEventListener id="Def_SlaTimer" name="Review SLA (5 days)">
+        <cmmn:timerExpression>P5D</cmmn:timerExpression>
+      </cmmn:timerEventListener>
+      <cmmn:userEventListener id="Def_Withdraw" name="Customer Withdraws" />
+
+      <!-- Case-level exit: withdrawing terminates every open item. -->
+      <cmmn:exitCriterion id="Exit_Withdrawn" sentryRef="Sentry_Withdrawn" />
+    </cmmn:casePlanModel>
+  </cmmn:case>
+</cmmn:definitions>
