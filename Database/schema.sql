@@ -218,8 +218,16 @@ create index if not exists invites_tenant_idx             on public.invites (ten
 -- default schema is fine. The embedding column has no fixed dimension:
 -- different embedding models produce different sizes, and searches filter
 -- by model.
-create extension if not exists vector;
-
+-- Skipped when pgvector isn't installed (e.g. a plain local Postgres); the
+-- agent's grounding then stays off, which is its default anyway.
+do $vector$
+begin
+  if not exists (select 1 from pg_available_extensions where name = 'vector') then
+    raise notice 'pgvector not available; skipping workflow_embeddings';
+    return;
+  end if;
+  create extension if not exists vector;
+  execute $ddl$
 create table if not exists public.workflow_embeddings (
   id                   uuid primary key default gen_random_uuid(),
   tenant_id            uuid not null references public.tenants(id) on delete cascade,
@@ -232,8 +240,10 @@ create table if not exists public.workflow_embeddings (
   embedding            vector not null,
   created_at           timestamptz not null default now(),
   unique (workflow_version_id, model)
-);
-create index if not exists workflow_embeddings_tenant_spec_model
-  on public.workflow_embeddings (tenant_id, spec_type, model);
+)$ddl$;
+  create index if not exists workflow_embeddings_tenant_spec_model
+    on public.workflow_embeddings (tenant_id, spec_type, model);
+end
+$vector$;
 
 commit;

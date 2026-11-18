@@ -288,6 +288,14 @@ create policy "invites tenant_admin revoke" on public.invites
 -- The agent reads and writes these through PostgREST *as the user*, so these
 -- policies, not the agent, keep tenants apart. Verified on the live database
 -- (September 27, 2026): a tenant sees only its own rows and search results.
+-- Skipped when schema.sql skipped the table (no pgvector).
+do $embeddings$
+begin
+if to_regclass('public.workflow_embeddings') is null then
+  raise notice 'workflow_embeddings absent; skipping its policies';
+  return;
+end if;
+
 alter table public.workflow_embeddings enable row level security;
 
 drop policy if exists "embeddings tenant read" on public.workflow_embeddings;
@@ -318,7 +326,9 @@ create policy "embeddings designer update" on public.workflow_embeddings
   );
 
 -- No access without a login (Supabase grants new tables to anon by default).
-revoke all on public.workflow_embeddings from anon;
+if exists (select 1 from pg_roles where rolname = 'anon') then
+  revoke all on public.workflow_embeddings from anon;
+end if;
 
 -- Nearest workflows among the caller's tenant's non-archived current
 -- versions. SECURITY INVOKER, so the policies above apply to the caller.
@@ -346,6 +356,8 @@ as $$
   order by e.embedding <=> query_embedding
   limit least(greatest(match_count, 1), 10)
 $$;
+end
+$embeddings$;
 
 -- ----------------------------------------------------------------------------
 -- 12. Audit-trail trigger functions

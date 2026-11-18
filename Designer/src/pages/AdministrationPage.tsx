@@ -2,7 +2,7 @@
 // tenant-wide workflow governance (archive/delete regardless of who created
 // them), plus an audit log tab. Reached only via /admin, which RequireRole
 // gates client-side to tenant_admin; the real enforcement is server-side
-// (RLS + the admin-set-role / invite-user edge functions).
+// (workflow-runtime's /runtime/design API checks role and tenant).
 //
 // Governance.html Section 3.2 (roles), Section 7 (audit log), Section 8
 // (invite/deactivate). Onboarding.html Section 2.2/3.3 (invite flow, role
@@ -16,10 +16,11 @@ import {
   setMemberStatus,
   archiveWorkflow,
   deleteWorkflowPermanently,
+  createUser,
   type TenantMember,
 } from '../data/admin'
 import { listWorkflows, type WorkflowSummary } from '../data/workflows'
-import { listInvites, createInvite, revokeInvite, type Invite } from '../data/invites'
+import { listInvites, revokeInvite, type Invite } from '../data/invites'
 import { listAuditLog, type AuditLogEntry } from '../data/auditLog'
 
 const ROLES: { value: Role; description: string }[] = [
@@ -57,6 +58,7 @@ export function AdministrationPage() {
   const [invitesLoading, setInvitesLoading] = useState(false)
   const [invitesError, setInvitesError] = useState<string | null>(null)
   const [inviteEmail, setInviteEmail] = useState('')
+  const [invitePassword, setInvitePassword] = useState('')
   const [inviteRole, setInviteRole] = useState<Role>('designer')
   const [inviteSending, setInviteSending] = useState(false)
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null)
@@ -161,17 +163,18 @@ export function AdministrationPage() {
   }
 
   const onSendInvite = async () => {
-    if (!inviteEmail.trim()) return
+    if (!inviteEmail.trim() || !invitePassword) return
     setInviteSending(true)
     setInvitesError(null)
     setInviteSuccess(null)
     try {
-      await createInvite({ email: inviteEmail.trim(), role: inviteRole })
-      setInviteSuccess(`Invite sent to ${inviteEmail.trim()}.`)
+      await createUser({ username: inviteEmail.trim(), password: invitePassword, role: inviteRole })
+      setInviteSuccess(`User ${inviteEmail.trim()} created. They can sign in now.`)
       setInviteEmail('')
-      await refreshInvites()
+      setInvitePassword('')
+      await Promise.all([refreshInvites(), refreshMembers()])
     } catch (err) {
-      setInvitesError(err instanceof Error ? err.message : 'Could not send the invite.')
+      setInvitesError(err instanceof Error ? err.message : 'Could not create the user.')
     } finally {
       setInviteSending(false)
     }
@@ -216,7 +219,7 @@ export function AdministrationPage() {
 
   const TABS: { key: TabKey; label: string }[] = [
     { key: 'team', label: 'Team & Roles' },
-    { key: 'invites', label: 'Invites' },
+    { key: 'invites', label: 'Add Users' },
     { key: 'workflows', label: 'Workflow Governance' },
     { key: 'audit', label: 'Audit Log' },
   ]
@@ -225,7 +228,7 @@ export function AdministrationPage() {
     <div className="h-full overflow-y-auto p-6">
       <h1 className="mb-1 text-lg font-bold text-[#003b70]">Administration</h1>
       <p className="mb-4 text-sm text-slate-500">
-        Team roles, invites, and tenant-wide workflow governance for your organization.
+        Team roles, users, and tenant-wide workflow governance for your organization.
       </p>
 
       <div className="mb-6 flex gap-1 border-b border-sky-200">
@@ -303,8 +306,8 @@ export function AdministrationPage() {
             ))}
           </div>
           <p className="mt-2 text-[11px] text-slate-400">
-            Email mirrors Supabase Auth via a sync trigger (kept up to date automatically, not
-            directly editable). Display name falls back to the raw user ID until someone sets one.
+            The first line is the member's username. Role changes take effect at their next
+            sign-in; deactivation blocks their writes at once.
           </p>
           <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-slate-600">
             <div className="mb-1 font-bold uppercase tracking-wide text-slate-500">
@@ -324,17 +327,29 @@ export function AdministrationPage() {
       {tab === 'invites' && (
         <section>
           <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-600">
-            Invite a Teammate
+            Add a User
           </h2>
           <div className="mb-4 flex flex-wrap items-end gap-2 rounded-lg border border-sky-200 bg-white p-3">
             <div>
-              <label className="mb-1 block text-[11px] font-semibold text-slate-500">Email</label>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500">Username</label>
               <input
-                type="email"
+                type="text"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="teammate@company.com"
-                className="w-64 rounded border border-sky-200 px-2 py-1.5 text-sm outline-none focus:border-sky-500"
+                placeholder="jsmith"
+                className="w-48 rounded border border-sky-200 px-2 py-1.5 text-sm outline-none focus:border-sky-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500">
+                Password (8+ characters)
+              </label>
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={invitePassword}
+                onChange={(e) => setInvitePassword(e.target.value)}
+                className="w-48 rounded border border-sky-200 px-2 py-1.5 text-sm outline-none focus:border-sky-500"
               />
             </div>
             <div>
@@ -354,10 +369,10 @@ export function AdministrationPage() {
             <button
               type="button"
               onClick={onSendInvite}
-              disabled={inviteSending || !inviteEmail.trim()}
+              disabled={inviteSending || !inviteEmail.trim() || invitePassword.length < 8}
               className="rounded bg-[#0066b2] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#003b70] disabled:opacity-50"
             >
-              {inviteSending ? 'Sending...' : 'Send Invite'}
+              {inviteSending ? 'Creating...' : 'Create User'}
             </button>
           </div>
           <p className="mb-1 text-[11px] text-slate-400">
@@ -367,19 +382,19 @@ export function AdministrationPage() {
           {invitesError && <p className="mb-2 text-sm text-red-600">{invitesError}</p>}
 
           <h2 className="mb-2 mt-6 text-sm font-bold uppercase tracking-wide text-slate-600">
-            Pending &amp; Past Invites
+            Users Added
           </h2>
           {invitesLoading && <p className="text-sm text-slate-500">Loading...</p>}
           <div className="divide-y divide-sky-100 rounded-lg border border-sky-200 bg-white">
             {invites.length === 0 && !invitesLoading && (
-              <p className="p-4 text-sm text-slate-500">No invites sent yet.</p>
+              <p className="p-4 text-sm text-slate-500">No users added yet.</p>
             )}
             {invites.map((invite) => (
               <div key={invite.id} className="flex items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-semibold text-slate-800">{invite.email}</div>
                   <div className="text-[11px] text-slate-400">
-                    {ROLE_LABEL[invite.role]} &middot; sent{' '}
+                    {ROLE_LABEL[invite.role]} &middot; added{' '}
                     {new Date(invite.createdAt).toLocaleDateString()}
                   </div>
                 </div>

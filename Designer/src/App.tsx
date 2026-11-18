@@ -1,11 +1,8 @@
-import { useMemo, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useSession } from './lib/useSession'
-import { initialUrlHash } from './lib/supabaseClient'
 import { LoginForm } from './components/LoginForm'
 import { AppShell } from './components/AppShell'
 import { RequireRole } from './components/RequireRole'
-import { SetPasswordScreen } from './components/SetPasswordScreen'
 import { DesignerPage } from './pages/DesignerPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { WorkbenchPage } from './pages/WorkbenchPage'
@@ -17,16 +14,6 @@ import { SpendPage } from './pages/SpendPage'
 function App() {
   const { session, loading } = useSession()
 
-  // Onboarding.html Section 2.2: an invite (or password-recovery) link signs
-  // the person in via a one-time token with no password set yet. Computed
-  // once from the hash captured before Supabase's own init could strip it.
-  const cameFromInviteLink = useMemo(() => {
-    const params = new URLSearchParams(initialUrlHash.replace(/^#/, ''))
-    const type = params.get('type')
-    return type === 'invite' || type === 'recovery'
-  }, [])
-  const [passwordJustSet, setPasswordJustSet] = useState(false)
-
   if (loading) {
     return <div className="p-6 text-sm text-slate-500">Loading...</div>
   }
@@ -37,10 +24,6 @@ function App() {
         <LoginForm />
       </div>
     )
-  }
-
-  if (cameFromInviteLink && !passwordJustSet) {
-    return <SetPasswordScreen onDone={() => setPasswordJustSet(true)} />
   }
 
   return (

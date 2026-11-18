@@ -7,8 +7,7 @@
 // (read) + approver (decide) -- Governance.html Section 3.2.
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { useSession, type Role } from '../lib/useSession'
-import { supabase } from '../lib/supabaseClient'
+import { setSession, useSession, type Role } from '../lib/useSession'
 import { listPendingApprovals } from '../data/approvals'
 
 interface NavItem {
@@ -125,10 +124,10 @@ export function AppShell() {
               {role.replace('_', ' ')}
             </span>
           )}
-          <span className="text-sky-200">{session?.user?.email}</span>
+          <span className="text-sky-200">{session?.user.username}</span>
           <button
             type="button"
-            onClick={() => supabase.auth.signOut()}
+            onClick={() => setSession(null)}
             className="rounded border border-white/30 px-2 py-1 text-[11px] text-white hover:bg-white/10"
           >
             Sign Out

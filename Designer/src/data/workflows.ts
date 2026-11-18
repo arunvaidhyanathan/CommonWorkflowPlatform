@@ -1,10 +1,11 @@
-// Design-time data layer (Designer.html Sections 3 and 4): Supabase CRUD for
-// workflows and their immutable versions. RLS enforces tenant isolation and
-// designer/admin write access; these functions rely on that, not client checks.
+// Design-time data layer (Designer.html Sections 3 and 4): workflows and their
+// immutable versions, via workflow-runtime's /runtime/design API. The service
+// scopes every call to the caller's tenant and checks designer/admin write
+// access; these functions rely on that, not client checks. The tenantId and
+// createdBy parameters are kept for callers but the server uses the token's.
 import type { Node, Edge } from '@xyflow/react'
-import { supabase } from '../lib/supabaseClient'
+import { apiFetch } from '../lib/apiClient'
 import type { NodeData } from '../store/useWorkbenchStore'
-import type { Json } from '../lib/database.types'
 import type { DmnModel } from '../adapters/dmnAdapter'
 
 export interface WorkflowSummary {
@@ -38,42 +39,17 @@ export function validateDefinitionKey(key: string): string | null {
 }
 
 export async function isDefinitionKeyTaken(
-  tenantId: string,
+  _tenantId: string,
   definitionKey: string,
 ): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('workflows')
-    .select('id')
-    .eq('tenant_id', tenantId)
-    .eq('definition_key', definitionKey)
-    .maybeSingle()
-
-  if (error) throw error
-  return data !== null
+  const { taken } = await apiFetch<{ taken: boolean }>(
+    `/runtime/design/workflows/key-taken?key=${encodeURIComponent(definitionKey)}`,
+  )
+  return taken
 }
 
-export async function listWorkflows(tenantId: string): Promise<WorkflowSummary[]> {
-  const { data, error } = await supabase
-    .from('workflows')
-    .select(
-      'id, definition_key, name, description, spec_type, status, current_version_id, updated_at, created_by',
-    )
-    .eq('tenant_id', tenantId)
-    .order('updated_at', { ascending: false })
-
-  if (error) throw error
-
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    definitionKey: row.definition_key,
-    name: row.name,
-    description: row.description,
-    specType: row.spec_type,
-    status: row.status,
-    currentVersionId: row.current_version_id,
-    updatedAt: row.updated_at,
-    createdBy: row.created_by,
-  }))
+export async function listWorkflows(_tenantId: string): Promise<WorkflowSummary[]> {
+  return apiFetch<WorkflowSummary[]>('/runtime/design/workflows')
 }
 
 /** Origination path: New (Section 4.1/4.2). Creates the workflow row and an empty draft version. */
@@ -85,30 +61,7 @@ export async function createWorkflow(params: {
   specType: 'BPMN' | 'CMMN' | 'DMN'
   createdBy: string
 }): Promise<{ workflowId: string; versionId: string }> {
-  const { data: workflow, error: workflowError } = await supabase
-    .from('workflows')
-    .insert({
-      tenant_id: params.tenantId,
-      definition_key: params.definitionKey,
-      name: params.name,
-      description: params.description ?? null,
-      spec_type: params.specType,
-      status: 'draft',
-      created_by: params.createdBy,
-    })
-    .select('id')
-    .single()
-
-  if (workflowError) throw workflowError
-
-  const { versionId } = await saveDraftVersion({
-    workflowId: workflow.id,
-    graph: { nodes: [], edges: [] },
-    xmlContent: '',
-    createdBy: params.createdBy,
-  })
-
-  return { workflowId: workflow.id, versionId }
+  return createWorkflowFromImport({ ...params, graph: { nodes: [], edges: [] }, xmlContent: '' })
 }
 
 /** Origination path: Import (Section 4.1/4.2). Creates a workflow from parsed XML. */
@@ -122,30 +75,17 @@ export async function createWorkflowFromImport(params: {
   xmlContent: string
   createdBy: string
 }): Promise<{ workflowId: string; versionId: string }> {
-  const { data: workflow, error: workflowError } = await supabase
-    .from('workflows')
-    .insert({
-      tenant_id: params.tenantId,
-      definition_key: params.definitionKey,
+  return apiFetch('/runtime/design/workflows', {
+    method: 'POST',
+    body: JSON.stringify({
+      definitionKey: params.definitionKey,
       name: params.name,
       description: params.description ?? null,
-      spec_type: params.specType,
-      status: 'draft',
-      created_by: params.createdBy,
-    })
-    .select('id')
-    .single()
-
-  if (workflowError) throw workflowError
-
-  const { versionId } = await saveDraftVersion({
-    workflowId: workflow.id,
-    graph: params.graph,
-    xmlContent: params.xmlContent,
-    createdBy: params.createdBy,
+      specType: params.specType,
+      graph: params.graph,
+      xmlContent: params.xmlContent,
+    }),
   })
-
-  return { workflowId: workflow.id, versionId }
 }
 
 /** Section 4.3 step 2: Save Version — freezes an immutable snapshot and advances current_version_id. */
@@ -155,35 +95,10 @@ export async function saveDraftVersion(params: {
   xmlContent: string
   createdBy: string
 }): Promise<{ versionId: string; versionNo: number }> {
-  const { count } = await supabase
-    .from('workflow_versions')
-    .select('id', { count: 'exact', head: true })
-    .eq('workflow_id', params.workflowId)
-
-  const versionNo = (count ?? 0) + 1
-
-  const { data: version, error: versionError } = await supabase
-    .from('workflow_versions')
-    .insert({
-      workflow_id: params.workflowId,
-      version_no: versionNo,
-      graph_json: params.graph as unknown as Json,
-      xml_content: params.xmlContent,
-      created_by: params.createdBy,
-    })
-    .select('id')
-    .single()
-
-  if (versionError) throw versionError
-
-  const { error: updateError } = await supabase
-    .from('workflows')
-    .update({ current_version_id: version.id, updated_at: new Date().toISOString() })
-    .eq('id', params.workflowId)
-
-  if (updateError) throw updateError
-
-  return { versionId: version.id, versionNo }
+  return apiFetch(`/runtime/design/workflows/${params.workflowId}/versions`, {
+    method: 'POST',
+    body: JSON.stringify({ graph: params.graph, xmlContent: params.xmlContent }),
+  })
 }
 
 export async function loadWorkflowVersion(versionId: string): Promise<{
@@ -192,29 +107,9 @@ export async function loadWorkflowVersion(versionId: string): Promise<{
   graph: GraphSnapshot
   xmlContent: string
 }> {
-  const { data, error } = await supabase
-    .from('workflow_versions')
-    .select('workflow_id, version_no, graph_json, xml_content')
-    .eq('id', versionId)
-    .single()
-
-  if (error) throw error
-
-  return {
-    workflowId: data.workflow_id,
-    versionNo: data.version_no,
-    graph: data.graph_json as unknown as GraphSnapshot,
-    xmlContent: data.xml_content,
-  }
+  return apiFetch(`/runtime/design/versions/${versionId}`)
 }
 
-export async function loadWorkflow(workflowId: string) {
-  const { data, error } = await supabase
-    .from('workflows')
-    .select('*')
-    .eq('id', workflowId)
-    .single()
-
-  if (error) throw error
-  return data
+export async function loadWorkflow(workflowId: string): Promise<WorkflowSummary> {
+  return apiFetch<WorkflowSummary>(`/runtime/design/workflows/${workflowId}`)
 }

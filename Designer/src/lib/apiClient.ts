@@ -3,13 +3,9 @@
 // /api prefix -- e.g. http://localhost:8080/api in Vite dev, or /api when the
 // SPA is served by the gateway itself -- and each service lives under its own
 // path: /runtime/** -> workflow-runtime, /agent/** -> agentic-designer.
-// Unlike supabaseClient.ts, this does NOT throw at import time if
-// unconfigured; the rest of the app must keep working without these services.
-// Every call attaches the current Supabase session's access token as a
-// Bearer token -- WorkflowWrapper.html Section 7's "Single Token, Two
-// Planes" pattern: the same JWT that authorizes Postgres RLS also
-// authorizes each service, validated there against Supabase's JWKS.
-import { supabase } from './supabaseClient'
+// Every call attaches the login token issued by workflow-runtime
+// (POST /runtime/auth/login) as a Bearer token; each service verifies it.
+import { getSession, setSession, type Session } from './useSession'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(
   /\/$/,
@@ -48,10 +44,27 @@ export class ApiError extends Error {
 }
 
 async function authHeader(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession()
-  const token = data.session?.access_token
+  const token = getSession()?.token
   if (!token) throw new Error('No active session -- cannot call the CWP API unauthenticated.')
   return { Authorization: `Bearer ${token}` }
+}
+
+/** Exchanges a username and password for a session (no Bearer token needed). */
+export async function login(username: string, password: string): Promise<void> {
+  if (!API_BASE_URL) throw new ApiNotConfiguredError()
+  const res = await fetch(`${API_BASE_URL}/runtime/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+  let body: unknown = null
+  try {
+    body = await res.json()
+  } catch {
+    // non-JSON body (gateway error page) -- fall through with null
+  }
+  if (!res.ok) throw new ApiError(res.status, body)
+  setSession(body as Session)
 }
 
 export async function apiFetch<T>(
@@ -75,6 +88,8 @@ export async function apiFetch<T>(
     } catch {
       // non-JSON error body (e.g. nginx's own 502 page when a service is down) -- fall through with null
     }
+    // The token is no longer accepted (expired or re-keyed): back to the login screen.
+    if (res.status === 401) setSession(null)
     throw new ApiError(res.status, body)
   }
 
