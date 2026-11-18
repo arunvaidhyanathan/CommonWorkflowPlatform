@@ -39,4 +39,12 @@ insert into public.profiles (id, tenant_id, role, display_name, email) values
   ('00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-000000000001', 'approver',     'Approver', 'approver')
 on conflict (id) do nothing;
 
+-- Candidate groups used by the KYC sample (Designer/samples/kyc-onboarding-case.cmmn).
+insert into public.group_members (tenant_id, user_id, group_key) values
+  ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a2', 'kycAnalyst'),
+  ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a3', 'eddTeam'),
+  ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a3', 'seniorCompliance'),
+  ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a1', 'kycManager')
+on conflict do nothing;
+
 commit;

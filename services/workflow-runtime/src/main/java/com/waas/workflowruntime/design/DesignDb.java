@@ -37,7 +37,7 @@ public class DesignDb {
         this.json = json;
     }
 
-    UUID tenantId() {
+    public UUID tenantId() {
         return TenantContext.currentTenantId();
     }
 
@@ -47,7 +47,7 @@ public class DesignDb {
      * {@code request.jwt.claims} for the transaction so the audit and status
      * triggers (policies.sql) record who acted.
      */
-    Actor writer(String... roles) {
+    public Actor writer(String... roles) {
         UUID userId = TenantContext.currentUserId();
         UUID tenantId = tenantId();
         Map<String, Object> profile;

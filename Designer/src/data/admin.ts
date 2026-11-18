@@ -14,6 +14,8 @@ export interface TenantMember {
   email: string | null
   status: 'active' | 'deactivated'
   createdAt: string
+  // Runtime task candidate groups (the role is always an implicit extra group).
+  groups: string[]
 }
 
 export async function listTenantMembers(_tenantId: string): Promise<TenantMember[]> {
@@ -29,6 +31,14 @@ export async function setUserRole(targetUserId: string, newRole: Role): Promise<
   await apiFetch(`/runtime/design/members/${targetUserId}/role`, {
     method: 'PUT',
     body: JSON.stringify({ role: newRole }),
+  })
+}
+
+/** Replaces the member's task candidate groups. */
+export async function setMemberGroups(targetUserId: string, groups: string[]): Promise<void> {
+  await apiFetch(`/runtime/design/members/${targetUserId}/groups`, {
+    method: 'PUT',
+    body: JSON.stringify({ groups }),
   })
 }
 

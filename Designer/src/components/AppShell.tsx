@@ -20,6 +20,8 @@ const PRIMARY_NAV: NavItem[] = [
   { to: '/designer', label: 'Designer' },
   { to: '/onboarding', label: 'Onboarding' },
   { to: '/workbench', label: 'Workbench' },
+  { to: '/tasks', label: 'My Tasks' },
+  { to: '/instances', label: 'Running Work' },
   { to: '/workflow-wrapper', label: 'Workflow Wrapper' },
 ]
 
