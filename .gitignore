@@ -30,3 +30,4 @@ __pycache__/
 # Logs
 *.log
 npm-debug.log*
+.local-logs/

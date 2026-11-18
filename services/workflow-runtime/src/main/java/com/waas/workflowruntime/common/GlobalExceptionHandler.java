@@ -2,11 +2,13 @@ package com.waas.workflowruntime.common;
 
 import java.util.NoSuchElementException;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Centralized so every controller returns the same {@link ApiError} shape
@@ -46,6 +48,22 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleManifestSerialization(ManifestSerializationException ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiError.of("manifest_serialization_error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiError> handleResponseStatus(ResponseStatusException ex) {
+        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+        return ResponseEntity.status(status)
+                .body(ApiError.of(status.name().toLowerCase(), ex.getReason()));
+    }
+
+    // Unique keys (definition key, username) and FKs (deleting a workflow that
+    // still has approval requests) surface as 409 with a readable message.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrity(DataIntegrityViolationException ex) {
+        Throwable cause = ex.getMostSpecificCause();
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiError.of("conflict", cause.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
