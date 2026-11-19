@@ -77,7 +77,7 @@ public class MemberController {
                 select p.id, p.role, p.display_name, p.email, p.status, p.created_at,
                        coalesce(array_agg(g.group_key order by g.group_key) filter (where g.group_key is not null),
                                 '{}') as groups
-                from public.profiles p left join public.group_members g on g.user_id = p.id
+                from identity.profiles p left join identity.group_members g on g.user_id = p.id
                 where p.tenant_id = ? group by p.id order by p.created_at""",
                 (rs, i) -> new TenantMember(rs.getObject("id", UUID.class), rs.getString("role"),
                         rs.getString("display_name"), rs.getString("email"), rs.getString("status"),
@@ -94,13 +94,13 @@ public class MemberController {
         IdentityDb.Actor actor = db.writer("tenant_admin");
         String username = request.username().trim();
         UUID userId = db.jdbc.queryForObject(
-                "insert into app_auth.users (email, username, password_hash) values (?, ?, ?) returning id",
+                "insert into identity.users (email, username, password_hash) values (?, ?, ?) returning id",
                 UUID.class, username, username, passwords.encode(request.password()));
         db.jdbc.update("""
-                insert into public.profiles (id, tenant_id, role, display_name, email) values (?, ?, ?, ?, ?)""",
+                insert into identity.profiles (id, tenant_id, role, display_name, email) values (?, ?, ?, ?, ?)""",
                 userId, actor.tenantId(), request.role(), username, username);
         db.jdbc.update("""
-                insert into public.invites (tenant_id, email, role, invited_by, status, accepted_at)
+                insert into identity.invites (tenant_id, email, role, invited_by, status, accepted_at)
                 values (?, ?, ?, ?, 'accepted', now())""",
                 actor.tenantId(), username, request.role(), actor.userId());
         return Map.of("id", userId);
@@ -115,12 +115,12 @@ public class MemberController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot change your own role.");
         }
         List<String> previous = db.jdbc.query(
-                "select role from public.profiles where id = ? and tenant_id = ? for update",
+                "select role from identity.profiles where id = ? and tenant_id = ? for update",
                 (rs, i) -> rs.getString("role"), id, actor.tenantId());
         if (previous.isEmpty()) {
             throw IdentityDb.notFound("Member");
         }
-        db.jdbc.update("update public.profiles set role = ? where id = ?", request.role(), id);
+        db.jdbc.update("update identity.profiles set role = ? where id = ?", request.role(), id);
         audit.record(actor, "role_changed", id, Map.of("role", previous.get(0)), Map.of("role", request.role()));
     }
 
@@ -131,14 +131,14 @@ public class MemberController {
     public void setGroups(@PathVariable UUID id, @Valid @RequestBody GroupsRequest request) {
         IdentityDb.Actor actor = db.writer("tenant_admin");
         Boolean member = db.jdbc.queryForObject(
-                "select exists (select 1 from public.profiles where id = ? and tenant_id = ?)",
+                "select exists (select 1 from identity.profiles where id = ? and tenant_id = ?)",
                 Boolean.class, id, actor.tenantId());
         if (!Boolean.TRUE.equals(member)) {
             throw IdentityDb.notFound("Member");
         }
-        db.jdbc.update("delete from public.group_members where user_id = ?", id);
+        db.jdbc.update("delete from identity.group_members where user_id = ?", id);
         for (String group : new TreeSet<>(request.groups())) {
-            db.jdbc.update("insert into public.group_members (tenant_id, user_id, group_key) values (?, ?, ?)",
+            db.jdbc.update("insert into identity.group_members (tenant_id, user_id, group_key) values (?, ?, ?)",
                     actor.tenantId(), id, group);
         }
     }
@@ -152,12 +152,12 @@ public class MemberController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot deactivate yourself.");
         }
         List<String> previous = db.jdbc.query(
-                "select status from public.profiles where id = ? and tenant_id = ? for update",
+                "select status from identity.profiles where id = ? and tenant_id = ? for update",
                 (rs, i) -> rs.getString("status"), id, actor.tenantId());
         if (previous.isEmpty()) {
             throw IdentityDb.notFound("Member");
         }
-        db.jdbc.update("update public.profiles set status = ? where id = ?", request.status(), id);
+        db.jdbc.update("update identity.profiles set status = ? where id = ?", request.status(), id);
         if (!previous.get(0).equals(request.status())) {
             audit.record(actor, "profile_status_changed", id, Map.of("status", previous.get(0)),
                     Map.of("status", request.status()));
@@ -168,7 +168,7 @@ public class MemberController {
     public List<Invite> invites() {
         requireTenantAdminToken();
         return db.jdbc.query("""
-                select id, email, role, status, invited_by, created_at, accepted_at from public.invites
+                select id, email, role, status, invited_by, created_at, accepted_at from identity.invites
                 where tenant_id = ? order by created_at desc""",
                 (rs, i) -> new Invite(rs.getObject("id", UUID.class), rs.getString("email"), rs.getString("role"),
                         rs.getString("status"), rs.getObject("invited_by", UUID.class),
@@ -183,7 +183,7 @@ public class MemberController {
     public void revokeInvite(@PathVariable UUID id) {
         IdentityDb.Actor actor = db.writer("tenant_admin");
         int updated = db.jdbc.update("""
-                update public.invites set status = 'revoked'
+                update identity.invites set status = 'revoked'
                 where id = ? and tenant_id = ? and status = 'invited'""", id, actor.tenantId());
         if (updated == 0) {
             throw IdentityDb.notFound("Pending invite");
@@ -193,7 +193,7 @@ public class MemberController {
     @GetMapping("/me")
     public MyProfile me() {
         return db.jdbc.query(
-                "select id, display_name, onboarding_dismissed_at from public.profiles where id = ?",
+                "select id, display_name, onboarding_dismissed_at from identity.profiles where id = ?",
                 (rs, i) -> new MyProfile(rs.getObject("id", UUID.class), rs.getString("display_name"),
                         rs.getObject("onboarding_dismissed_at", OffsetDateTime.class)),
                 TenantContext.currentUserId())
@@ -203,7 +203,7 @@ public class MemberController {
     @PostMapping("/me/dismiss-getting-started")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void dismissGettingStarted() {
-        db.jdbc.update("update public.profiles set onboarding_dismissed_at = now() where id = ?",
+        db.jdbc.update("update identity.profiles set onboarding_dismissed_at = now() where id = ?",
                 TenantContext.currentUserId());
     }
 

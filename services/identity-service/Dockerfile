@@ -9,5 +9,9 @@ RUN mvn -q -B -DskipTests package
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /src/target/identity-service-*.jar app.jar
+# Runs as any UID in group 0 (OpenShift restricted SCC); the jar is read-only.
+USER 1001
+# Size the heap from the container's memory limit; restart on OOM instead of limping.
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
 EXPOSE 8082
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

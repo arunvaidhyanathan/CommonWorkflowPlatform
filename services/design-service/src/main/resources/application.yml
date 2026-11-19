@@ -1,16 +1,18 @@
 # design-service configuration. Every secret-shaped value is env-var driven
 # with a local-dev-only fallback -- nothing here is a real credential.
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 25s
   application:
     name: design-service
 
   datasource:
-    # The design tables (public.workflows, workflow_versions,
+    # The design tables (design.workflows, workflow_versions,
     # approval_requests, audit_logs) share the local `cwp` database with the
     # other services, but the cwp_design role can reach only these
-    # (Database/roles.sql). The audit and status triggers (policies.sql) run
+    # (database/00-roles.sql). The audit and status triggers (database/03-design.sql) run
     # here and read request.jwt.claims.
-    url: ${DESIGN_DB_URL:jdbc:postgresql://localhost:5432/cwp?currentSchema=public}
+    url: ${DESIGN_DB_URL:jdbc:postgresql://localhost:5432/cwp?currentSchema=design}
     username: ${DESIGN_DB_USER:cwp_design}
     password: ${DESIGN_DB_PASSWORD:}
     hikari:
@@ -30,9 +32,16 @@ cwp:
 
 server:
   port: ${PORT:8083}
+  # Finish in-flight requests before stopping (rolling deploys, scale-in).
+  shutdown: graceful
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+  # /actuator/health/liveness and /actuator/health/readiness for OpenShift probes.
+  endpoint:
+    health:
+      probes:
+        enabled: true

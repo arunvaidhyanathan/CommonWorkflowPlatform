@@ -38,7 +38,7 @@ class RecordingSink:
 
 class LocalVerifier:
     """JwtVerifier stand-in that trusts one locally generated key instead of
-    fetching Supabase's JWKS over the network."""
+    fetching identity-service's JWKS over the network."""
 
     def __init__(self):
         self.private_key = ec.generate_private_key(ec.SECP256R1())

@@ -1,28 +1,14 @@
 --liquibase formatted sql
 
--- Runtime Gateway Phase 1 (WorkflowWrapper.html Section 9). This exact SQL
--- has already been applied directly against the shared Supabase Postgres
--- project (nrhsoabqeskybrznxfyi) during scaffolding, ahead of this service
--- ever running. When this service connects to that project for the first
--- time, run `liquibase changelog-sync` (or the Spring Boot equivalent) so
--- Liquibase records this changeset as already applied instead of re-running
--- it and failing on "already exists" -- see README.md.
---
--- Deliberately a NEW schema, not new tables in `public`: this keeps one
--- tenant registry (public.tenants, owned by Supabase/RLS) while giving this
--- service full, unencumbered ownership over the flowable-wrapper data
--- shape, which doesn't need and isn't subject to RLS the way the
--- anon-key-facing public schema is (see WorkflowWrapper.html Section 7).
-
---changeset arun:001-create-runtime-schema
-create schema if not exists runtime;
+-- flowable-wrapper's own tables, in schema runtime. The schema itself is
+-- created by database/01-schemas.sql (owned by role cwp_runtime), so the
+-- service needs no database-level privileges.
 
 --changeset arun:002-create-deployments-table
 -- Thin-layer placeholder for what Flowable's /repository/deployments would
 -- eventually back for real (WorkflowWrapper.html Section 8). tenant_id is
--- not a foreign key to public.tenants -- this schema deliberately doesn't
--- take a cross-schema FK dependency on the Supabase-owned schema, so this
--- service's migrations never need to know about that schema's shape.
+-- not a foreign key to identity.tenants -- no foreign key crosses service
+-- schemas, so this service's migrations never depend on another's shape.
 -- Tenant scoping is enforced in application code (TenantContext.java,
 -- documented in WorkflowWrapper.html Section 7), not by a database
 -- constraint here.

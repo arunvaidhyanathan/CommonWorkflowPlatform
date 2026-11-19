@@ -20,8 +20,8 @@ from .edit import MAX_GRAPH_NODES, MAX_INSTRUCTION_CHARS, edit_event_payload, ed
 from .generate import MAX_DESCRIPTION_CHARS, event_payload, generate_workflow
 from .review import MAX_FOCUS_CHARS, review_event_payload, review_workflow
 from .specs import SPECS, SpecName
-from .embeddings import GeminiEmbedder, MeteredEmbedder, NvidiaEmbedder
-from .grounding import Example, SupabaseStore, examples_block, ground
+from .embeddings import MeteredEmbedder
+from .grounding import Example, examples_block, ground
 from .llm import GeminiProvider, LLMProvider, OpenAICompatibleProvider, ProviderError
 from .usage import FanoutSink, HttpSink, LogSink, MeteredProvider, PriceTable, UsageContext, UsageSink
 
@@ -108,11 +108,12 @@ def create_app(
         (_provider_from_env(os.environ.get("AGENT_EDIT_MODEL")) if os.environ.get("AGENT_EDIT_MODEL") else None)
         if provider is None else None
     )
-    app.state.verifier = verifier or JwtVerifier(
-        os.environ["SUPABASE_JWKS_URL"], os.environ.get("SUPABASE_JWT_HS256_SECRET"),
-        os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY"))
+    app.state.verifier = verifier or JwtVerifier(os.environ["IDENTITY_JWKS_URL"])
     app.state.usage_sink = usage_sink or _usage_sink_from_env()
-    app.state.grounding = grounding if grounding is not None else (_grounding_from_env() if provider is None else None)
+    # Grounding needs a GroundingStore over the tenant's workflows. None is
+    # wired in production yet (the Supabase-backed store was removed); it
+    # stays off unless a store is passed in.
+    app.state.grounding = grounding
     app.state.prices = prices or PriceTable.bundled()
     app.state.limiter = TenantRateLimiter(tenant_rpm or int(os.environ.get("AGENT_TENANT_RPM", "10")))
 
@@ -277,22 +278,6 @@ async def with_keepalive(events, every_s: float):
     finally:
         if not pending.done():
             pending.cancel()
-
-
-def _grounding_from_env() -> GroundingConfig | None:
-    if os.environ.get("AGENT_GROUNDING", "off").lower() not in ("on", "true", "1"):
-        return None
-    url, anon = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
-    provider = os.environ.get("AGENT_EMBED_PROVIDER", "nvidia")
-    key = os.environ.get("NVIDIA_API_KEY" if provider == "nvidia" else "GEMINI_API_KEY")
-    if not (url and anon and key):
-        log.warning("AGENT_GROUNDING=on but SUPABASE_URL, SUPABASE_ANON_KEY or the %s key is missing; grounding off.", provider)
-        return None
-    model = os.environ.get("AGENT_EMBED_MODEL")
-    embedder = NvidiaEmbedder(key, model or "nvidia/nemotron-3-embed-1b") if provider == "nvidia" \
-        else GeminiEmbedder(key, model or "gemini-embedding-001")
-    log.info("grounding on: %s %s", embedder.name, embedder.model)
-    return GroundingConfig(store_for=lambda token, tenant: SupabaseStore(url, anon, token, tenant), embedder=embedder)
 
 
 def _usage_sink_from_env() -> UsageSink:

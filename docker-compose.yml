@@ -1,159 +1,135 @@
-# CWP local stack. Supabase (auth + design-time data) stays hosted; these
-# are CWP's own services. Entry point: http://localhost:${GATEWAY_PORT:-8080}
-#   /            -> SPA (built from Designer/)
-#   /api/flowable -> flowable-wrapper (Flowable engine host)
-#   /api/identity -> identity-service (login, members, groups, invites; issues RS256 tokens)
-#   /api/design   -> design-service (workflows, versions, approvals, audit log)
-#   /api/agent   -> agentic-designer (LLM-assisted authoring)
-#   /api/spend   -> spend-tracker (API spend and key health; POST /events is internal only)
+# CWP local container stack: the same images that run on OpenShift, wired
+# together for one machine. Entry point: http://localhost:${GATEWAY_PORT:-8080}
+#   /               -> web-app (Designer SPA)
+#   /api/identity   -> identity-service (login, RS256 tokens + JWKS, members)
+#   /api/design     -> design-service (workflows, versions, approvals, audit)
+#   /api/flowable   -> flowable-wrapper (Flowable engine)
+#   /api/agent      -> agentic-designer (AI-assisted authoring)
+#   /api/spend      -> spend-tracker (API spend; POST /events is internal only)
+# Every service builds from its own folder, exactly as its pipeline does.
 name: cwp
 
 services:
   gateway:
-    build:
-      context: .
-      dockerfile: gateway/Dockerfile
+    build: services/gateway
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
     environment:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-^http://localhost:5173$$}
+      # Docker's networks are private ranges; trust X-Forwarded-For from them.
+      TRUSTED_PROXY_CIDR: 172.16.0.0/12
     depends_on:
+      - web-app
       - identity-service
       - design-service
       - flowable-wrapper
       - agentic-designer
       - spend-tracker
 
-  flowable-wrapper:
-    build: services/flowable-wrapper
+  web-app:
+    build: services/web-app
+
+  identity-service:
+    build: services/identity-service
     environment:
-      # Own role (Database/roles.sql): the runtime schema only.
-      WORKFLOW_RUNTIME_DB_URL: jdbc:postgresql://runtime-db:5432/cwp_runtime?currentSchema=runtime
-      WORKFLOW_RUNTIME_DB_USER: cwp_runtime
-      WORKFLOW_RUNTIME_DB_PASSWORD: ${CWP_RUNTIME_DB_PASSWORD:?set CWP_RUNTIME_DB_PASSWORD in .env}
-      # Tokens come from identity-service; role/status/groups are looked up there too.
-      IDENTITY_SERVICE_URL: http://identity-service:8082
-      IDENTITY_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
+      IDENTITY_DB_URL: jdbc:postgresql://postgres:5432/cwp?currentSchema=identity
+      IDENTITY_DB_USER: cwp_identity
+      IDENTITY_DB_PASSWORD: ${CWP_IDENTITY_DB_PASSWORD:?set CWP_IDENTITY_DB_PASSWORD in .env}
+      DESIGN_SERVICE_URL: http://design-service:8083
+      # PKCS#8 PEM shared by every replica. Unset locally: a throwaway key per start.
+      CWP_JWT_PRIVATE_KEY: ${CWP_JWT_PRIVATE_KEY:-}
+      CWP_JWT_ALLOW_EPHEMERAL_KEY: ${CWP_JWT_ALLOW_EPHEMERAL_KEY:-true}
       CWP_INTERNAL_TOKEN: ${CWP_INTERNAL_TOKEN:?set CWP_INTERNAL_TOKEN in .env}
     depends_on:
-      runtime-db:
+      postgres:
         condition: service_healthy
-      identity-service:
-        condition: service_started
 
   design-service:
     build: services/design-service
     environment:
-      # Own role (Database/roles.sql): workflows, versions, approvals, audit_logs only.
-      DESIGN_DB_URL: jdbc:postgresql://runtime-db:5432/cwp_runtime?currentSchema=public
+      DESIGN_DB_URL: jdbc:postgresql://postgres:5432/cwp?currentSchema=design
       DESIGN_DB_USER: cwp_design
       DESIGN_DB_PASSWORD: ${CWP_DESIGN_DB_PASSWORD:?set CWP_DESIGN_DB_PASSWORD in .env}
       IDENTITY_SERVICE_URL: http://identity-service:8082
       IDENTITY_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
       CWP_INTERNAL_TOKEN: ${CWP_INTERNAL_TOKEN:?set CWP_INTERNAL_TOKEN in .env}
     depends_on:
-      runtime-db:
+      postgres:
         condition: service_healthy
       identity-service:
         condition: service_started
 
-  identity-service:
-    build: services/identity-service
+  flowable-wrapper:
+    build: services/flowable-wrapper
     environment:
-      # Own role (Database/roles.sql): users, tenants, profiles, groups, invites only.
-      IDENTITY_DB_URL: jdbc:postgresql://runtime-db:5432/cwp_runtime?currentSchema=public
-      IDENTITY_DB_USER: cwp_identity
-      IDENTITY_DB_PASSWORD: ${CWP_IDENTITY_DB_PASSWORD:?set CWP_IDENTITY_DB_PASSWORD in .env}
-      DESIGN_SERVICE_URL: http://design-service:8083
-      # PKCS#8 PEM. Unset: a throwaway key per start (everyone is logged out on restart).
-      CWP_JWT_PRIVATE_KEY: ${CWP_JWT_PRIVATE_KEY:-}
+      WORKFLOW_RUNTIME_DB_URL: jdbc:postgresql://postgres:5432/cwp?currentSchema=runtime
+      WORKFLOW_RUNTIME_DB_USER: cwp_runtime
+      WORKFLOW_RUNTIME_DB_PASSWORD: ${CWP_RUNTIME_DB_PASSWORD:?set CWP_RUNTIME_DB_PASSWORD in .env}
+      IDENTITY_SERVICE_URL: http://identity-service:8082
+      IDENTITY_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
       CWP_INTERNAL_TOKEN: ${CWP_INTERNAL_TOKEN:?set CWP_INTERNAL_TOKEN in .env}
     depends_on:
-      runtime-db:
+      postgres:
         condition: service_healthy
+      identity-service:
+        condition: service_started
 
   agentic-designer:
     build: services/agentic-designer
     environment:
-      # Login tokens are RS256, verified against identity-service's key set.
-      SUPABASE_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
+      IDENTITY_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
       # gemini | nvidia | openrouter. Without the chosen provider's key the
       # service still starts and /generate returns 503.
       AGENT_PROVIDER: ${AGENT_PROVIDER:-gemini}
       AGENT_MODEL: ${AGENT_MODEL:-}
-      # Optional separate model for Edit mode (AgenticDesigner.html Section 4b).
       AGENT_EDIT_MODEL: ${AGENT_EDIT_MODEL:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       AGENT_TENANT_RPM: ${AGENT_TENANT_RPM:-10}
-      # Grounding in the tenant's own workflows (AgenticDesigner.html A5). The
-      # agent reads Supabase as the logged-in user, so RLS scopes every query.
-      AGENT_GROUNDING: ${AGENT_GROUNDING:-off}
-      SUPABASE_URL: ${SUPABASE_URL:-}
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
-      AGENT_EMBED_PROVIDER: ${AGENT_EMBED_PROVIDER:-nvidia}
-      AGENT_EMBED_MODEL: ${AGENT_EMBED_MODEL:-}
-      # Usage events go here over the internal network (SpendTracker.html S1).
       SPEND_TRACKER_URL: http://spend-tracker:8095
       SPEND_INGEST_TOKEN: ${SPEND_INGEST_TOKEN:?set SPEND_INGEST_TOKEN in .env}
 
   spend-tracker:
     build: services/spend-tracker
     environment:
-      SPEND_DATABASE_URL: postgresql://spend_tracker:${SPEND_DB_PASSWORD:?set SPEND_DB_PASSWORD in .env}@spend-db:5432/cwp_spend
-      # Login tokens are RS256, verified against identity-service's key set.
-      SUPABASE_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
-      SUPABASE_URL: ${SUPABASE_URL:-}
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      # Schema spend in the shared database, as role cwp_spend.
+      SPEND_DATABASE_URL: postgresql://cwp_spend:${CWP_SPEND_DB_PASSWORD:?set CWP_SPEND_DB_PASSWORD in .env}@postgres:5432/cwp?options=-csearch_path%3Dspend
+      IDENTITY_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
       SPEND_INGEST_TOKEN: ${SPEND_INGEST_TOKEN:?set SPEND_INGEST_TOKEN in .env}
-      # Comma-separated Supabase user ids allowed platform-wide spend and key health.
+      # Comma-separated user ids allowed platform-wide spend and key health.
       SPEND_ADMIN_USER_IDS: ${SPEND_ADMIN_USER_IDS:-}
       SPEND_KEY_CHECK_INTERVAL_S: ${SPEND_KEY_CHECK_INTERVAL_S:-3600}
-      # Only the keys the tracker checks; never the whole secrets file.
+      # Only the keys the tracker checks.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       TYPESAFE_JEV_API_KEY: ${TYPESAFE_JEV_API_KEY:-}
     depends_on:
-      spend-db:
+      postgres:
         condition: service_healthy
 
-  # The spend tracker's own database (database-per-service).
-  spend-db:
+  # One PostgreSQL database `cwp`, one schema and login role per service. On
+  # first start (empty volume) database/docker-initdb/10-cwp.sh runs
+  # database/apply.sh with the local seed users.
+  postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: cwp_spend
-      POSTGRES_USER: spend_tracker
-      POSTGRES_PASSWORD: ${SPEND_DB_PASSWORD:?set SPEND_DB_PASSWORD in .env}
-    volumes:
-      - spend-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U spend_tracker -d cwp_spend"]
-      interval: 5s
-      retries: 10
-
-  # The workflow runtime's own database (database-per-service). Holds the
-  # `runtime` schema and Flowable's ACT_* tables. Not exposed to the host.
-  runtime-db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: cwp_runtime
-      POSTGRES_USER: workflow_runtime
-      POSTGRES_PASSWORD: ${WORKFLOW_RUNTIME_DB_PASSWORD:?set WORKFLOW_RUNTIME_DB_PASSWORD in .env}
+      POSTGRES_DB: cwp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${CWP_POSTGRES_ADMIN_PASSWORD:?set CWP_POSTGRES_ADMIN_PASSWORD in .env}
       CWP_IDENTITY_DB_PASSWORD: ${CWP_IDENTITY_DB_PASSWORD:?set CWP_IDENTITY_DB_PASSWORD in .env}
       CWP_DESIGN_DB_PASSWORD: ${CWP_DESIGN_DB_PASSWORD:?set CWP_DESIGN_DB_PASSWORD in .env}
       CWP_RUNTIME_DB_PASSWORD: ${CWP_RUNTIME_DB_PASSWORD:?set CWP_RUNTIME_DB_PASSWORD in .env}
+      CWP_SPEND_DB_PASSWORD: ${CWP_SPEND_DB_PASSWORD:?set CWP_SPEND_DB_PASSWORD in .env}
     volumes:
-      - runtime-db-data:/var/lib/postgresql/data
-      # First start builds the schema, seed users and per-service roles.
-      - ./Database/docker-initdb:/docker-entrypoint-initdb.d:ro
-      - ./Database:/cwp-sql:ro
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/docker-initdb:/docker-entrypoint-initdb.d:ro
+      - ./database:/cwp-sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U workflow_runtime -d cwp_runtime"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cwp"]
       interval: 5s
       retries: 10
 
 volumes:
-  runtime-db-data:
-  spend-db-data:
+  postgres-data:

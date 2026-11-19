@@ -30,14 +30,14 @@ class ScriptPolicyTest {
     @Test
     void scriptFreeModelsPass() throws IOException {
         for (String sample : new String[] {"kyc-onboarding-case.cmmn", "kyc-risk-decisions.dmn", "customer-onboarding-process.bpmn"}) {
-            String xml = Files.readString(Path.of("../../Designer/samples", sample));
+            String xml = Files.readString(Path.of("src/test/resources/samples", sample));
             assertThat(ScriptPolicy.containsScript(xml)).as(sample).isFalse();
         }
     }
 
     @Test
     void disabledPlatformRefusesTheScriptedSampleAndEnabledAllowsIt() throws IOException {
-        String xml = Files.readString(Path.of("../../Designer/samples/expense-claim-process.bpmn"));
+        String xml = Files.readString(Path.of("src/test/resources/samples/expense-claim-process.bpmn"));
         assertThatThrownBy(() -> ScriptPolicy.check("expenseClaim", xml, false))
                 .isInstanceOf(ResponseStatusException.class).hasMessageContaining("scripts are disabled");
         assertThatCode(() -> ScriptPolicy.check("expenseClaim", xml, true)).doesNotThrowAnyException();

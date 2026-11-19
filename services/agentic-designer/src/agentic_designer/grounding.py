@@ -4,12 +4,11 @@ Before Generate or Edit, find the tenant's most similar existing workflows
 and show the model condensed summaries of them, so what it produces follows
 the tenant's conventions (group names, variable names, labelling style).
 
-Storage is Supabase: public.workflow_embeddings with RLS, searched with
-public.match_workflow_embeddings (security invoker). The agent talks to
-PostgREST *as the user* (their JWT), so the database, not this code,
-guarantees one tenant never sees another's workflows. Embeddings are
-written lazily: current versions without an embedding for this model are
-embedded on the way (at most ``max_new`` per request).
+Storage is a ``GroundingStore`` scoped to one tenant. No production store is
+wired at the moment (the Supabase-backed one was removed with Supabase);
+grounding stays off until one reading design-service's workflows is added.
+Embeddings are written lazily: current versions without an embedding for
+this model are embedded on the way (at most ``max_new`` per request).
 
 Grounding is best-effort: any failure means "no examples", never a failed
 request.
@@ -21,7 +20,6 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-import httpx
 
 from .canvas import CanvasConversionError
 
@@ -52,54 +50,6 @@ class GroundingStore(Protocol):
     async def save(self, rows: list[dict]) -> None: ...
 
     async def match(self, vector: list[float], spec: str, model: str, k: int, exclude: str | None) -> list[Example]: ...
-
-
-class SupabaseStore:
-    """PostgREST calls made with the user's own token; RLS does the scoping."""
-
-    def __init__(self, url: str, anon_key: str, user_token: str, tenant_id: str, client: httpx.AsyncClient | None = None):
-        self._base = url.rstrip("/") + "/rest/v1"
-        self._headers = {"apikey": anon_key, "Authorization": f"Bearer {user_token}"}
-        self._tenant_id = tenant_id
-        self._client = client or httpx.AsyncClient(timeout=20)
-
-    async def _get(self, path: str, params: dict) -> list[dict]:
-        r = await self._client.get(f"{self._base}/{path}", params=params, headers=self._headers)
-        r.raise_for_status()
-        return r.json()
-
-    async def workflows(self, spec):
-        return await self._get("workflows", {
-            "select": "id,name,current_version_id", "spec_type": f"eq.{spec}",
-            "status": "neq.archived", "current_version_id": "not.is.null", "order": "updated_at.desc",
-        })
-
-    async def embedded_versions(self, model):
-        rows = await self._get("workflow_embeddings", {"select": "workflow_version_id", "model": f"eq.{model}"})
-        return {r["workflow_version_id"] for r in rows}
-
-    async def version_graphs(self, version_ids):
-        if not version_ids:
-            return {}
-        rows = await self._get("workflow_versions", {"select": "id,graph_json", "id": f"in.({','.join(version_ids)})"})
-        return {r["id"]: r["graph_json"] for r in rows}
-
-    async def save(self, rows):
-        body = [{**r, "tenant_id": self._tenant_id} for r in rows]
-        r = await self._client.post(
-            f"{self._base}/workflow_embeddings", json=body,
-            params={"on_conflict": "workflow_version_id,model"},
-            headers={**self._headers, "Prefer": "resolution=merge-duplicates,return=minimal"},
-        )
-        r.raise_for_status()
-
-    async def match(self, vector, spec, model, k, exclude):
-        r = await self._client.post(f"{self._base}/rpc/match_workflow_embeddings", headers=self._headers, json={
-            "query_embedding": vector, "match_spec": spec, "match_model": model,
-            "match_count": k, "exclude_workflow": exclude,
-        })
-        r.raise_for_status()
-        return [Example(x["workflow_id"], x["name"], x["summary"], float(x["similarity"])) for x in r.json()]
 
 
 # --- summaries --------------------------------------------------------------------------------

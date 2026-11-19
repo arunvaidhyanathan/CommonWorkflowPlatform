@@ -22,7 +22,17 @@ final class SigningKeys {
     private SigningKeys() {
     }
 
-    static RSAKey load(String pem) {
+    /**
+     * The configured key, or -- only when {@code allowEphemeral} (local
+     * development) -- a new one. Without a configured key every replica
+     * would sign with its own key and reject the others' tokens, so a
+     * missing key fails startup by default.
+     */
+    static RSAKey load(String pem, boolean allowEphemeral) {
+        if ((pem == null || pem.isBlank()) && !allowEphemeral) {
+            throw new IllegalStateException("CWP_JWT_PRIVATE_KEY is not set. Every identity-service replica must sign "
+                    + "with the same key: set it from a Secret, or set CWP_JWT_ALLOW_EPHEMERAL_KEY=true for local development.");
+        }
         try {
             if (pem == null || pem.isBlank()) {
                 log.warn("CWP_JWT_PRIVATE_KEY is not set: generated a throwaway signing key. "

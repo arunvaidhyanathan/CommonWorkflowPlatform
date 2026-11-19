@@ -27,8 +27,11 @@ class ServiceBoundaryTest {
     /** Every package in this service. */
     private static final List<String> PACKAGES = List.of("");
 
-    /** Identity and design-time tables live in the public / app_auth schemas. */
-    private static final Pattern FORBIDDEN_TABLE = Pattern.compile("\\b(public|app_auth)\\.[a-z_]+");
+    /** Other services' schemas (identity, design, spend) and the legacy public / app_auth ones. */
+    private static final Pattern FORBIDDEN_TABLE = Pattern.compile(
+            "\\bidentity\\.(users|tenants|profiles|group_members|invites)\\b"
+                    + "|\\bdesign\\.(workflows|workflow_versions|approval_requests|audit_logs)\\b"
+                    + "|\\b(spend|public|app_auth)\\.[a-z_]+");
 
     /** The extracted modules must not come back. */
     private static final Pattern FORBIDDEN_IMPORT =

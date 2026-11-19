@@ -2,7 +2,7 @@
 
 Needs flowable-wrapper on :8081 (started with IDENTITY_CACHE_TTL=PT0S, so group
 changes apply at once) and identity-service on :8082, with the seeded users
-(Database/local.sql) and the "other" tenant user created by this script. Run:
+(database/90-seed-local.sql) and the "other" tenant user created by this script. Run:
     python3 -I services/flowable-wrapper/e2e/runtime_work_test.py
 Exits non-zero if any check fails.
 """
@@ -17,8 +17,8 @@ import uuid
 
 BASE = os.environ.get("CWP_RUNTIME_BASE", "http://localhost:8081/runtime")
 IDENTITY = os.environ.get("CWP_IDENTITY_BASE", "http://localhost:8082/identity")
-SAMPLES = pathlib.Path(__file__).resolve().parents[3] / "Designer" / "samples"
-PASSWORD = "password"  # seeded local-only users (Database/local.sql)
+SAMPLES = pathlib.Path(__file__).resolve().parents[1] / "src" / "test" / "resources" / "samples"
+PASSWORD = "password"  # seeded local-only users (database/90-seed-local.sql)
 results = {"pass": 0, "fail": 0}
 
 
@@ -66,9 +66,9 @@ ADMIN, ADMIN_ID = login("admin")
 DESIGNER, DESIGNER_ID = login("designer")
 APPROVER, APPROVER_ID = login("approver")
 # A second tenant, to prove isolation.
-psql("""insert into tenants(id,name,slug) values ('00000000-0000-0000-0000-000000000002','Other','other') on conflict do nothing;
-insert into app_auth.users(id,email,username,password_hash) values ('00000000-0000-0000-0000-0000000000b1','other','other',crypt('password',gen_salt('bf'))) on conflict do nothing;
-insert into profiles(id,tenant_id,role,email) values ('00000000-0000-0000-0000-0000000000b1','00000000-0000-0000-0000-000000000002','tenant_admin','other') on conflict do nothing;""")
+psql("""insert into identity.tenants(id,name,slug) values ('00000000-0000-0000-0000-000000000002','Other','other') on conflict do nothing;
+insert into identity.users(id,email,username,password_hash) values ('00000000-0000-0000-0000-0000000000b1','other','other',crypt('password',gen_salt('bf'))) on conflict do nothing;
+insert into identity.profiles(id,tenant_id,role,email) values ('00000000-0000-0000-0000-0000000000b1','00000000-0000-0000-0000-000000000002','tenant_admin','other') on conflict do nothing;""")
 OTHER, _ = login("other")
 
 # Deploy the KYC samples and a one-task BPMN process (offered to the "designer" role group).
@@ -306,7 +306,7 @@ call("DELETE", f"/instances/case/{c_mig}", ADMIN)
 
 # ---- BPMN samples through the API: scripts, mail, signals, ad-hoc, conditional/variable events (#6, #10)
 # Needs the runtime started with CWP_SCRIPTS_ENABLED=true and the dev mailbox (run-local.sh does both).
-MAILBOX = SAMPLES.parents[1] / ".local-logs" / "mailbox.txt"
+MAILBOX = pathlib.Path(os.environ.get("CWP_MAILBOX", pathlib.Path(__file__).resolve().parents[3] / ".local-logs" / "mailbox.txt"))
 check("deploy scripted expense claim", deploy("expenseClaim", "BPMN", (SAMPLES / "expense-claim-process.bpmn").read_text()), 201)
 check("deploy customer onboarding", deploy("customerOnboarding", "BPMN", (SAMPLES / "customer-onboarding-process.bpmn").read_text()), 201)
 

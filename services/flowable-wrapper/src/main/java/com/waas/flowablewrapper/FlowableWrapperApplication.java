@@ -4,16 +4,9 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * Entry point for the Runtime Gateway -- CWP's Workflow Wrapper service.
- *
- * <p>See /Documents/WorkflowWrapper.html for the full architecture decision.
- * This service is a thin API layer today: every endpoint is real and backed
- * by the {@code runtime} schema in the shared Supabase Postgres project, but
- * there is no live Flowable engine behind it yet (Section 4 of that
- * document explains why). Nothing here should be mistaken for a fully
- * working workflow runtime -- the point is a stable, Flowable-shaped
- * contract the frontend and other CWP components can build against now,
- * with the real engine swapped in later without breaking that contract.
+ * flowable-wrapper: CWP's Flowable engine host. Embeds Flowable 8 and serves
+ * every engine endpoint under {@code /runtime/**} (public {@code /api/flowable/**}),
+ * backed by the {@code runtime} schema. See this service's README.md.
  */
 @SpringBootApplication
 public class FlowableWrapperApplication {

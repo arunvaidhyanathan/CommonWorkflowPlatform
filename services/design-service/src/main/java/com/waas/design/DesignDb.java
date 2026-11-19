@@ -13,8 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Shared access checks for the design-time API (public.* tables). These
- * replace the Supabase RLS policies in Database/policies.sql: every query
+ * Shared access checks for the design-time API (schema design). Every query
  * filters by the caller's tenant, and every write goes through
  * {@link #writer}, which checks the caller's role and active status with
  * identity-service (not the token, so a role change or deactivation applies
@@ -44,7 +43,7 @@ public class DesignDb {
      * For writes; call inside a transaction. Fails with 403 unless the caller
      * is an active member of their tenant with one of {@code roles}. Then sets
      * {@code request.jwt.claims} for the transaction so the audit and status
-     * triggers (policies.sql) record who acted.
+     * triggers (database/03-design.sql) record who acted.
      */
     public Actor writer(String... roles) {
         IdentityClient.Actor actor = identity.requireActive(roles);

@@ -31,7 +31,7 @@ class SigningKeysTest {
 
     @Test
     void tokenVerifiesWithOnlyThePublishedJwks() throws Exception {
-        RSAKey key = config.signingKey("");
+        RSAKey key = config.signingKey("", true);
         String token = sign(key, "user-1");
 
         // What a consumer sees: the JWKS JSON, parsed back -- no private material.
@@ -53,8 +53,8 @@ class SigningKeysTest {
                 + Base64.getMimeEncoder().encodeToString(generator.generateKeyPair().getPrivate().getEncoded())
                 + "\n-----END PRIVATE KEY-----\n";
 
-        RSAKey first = config.signingKey(pem);
-        RSAKey afterRestart = config.signingKey(pem);
+        RSAKey first = config.signingKey(pem, false);
+        RSAKey afterRestart = config.signingKey(pem, false);
         String token = sign(first, "user-2");
 
         assertThat(afterRestart.getKeyID()).isEqualTo(first.getKeyID());
@@ -63,9 +63,18 @@ class SigningKeysTest {
 
     @Test
     void malformedKeyFailsStartupInsteadOfSilentlyGeneratingOne() {
-        assertThatThrownBy(() -> config.signingKey("-----BEGIN PRIVATE KEY-----\nnot-a-key\n-----END PRIVATE KEY-----"))
+        assertThatThrownBy(() -> config.signingKey("-----BEGIN PRIVATE KEY-----\nnot-a-key\n-----END PRIVATE KEY-----", false))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("CWP_JWT_PRIVATE_KEY");
+    }
+
+    @Test
+    void missingKeyFailsStartupUnlessEphemeralKeysAreAllowed() {
+        // Replicas each generating their own key would reject one another's tokens.
+        assertThatThrownBy(() -> config.signingKey("", false))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CWP_JWT_PRIVATE_KEY");
+        assertThatThrownBy(() -> config.signingKey(null, false)).isInstanceOf(IllegalStateException.class);
     }
 
     private String sign(RSAKey key, String subject) {

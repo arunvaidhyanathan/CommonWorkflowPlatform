@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from agentic_designer.app import GroundingConfig, create_app
 from agentic_designer.canvas import to_canvas
 from agentic_designer.grounding import (
-    GROUNDING_RULE, MIN_SIMILARITY, Example, SupabaseStore, examples_block, ground, index_missing, summarize,
+    GROUNDING_RULE, MIN_SIMILARITY, Example, examples_block, ground, index_missing, summarize,
 )
 from agentic_designer.specs import BPMN, DMN
 from fixtures import loan_approval
@@ -115,7 +115,7 @@ def test_ground_returns_similar_workflows_and_never_the_open_one():
 def test_grounding_failure_means_no_examples_not_an_error():
     class Broken(MemoryStore):
         async def workflows(self, spec):
-            raise httpx.ConnectError("supabase down")
+            raise httpx.ConnectError("store down")
 
     assert run(ground(Broken([], {}), FakeEmbedder(), BPMN, "loan", None)) == []
 
@@ -140,33 +140,6 @@ def test_generate_adds_examples_and_the_rule_only_with_grounding():
     assert "<tenant_examples>" not in without.calls[0][0].text and GROUNDING_RULE not in without.systems[0]
 
 
-# --- the Supabase store talks as the user --------------------------------------------------------------
-
-def test_supabase_store_uses_the_users_token_and_upserts():
-    seen = []
-
-    def handler(request):
-        seen.append(request)
-        if request.url.path.endswith("/rpc/match_workflow_embeddings"):
-            return httpx.Response(200, json=[{"workflow_id": "w1", "workflow_version_id": "v1", "name": "Loan",
-                                              "summary": "Workflow: Loan", "similarity": 0.7}])
-        return httpx.Response(201 if request.method == "POST" else 200, json=[])
-
-    store = SupabaseStore("https://proj.supabase.co", "anon-key", "user-jwt", "tenant-1",
-                          client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
-    run(store.save([{"workflow_id": "w1", "workflow_version_id": "v1", "spec_type": "BPMN", "model": "m",
-                     "content_hash": "h", "summary": "s", "embedding": "[1,0]"}]))
-    (found,) = run(store.match([1.0, 0.0], "BPMN", "m", 3, None))
-    save, match = seen
-    for r in seen:
-        # RLS scopes by the caller: the user's JWT, never a service key.
-        assert r.headers["authorization"] == "Bearer user-jwt" and r.headers["apikey"] == "anon-key"
-    assert save.url.params["on_conflict"] == "workflow_version_id,model"
-    assert json.loads(save.content)[0]["tenant_id"] == "tenant-1"
-    assert json.loads(match.content)["match_spec"] == "BPMN" and found.similarity == 0.7
-
-
-# --- through the API -----------------------------------------------------------------------------------
 
 def test_generate_streams_the_examples_used_and_meters_embeddings():
     store = MemoryStore([{"id": "w1", "name": "House loan", "current_version_id": "v1"}], {"v1": LOAN},

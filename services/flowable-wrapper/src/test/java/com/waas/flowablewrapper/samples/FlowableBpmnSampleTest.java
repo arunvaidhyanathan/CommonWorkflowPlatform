@@ -38,14 +38,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Runs the BPMN samples in Designer/samples on real Flowable 8 engines
+ * Runs the BPMN samples in src/test/resources/samples (copies of the SPA's samples) on real Flowable 8 engines
  * (process + CMMN + DMN on in-memory H2, Groovy scripts, mail to an in-test
  * SMTP sink). Each test names the business rule it protects.
  */
 class FlowableBpmnSampleTest {
 
     // -Dcwp.samples=<dir> runs the same checks on other copies (e.g. files re-saved by the Designer).
-    private static final Path SAMPLES = Path.of(System.getProperty("cwp.samples", "../../Designer/samples"));
+    private static final Path SAMPLES = Path.of(System.getProperty("cwp.samples", "src/test/resources/samples"));
 
     private static ProcessEngine engine;
     private static RuntimeService runtime;

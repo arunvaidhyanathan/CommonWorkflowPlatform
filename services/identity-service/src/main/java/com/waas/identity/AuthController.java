@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Username/password login against {@code app_auth.users}. Returns an RS256
+ * Username/password login against {@code identity.users}. Returns an RS256
  * JWT the SPA sends as a Bearer token to every CWP service.
  */
 @RestController
@@ -63,8 +63,8 @@ public class AuthController {
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         List<Account> found = jdbc.query("""
                 select u.id, u.username, u.password_hash, p.tenant_id, p.role, p.status
-                from app_auth.users u
-                left join public.profiles p on p.id = u.id
+                from identity.users u
+                left join identity.profiles p on p.id = u.id
                 where u.username = ?""",
                 (rs, i) -> new Account(rs.getObject("id", UUID.class), rs.getString("username"),
                         rs.getString("password_hash"), rs.getObject("tenant_id", UUID.class),

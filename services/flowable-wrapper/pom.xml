@@ -2,7 +2,7 @@
 <!--
   Workflow Runtime - CWP's Flowable engine host service (formerly "Runtime Gateway").
 
-  See /Users/arunvaidhyanathan/Developer/WaaS/Documents/WorkflowWrapper.html
+  See docs/archive/WorkflowWrapper.html
   for the full architecture decision. Short version: this embeds a real
   Flowable 8.0.0 engine (Process/CMMN/DMN/IDM) directly in-process via
   flowable-spring-boot-starter. An earlier version of this project believed
@@ -87,7 +87,7 @@
              flowable-spring-boot-starter-rest: that would also expose
              Flowable's own REST API (separately secured, IDM/Basic-Auth
              oriented), which would conflict with this service's single
-             Supabase-JWT security model (WorkflowWrapper.html Section 5/7).
+             JWT security model (tokens from identity-service).
              Version pinned explicitly since Spring Boot's own BOM does not
              manage Flowable's version. -->
         <dependency>

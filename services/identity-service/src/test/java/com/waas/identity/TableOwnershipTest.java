@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Workflows, versions, approvals and the audit log belong to design-service;
  * identity-service records its audit events through DesignAudit. With each
- * service on its own database role (Database/roles.sql), a direct query on
+ * service on its own database role and schema (database/00-roles.sql), a direct query on
  * those tables here fails with "permission denied".
  */
 class TableOwnershipTest {
@@ -23,7 +23,8 @@ class TableOwnershipTest {
     private static final Path ROOT = Path.of("src/main/java/com/waas/identity");
 
     private static final Pattern DESIGN_TABLE =
-            Pattern.compile("\\bpublic\\.(workflows|workflow_versions|approval_requests|audit_logs)\\b|\\bruntime\\.");
+            Pattern.compile("\\bdesign\\.(workflows|workflow_versions|approval_requests|audit_logs)\\b"
+                    + "|\\b(runtime|spend|public|app_auth)\\.[a-z_]+");
 
     @Test
     void identityServiceDoesNotQueryDesignOrRuntimeTables() throws IOException {

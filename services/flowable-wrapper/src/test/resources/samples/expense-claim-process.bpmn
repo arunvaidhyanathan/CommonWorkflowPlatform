@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:flowable="http://flowable.org/bpmn" id="Definitions_ExpenseClaim" targetNamespace="http://waas.citi.com/bpmn/expense">
+  <!--
+    Expense claim. Flowable OSS 8 BPMN capabilities shown here:
+      - Script tasks (Groovy): assess the claim, reserve/release budget, tally votes.
+        Needs cwp.scripts.enabled on the runtime (scripts run in the shared JVM).
+      - Parallel multi-instance user task over ${reviewers}, with variable
+        aggregation collecting each reviewer's vote into one "reviews" variable.
+      - Escalation: the Approval sub-process throws "directorApproval" for large
+        claims; a non-interrupting boundary event opens a Director Sign-off task
+        while the approval carries on.
+      - Compensation: "Reserve Budget" has a compensation handler ("Release
+        Budget") that a rejected claim triggers.
+      - Mail task (flowable:type="mail") telling the employee it was approved.
+      - Event sub-process started by the "claimWithdrawn" signal, interrupting
+        the whole claim.
+    Start variables: amount (number), employeeEmail, reviewers (list of member ids).
+    Each Peer Review completes with variable vote = "approve" or "reject".
+  -->
+  <signal id="Signal_ClaimWithdrawn" name="claimWithdrawn" flowable:scope="processInstance" />
+  <escalation id="Escalation_Director" name="Director approval" escalationCode="directorApproval" />
+
+  <process id="expenseClaim" name="Expense Claim" isExecutable="true">
+    <startEvent id="start" name="Claim Submitted" />
+    <sequenceFlow id="f_start" sourceRef="start" targetRef="assess" />
+
+    <scriptTask id="assess" name="Assess Claim" scriptFormat="groovy">
+      <script><![CDATA[execution.setVariable('requiresDirector', amount > 5000)]]></script>
+    </scriptTask>
+    <sequenceFlow id="f_assess" sourceRef="assess" targetRef="reserve" />
+
+    <scriptTask id="reserve" name="Reserve Budget" scriptFormat="groovy">
+      <script><![CDATA[execution.setVariable('budgetReserved', true)]]></script>
+    </scriptTask>
+    <boundaryEvent id="reserveCompensation" attachedToRef="reserve">
+      <compensateEventDefinition />
+    </boundaryEvent>
+    <scriptTask id="release" name="Release Budget" scriptFormat="groovy" isForCompensation="true">
+      <script><![CDATA[execution.setVariable('budgetReserved', false)]]></script>
+    </scriptTask>
+    <sequenceFlow id="f_reserve" sourceRef="reserve" targetRef="approval" />
+
+    <subProcess id="approval" name="Approval">
+      <startEvent id="approvalStart" />
+      <sequenceFlow id="fa_start" sourceRef="approvalStart" targetRef="peerReview" />
+      <userTask id="peerReview" name="Peer Review" flowable:assignee="${reviewer}">
+        <multiInstanceLoopCharacteristics isSequential="false" flowable:collection="${reviewers}" flowable:elementVariable="reviewer">
+          <extensionElements>
+            <flowable:variableAggregation target="reviews">
+              <flowable:variable source="vote" target="vote" />
+              <flowable:variable source="reviewer" target="reviewer" />
+            </flowable:variableAggregation>
+          </extensionElements>
+        </multiInstanceLoopCharacteristics>
+      </userTask>
+      <sequenceFlow id="fa_review" sourceRef="peerReview" targetRef="needsDirector" />
+      <exclusiveGateway id="needsDirector" name="Director needed?" default="fa_noDirector" />
+      <sequenceFlow id="fa_director" sourceRef="needsDirector" targetRef="escalateToDirector">
+        <conditionExpression xsi:type="tFormalExpression"><![CDATA[${requiresDirector}]]></conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow id="fa_noDirector" sourceRef="needsDirector" targetRef="approvalEnd" />
+      <intermediateThrowEvent id="escalateToDirector" name="Escalate to Director">
+        <escalationEventDefinition escalationRef="Escalation_Director" />
+      </intermediateThrowEvent>
+      <sequenceFlow id="fa_escalated" sourceRef="escalateToDirector" targetRef="approvalEnd" />
+      <endEvent id="approvalEnd" />
+    </subProcess>
+    <boundaryEvent id="directorEscalation" name="Director needed" attachedToRef="approval" cancelActivity="false">
+      <escalationEventDefinition escalationRef="Escalation_Director" />
+    </boundaryEvent>
+    <sequenceFlow id="f_toDirector" sourceRef="directorEscalation" targetRef="directorSignOff" />
+    <userTask id="directorSignOff" name="Director Sign-off" flowable:candidateGroups="tenant_admin" />
+    <sequenceFlow id="f_directorDone" sourceRef="directorSignOff" targetRef="directorEnd" />
+    <endEvent id="directorEnd" />
+
+    <sequenceFlow id="f_approval" sourceRef="approval" targetRef="tally" />
+    <scriptTask id="tally" name="Tally Votes" scriptFormat="groovy">
+      <script><![CDATA[execution.setVariable('approved', reviews.every { it.get('vote').asString() == 'approve' })]]></script>
+    </scriptTask>
+    <sequenceFlow id="f_tally" sourceRef="tally" targetRef="decide" />
+    <exclusiveGateway id="decide" name="Approved?" default="f_rejected" />
+    <sequenceFlow id="f_approved" sourceRef="decide" targetRef="notify">
+      <conditionExpression xsi:type="tFormalExpression"><![CDATA[${approved}]]></conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="f_rejected" sourceRef="decide" targetRef="undoReservation" />
+
+    <serviceTask id="notify" name="Notify Employee" flowable:type="mail">
+      <extensionElements>
+        <flowable:field name="to">
+          <flowable:expression><![CDATA[${employeeEmail}]]></flowable:expression>
+        </flowable:field>
+        <flowable:field name="subject">
+          <flowable:string><![CDATA[Expense claim approved]]></flowable:string>
+        </flowable:field>
+        <flowable:field name="text">
+          <flowable:expression><![CDATA[Your expense claim for ${amount} was approved.]]></flowable:expression>
+        </flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="f_notify" sourceRef="notify" targetRef="paid" />
+    <endEvent id="paid" name="Paid" />
+
+    <intermediateThrowEvent id="undoReservation" name="Undo Reservation">
+      <compensateEventDefinition />
+    </intermediateThrowEvent>
+    <sequenceFlow id="f_undone" sourceRef="undoReservation" targetRef="rejected" />
+    <endEvent id="rejected" name="Rejected" />
+
+    <subProcess id="withdrawal" name="Withdrawal" triggeredByEvent="true">
+      <startEvent id="withdrawn" name="Claim Withdrawn" isInterrupting="true">
+        <signalEventDefinition signalRef="Signal_ClaimWithdrawn" />
+      </startEvent>
+      <sequenceFlow id="fw_start" sourceRef="withdrawn" targetRef="recordWithdrawal" />
+      <scriptTask id="recordWithdrawal" name="Record Withdrawal" scriptFormat="groovy">
+        <script><![CDATA[execution.setVariable('withdrawn', true)]]></script>
+      </scriptTask>
+      <sequenceFlow id="fw_end" sourceRef="recordWithdrawal" targetRef="withdrawalEnd" />
+      <endEvent id="withdrawalEnd" />
+    </subProcess>
+
+    <!-- Artifacts must follow every flow element (BPMN schema order). -->
+    <association id="a_compensation" associationDirection="One" sourceRef="reserveCompensation" targetRef="release" />
+  </process>
+</definitions>

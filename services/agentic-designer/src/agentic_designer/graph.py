@@ -1,7 +1,7 @@
 """The typed workflow graph the model is allowed to produce.
 
 Field names serialize in camelCase so the vocabulary matches the Designer
-SPA's ``NodeData`` (Designer/src/store/useWorkbenchStore.ts) one to one.
+SPA's ``NodeData`` (services/web-app/src/store/useWorkbenchStore.ts) one to one.
 ``extra="forbid"`` everywhere: a model inventing an attribute is a schema
 error, not something silently dropped.
 """
@@ -15,7 +15,7 @@ from pydantic.alias_generators import to_camel
 # itself generates and the BPMN adapter round-trips.
 ID_PATTERN = r"^[A-Za-z_][A-Za-z0-9_.-]*$"
 
-# The Designer's BPMN palette (Designer/src/nodes/nodeTypes.ts) minus:
+# The Designer's BPMN palette (services/web-app/src/nodes/nodeTypes.ts) minus:
 # - boundaryEvent: needs an attachedTo host, which the canvas format can't
 #   express yet;
 # - genericNode: the Designer's fallback for unknown BPMN elements, not

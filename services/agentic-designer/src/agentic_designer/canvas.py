@@ -1,8 +1,8 @@
 """Conversion between WorkflowGraph and the Designer SPA's canvas format.
 
-The canvas format is ``GraphSnapshot`` (Designer/src/data/workflows.ts):
+The canvas format is ``GraphSnapshot`` (services/web-app/src/data/workflows.ts):
 React Flow nodes and edges, the same shape ``parseBpmnXml`` produces in
-Designer/src/adapters/bpmnAdapter.ts and that ``workflow_versions.graph_json``
+services/web-app/src/adapters/bpmnAdapter.ts and that ``workflow_versions.graph_json``
 stores. Layout is not the agent's job: every node gets the same position, which
 is exactly what the SPA's ``needsAutoLayout`` looks for before running
 ``applyAutoLayout``.

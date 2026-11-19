@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:flowable="http://flowable.org/bpmn" id="Definitions_CustomerOnboarding" targetNamespace="http://waas.citi.com/bpmn/onboarding">
+  <!--
+    Customer onboarding. Flowable OSS 8 BPMN capabilities shown here:
+      - Case service task (flowable:type="case"): the process starts the KYC case
+        (kyc-onboarding-case.cmmn) and waits for it to finish, passing the
+        applicant in and the KYC result back out.
+      - Ad-hoc sub-process: account-setup tasks have no fixed order; a case
+        worker starts each when needed, and the sub-process completes once its
+        completion condition holds.
+      - Conditional catch event: waits until riskReviewed is true.
+      - Variable listener catch event: waits until welcomeCallDone is set.
+    Start variables: country, productType, expectedMonthlyVolume, isPep, customerType.
+  -->
+  <process id="customerOnboarding" name="Customer Onboarding" isExecutable="true">
+    <startEvent id="start" name="Application Received" />
+    <sequenceFlow id="f_start" sourceRef="start" targetRef="runKyc" />
+
+    <serviceTask id="runKyc" name="Run KYC Case" flowable:type="case" flowable:caseDefinitionKey="kycOnboardingCase">
+      <extensionElements>
+        <flowable:in source="country" target="country" />
+        <flowable:in source="productType" target="productType" />
+        <flowable:in source="expectedMonthlyVolume" target="expectedMonthlyVolume" />
+        <flowable:in source="isPep" target="isPep" />
+        <flowable:in source="customerType" target="customerType" />
+        <flowable:out source="kycAssessmentService" target="kycResult" />
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="f_kyc" sourceRef="runKyc" targetRef="accountSetup" />
+
+    <adHocSubProcess id="accountSetup" name="Account Setup" ordering="Parallel">
+      <userTask id="orderCard" name="Order Debit Card" flowable:candidateGroups="designer" />
+      <userTask id="onlineBanking" name="Set Up Online Banking" flowable:candidateGroups="designer" />
+      <userTask id="overdraft" name="Arrange Overdraft" flowable:candidateGroups="designer" />
+      <!-- Checked after each task completes, before both flags exist: read them null-safely. -->
+      <completionCondition xsi:type="tFormalExpression"><![CDATA[${vars:getOrDefault('cardOrdered', false) && vars:getOrDefault('onlineBankingReady', false)}]]></completionCondition>
+    </adHocSubProcess>
+    <sequenceFlow id="f_setup" sourceRef="accountSetup" targetRef="awaitRiskReview" />
+
+    <intermediateCatchEvent id="awaitRiskReview" name="Await Risk Review">
+      <conditionalEventDefinition>
+        <condition xsi:type="tFormalExpression"><![CDATA[${riskReviewed == true}]]></condition>
+      </conditionalEventDefinition>
+    </intermediateCatchEvent>
+    <sequenceFlow id="f_reviewed" sourceRef="awaitRiskReview" targetRef="awaitWelcomeCall" />
+
+    <intermediateCatchEvent id="awaitWelcomeCall" name="Await Welcome Call">
+      <extensionElements>
+        <flowable:variableListenerEventDefinition variableName="welcomeCallDone" variableChangeType="all" />
+      </extensionElements>
+    </intermediateCatchEvent>
+    <sequenceFlow id="f_called" sourceRef="awaitWelcomeCall" targetRef="onboarded" />
+    <endEvent id="onboarded" name="Customer Onboarded" />
+  </process>
+</definitions>

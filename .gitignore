@@ -1,14 +1,14 @@
 # macOS
 .DS_Store
 
-# Node (Designer)
+# Node (services/web-app)
 node_modules/
 dist/
 dist-ssr/
+.vite/
 *.local
 
-# Java (Workflow-Wrapper) -- uncompiled in this environment, but ignore
-# build output for whenever it is compiled elsewhere
+# Java (identity-service, design-service, flowable-wrapper)
 target/
 *.class
 *.jar
@@ -19,7 +19,7 @@ target/
 .idea/
 *.sw?
 
-# Python (services/agentic-designer)
+# Python (services/agentic-designer, services/spend-tracker)
 .venv/
 __pycache__/
 .pytest_cache/
@@ -33,4 +33,4 @@ npm-debug.log*
 .local-logs/
 
 # Archify validation receipts (contain absolute local paths); the diagram and its candidate.json are committed
-Documents/archify/*.json
+docs/code-maps/archify/*.json

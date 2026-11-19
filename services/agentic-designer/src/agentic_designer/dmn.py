@@ -1,9 +1,9 @@
 """DMN decision-table contract, validator and conversion (AgenticDesigner.html
 phase A4).
 
-Mirrors the Designer's DMN model (Designer/src/adapters/dmnAdapter.ts):
+Mirrors the Designer's DMN model (services/web-app/src/adapters/dmnAdapter.ts):
 standalone decision tables, no decision requirements graph. Conventions
-follow the Designer's sample (Designer/samples/investigation-decisions.dmn):
+follow the Designer's sample (services/web-app/samples/investigation-decisions.dmn):
 string literals are quoted ("Trading"), "-" means any value, and entries
 are FEEL unary tests (">= 3", "< 3", "[1..5]").
 """

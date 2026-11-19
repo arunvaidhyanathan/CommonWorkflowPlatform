@@ -9,14 +9,10 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
 /**
- * Reads tenant_id / role / user id out of the current request's Supabase
- * JWT. This is the Runtime Gateway's equivalent of Postgres's
- * {@code current_tenant_id()} / {@code current_role_claim()} -- except,
- * critically, there is no RLS backstop here (WorkflowWrapper.html Section
- * 7). Every repository/service method that touches {@code runtime} schema
- * data MUST call {@link #currentTenantId()} and filter by it explicitly;
- * nothing enforces that automatically the way Postgres RLS does for the
- * anon-key-facing side of this platform.
+ * Reads tenant_id / role / user id out of the current request's login token
+ * (issued by identity-service). There is no database-level backstop: every
+ * repository/service method that touches {@code runtime} schema data MUST
+ * call {@link #currentTenantId()} and filter by it explicitly.
  */
 public final class TenantContext {
 
@@ -49,7 +45,7 @@ public final class TenantContext {
         return role == null ? null : role.toString();
     }
 
-    /** The Supabase auth.users id ({@code sub} claim) -- equivalent to {@code auth.uid()} in Postgres. */
+    /** The user id ({@code sub} claim), identity-service's identity.users id. */
     public static UUID currentUserId() {
         String sub = currentJwt().getSubject();
         return UUID.fromString(sub);

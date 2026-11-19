@@ -51,7 +51,7 @@ public class InternalAuditController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Internal token required.");
         }
         db.jdbc.update("""
-                insert into public.audit_logs (tenant_id, actor_id, action, entity_type, entity_id, before, after)
+                insert into design.audit_logs (tenant_id, actor_id, action, entity_type, entity_id, before, after)
                 values (?, ?, ?, ?, ?, ?::jsonb, ?::jsonb)""",
                 event.tenantId(), event.actorId(), event.action(), event.entityType(), event.entityId(),
                 event.before() == null ? null : event.before().toString(),

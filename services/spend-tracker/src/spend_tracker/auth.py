@@ -1,8 +1,7 @@
 """Who may see what (SpendTracker.html Section 3.5).
 
-The same Supabase JWT check as agentic-designer and flowable-wrapper
-(signature + expiry against the project's JWKS; tenant and role from
-app_metadata). This is copied rather than shared on purpose: each service
+The same login-token check as the other CWP services (signature + expiry
+against identity-service's JWKS; tenant and role from app_metadata). This is copied rather than shared on purpose: each service
 owns its auth code, and it is small.
 
 Access:
@@ -11,16 +10,13 @@ Access:
   yet (Governance.html Section 3.1).
 - tenant_admin: their own tenant's spend only. The keys are the platform
   operator's, and showing one tenant another tenant's usage would break the
-  tenant isolation RLS enforces everywhere else.
+  tenant isolation enforced everywhere else.
 - the ingest endpoint: services only, with a shared token, never a user.
 """
 
-import hashlib
 import hmac
-import time
 from dataclasses import dataclass
 
-import httpx
 import jwt
 from fastapi import Depends, HTTPException, Request
 
@@ -33,55 +29,18 @@ class Viewer:
     platform_admin: bool
 
 
-# How long a Supabase Auth confirmation of an HS256 token is reused.
-AUTH_CONFIRM_TTL_S = 60
-
-
 class JwtVerifier:
-    """JWKS keys (ES256/RS256), or for HS256 tokens the project's legacy
-    secret when configured, else Supabase Auth (GET /auth/v1/user, reused
-    for AUTH_CONFIRM_TTL_S), like agentic-designer."""
+    """Login tokens are signed by identity-service with a key published in its JWKS."""
 
-    def __init__(self, jwks_url: str, hs256_secret: str | None = None,
-                 supabase_url: str | None = None, anon_key: str | None = None,
-                 http: httpx.Client | None = None):
+    def __init__(self, jwks_url: str):
         self._jwks = jwt.PyJWKClient(jwks_url, cache_keys=True)
-        self._hs256_secret = hs256_secret or None
-        self._user_url = f"{supabase_url.rstrip('/')}/auth/v1/user" if supabase_url and anon_key else None
-        self._anon_key = anon_key
-        self._http = http or httpx.Client(timeout=5)
-        self._confirmed: dict[str, float] = {}
+
+    def signing_key(self, token: str):
+        return self._jwks.get_signing_key_from_jwt(token).key
 
     def verify(self, token: str) -> dict:
-        if jwt.get_unverified_header(token).get("alg") == "HS256":
-            if self._hs256_secret:
-                return jwt.decode(token, self._hs256_secret, algorithms=["HS256"],
-                                  options={"verify_aud": False, "require": ["exp", "sub"]})
-            if self._user_url:
-                return self._confirm_with_supabase_auth(token)
-            raise jwt.InvalidTokenError(
-                "HS256 token, but neither SUPABASE_JWT_HS256_SECRET nor SUPABASE_URL and SUPABASE_ANON_KEY are configured")
-        key = self._jwks.get_signing_key_from_jwt(token).key
-        return jwt.decode(token, key, algorithms=["ES256", "RS256"],
+        return jwt.decode(token, self.signing_key(token), algorithms=["RS256", "ES256"],
                           options={"verify_aud": False, "require": ["exp", "sub"]})
-
-    def _confirm_with_supabase_auth(self, token: str) -> dict:
-        claims = jwt.decode(token, options={"verify_signature": False, "verify_exp": True,
-                                            "require": ["exp", "sub"]})
-        key = hashlib.sha256(token.encode()).hexdigest()
-        now = time.monotonic()
-        if now - self._confirmed.get(key, float("-inf")) > AUTH_CONFIRM_TTL_S:
-            try:
-                r = self._http.get(self._user_url, headers={"apikey": self._anon_key, "Authorization": f"Bearer {token}"})
-            except httpx.HTTPError as exc:
-                raise jwt.InvalidTokenError(f"could not reach Supabase Auth to check the token: {exc}") from exc
-            if r.status_code != 200:
-                raise jwt.InvalidTokenError(f"Supabase Auth rejected the token (HTTP {r.status_code})")
-            if r.json().get("id") != claims["sub"]:
-                raise jwt.InvalidTokenError("Supabase Auth returned a different user than the token names")
-            self._confirmed = {k: t for k, t in self._confirmed.items() if now - t <= AUTH_CONFIRM_TTL_S}
-            self._confirmed[key] = now
-        return claims
 
 
 def current_viewer(request: Request) -> Viewer:

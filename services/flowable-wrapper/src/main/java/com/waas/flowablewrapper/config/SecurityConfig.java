@@ -42,6 +42,6 @@ public class SecurityConfig {
                     org.springframework.security.oauth2.jwt.Jwt,
                     org.springframework.security.authentication.AbstractAuthenticationToken>
             jwtAuthenticationConverter() {
-        return new SupabaseJwtAuthenticationConverter();
+        return new JwtRoleAuthenticationConverter();
     }
 }

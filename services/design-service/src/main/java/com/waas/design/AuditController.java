@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * The tenant's audit log. Design-time entries come from the triggers in
- * policies.sql; identity-service's (role and status changes) arrive through
+* database/03-design.sql; identity-service's (role and status changes) arrive through
  * InternalAuditController. Actors are ids only: user details are
  * identity-service's.
  */
@@ -40,7 +40,7 @@ public class AuditController {
         return db.jdbc.query("""
                 select id, actor_id, action, entity_type, entity_id,
                        before::text as before, after::text as after, occurred_at
-                from public.audit_logs
+                from design.audit_logs
                 where tenant_id = ? order by occurred_at desc limit ?""",
                 (rs, i) -> new AuditLogEntry(rs.getObject("id", UUID.class), rs.getObject("actor_id", UUID.class),
                         rs.getString("action"), rs.getString("entity_type"),

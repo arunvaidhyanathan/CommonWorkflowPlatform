@@ -1,6 +1,6 @@
 """The canvas converter is the contract with the Designer SPA.
 
-Shapes here mirror what Designer/src/adapters/bpmnAdapter.ts#parseBpmnXml
+Shapes here mirror what services/web-app/src/adapters/bpmnAdapter.ts#parseBpmnXml
 produces and what workflow_versions.graph_json stores.
 """
 

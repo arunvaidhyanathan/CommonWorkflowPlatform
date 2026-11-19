@@ -1,5 +1,5 @@
 """An in-memory tenant for evaluating grounding: the same GroundingStore
-interface as Supabase, with exact cosine similarity in Python."""
+interface as any store, with exact cosine similarity in Python."""
 
 import json
 import math

@@ -42,12 +42,12 @@ public class InternalController {
             @PathVariable UUID tenantId, @PathVariable UUID userId) {
         requireInternalToken(token);
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "select role, status from public.profiles where id = ? and tenant_id = ?", userId, tenantId);
+                "select role, status from identity.profiles where id = ? and tenant_id = ?", userId, tenantId);
         if (rows.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Member not found.");
         }
         List<String> groups = jdbc.queryForList(
-                "select group_key from public.group_members where user_id = ? and tenant_id = ? order by group_key",
+                "select group_key from identity.group_members where user_id = ? and tenant_id = ? order by group_key",
                 String.class, userId, tenantId);
         return new Member(userId, tenantId, (String) rows.get(0).get("role"), (String) rows.get(0).get("status"),
                 groups);

@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Workflows and their immutable versions (was direct Supabase CRUD in Designer/src/data/workflows.ts). */
+/** Workflows and their immutable versions (schema design). */
 @RestController
 @RequestMapping("/design")
 public class WorkflowController {
@@ -71,21 +71,21 @@ public class WorkflowController {
     @GetMapping("/workflows")
     public List<WorkflowSummary> list() {
         return db.jdbc.query("select " + SUMMARY_COLUMNS
-                + " from public.workflows where tenant_id = ? order by updated_at desc",
+                + " from design.workflows where tenant_id = ? order by updated_at desc",
                 WorkflowController::summary, db.tenantId());
     }
 
     @GetMapping("/workflows/key-taken")
     public Map<String, Boolean> keyTaken(@RequestParam String key) {
         Boolean taken = db.jdbc.queryForObject(
-                "select exists (select 1 from public.workflows where tenant_id = ? and definition_key = ?)",
+                "select exists (select 1 from design.workflows where tenant_id = ? and definition_key = ?)",
                 Boolean.class, db.tenantId(), key);
         return Map.of("taken", Boolean.TRUE.equals(taken));
     }
 
     @GetMapping("/workflows/{id}")
     public WorkflowSummary get(@PathVariable UUID id) {
-        return db.jdbc.query("select " + SUMMARY_COLUMNS + " from public.workflows where id = ? and tenant_id = ?",
+        return db.jdbc.query("select " + SUMMARY_COLUMNS + " from design.workflows where id = ? and tenant_id = ?",
                 WorkflowController::summary, id, db.tenantId())
                 .stream().findFirst().orElseThrow(() -> DesignDb.notFound("Workflow"));
     }
@@ -97,7 +97,7 @@ public class WorkflowController {
     public Map<String, UUID> create(@Valid @RequestBody CreateWorkflowRequest request) {
         DesignDb.Actor actor = db.writer(AUTHORS);
         UUID workflowId = db.jdbc.queryForObject("""
-                insert into public.workflows (tenant_id, definition_key, name, description, spec_type, status, created_by)
+                insert into design.workflows (tenant_id, definition_key, name, description, spec_type, status, created_by)
                 values (?, ?, ?, ?, ?, 'draft', ?) returning id""",
                 UUID.class, actor.tenantId(), request.definitionKey(), request.name(), request.description(),
                 request.specType(), actor.userId());
@@ -113,7 +113,7 @@ public class WorkflowController {
     public Map<String, Object> saveVersion(@PathVariable UUID id, @Valid @RequestBody SaveVersionRequest request) {
         DesignDb.Actor actor = db.writer(AUTHORS);
         Boolean inTenant = db.jdbc.queryForObject(
-                "select exists (select 1 from public.workflows where id = ? and tenant_id = ?)",
+                "select exists (select 1 from design.workflows where id = ? and tenant_id = ?)",
                 Boolean.class, id, actor.tenantId());
         if (!Boolean.TRUE.equals(inTenant)) {
             throw DesignDb.notFound("Workflow");
@@ -123,15 +123,15 @@ public class WorkflowController {
 
     private Map<String, Object> insertVersion(DesignDb.Actor actor, UUID workflowId, JsonNode graph, String xml) {
         // Lock the workflow row so two concurrent saves can't pick the same version_no.
-        db.jdbc.queryForObject("select id from public.workflows where id = ? for update", UUID.class, workflowId);
+        db.jdbc.queryForObject("select id from design.workflows where id = ? for update", UUID.class, workflowId);
         Integer versionNo = db.jdbc.queryForObject(
-                "select coalesce(max(version_no), 0) + 1 from public.workflow_versions where workflow_id = ?",
+                "select coalesce(max(version_no), 0) + 1 from design.workflow_versions where workflow_id = ?",
                 Integer.class, workflowId);
         UUID versionId = db.jdbc.queryForObject("""
-                insert into public.workflow_versions (workflow_id, version_no, graph_json, xml_content, created_by)
+                insert into design.workflow_versions (workflow_id, version_no, graph_json, xml_content, created_by)
                 values (?, ?, ?::jsonb, ?, ?) returning id""",
                 UUID.class, workflowId, versionNo, db.toJson(graph), xml == null ? "" : xml, actor.userId());
-        db.jdbc.update("update public.workflows set current_version_id = ?, updated_at = now() where id = ?",
+        db.jdbc.update("update design.workflows set current_version_id = ?, updated_at = now() where id = ?",
                 versionId, workflowId);
         return Map.of("versionId", versionId, "versionNo", versionNo);
     }
@@ -140,7 +140,7 @@ public class WorkflowController {
     public WorkflowVersion getVersion(@PathVariable UUID id) {
         return db.jdbc.query("""
                 select v.workflow_id, v.version_no, v.graph_json::text as graph, v.xml_content
-                from public.workflow_versions v join public.workflows w on w.id = v.workflow_id
+                from design.workflow_versions v join design.workflows w on w.id = v.workflow_id
                 where v.id = ? and w.tenant_id = ?""",
                 (rs, i) -> new WorkflowVersion(rs.getObject("workflow_id", UUID.class), rs.getInt("version_no"),
                         db.parseJson(rs.getString("graph")), rs.getString("xml_content")),
@@ -154,7 +154,7 @@ public class WorkflowController {
     public void archive(@PathVariable UUID id) {
         DesignDb.Actor actor = db.writer(AUTHORS);
         int updated = db.jdbc.update(
-                "update public.workflows set status = 'archived', updated_at = now() where id = ? and tenant_id = ?",
+                "update design.workflows set status = 'archived', updated_at = now() where id = ? and tenant_id = ?",
                 id, actor.tenantId());
         if (updated == 0) {
             throw DesignDb.notFound("Workflow");
@@ -166,7 +166,7 @@ public class WorkflowController {
     @Transactional
     public void delete(@PathVariable UUID id) {
         DesignDb.Actor actor = db.writer("tenant_admin");
-        int deleted = db.jdbc.update("delete from public.workflows where id = ? and tenant_id = ?",
+        int deleted = db.jdbc.update("delete from design.workflows where id = ? and tenant_id = ?",
                 id, actor.tenantId());
         if (deleted == 0) {
             throw DesignDb.notFound("Workflow");

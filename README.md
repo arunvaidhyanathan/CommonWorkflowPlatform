@@ -1,48 +1,36 @@
 # Common Workflow Platform (CWP)
 
-**Developers: start with [`Documents/Developer_Manifesto.html`](Documents/Developer_Manifesto.html)** (architecture, setup, every setting, testing, runbooks, the manual test plan). Platform index: [`Documents/CWP.html`](Documents/CWP.html).
+A multi-tenant platform to design BPMN, CMMN and DMN workflows, approve
+them, deploy them to an embedded Flowable 8 engine and run the work. Seven
+independently deployable services behind one internal gateway, on one
+PostgreSQL database with a schema per service.
 
 ## Layout
 
 | Path | What it is |
 |---|---|
-| `Designer/` | The React SPA (app shell: Designer, Workbench, Approvals, Administration, Workflow Wrapper screens) |
-| `gateway/` | nginx edge gateway: serves the SPA, routes `/api/*` to services, owns CORS / rate limits / request ids |
-| `services/flowable-wrapper/` | Java 21 / Spring Boot 4 / Flowable 8 engine host |
+| `services/gateway/` | nginx entry point: routes `/api/*` to the services and `/` to web-app |
+| `services/web-app/` | The browser app (React + Vite), served by nginx |
+| `services/identity-service/` | Login, RS256 tokens + JWKS, tenants, members, groups, invites (Java 21 / Spring Boot 4) |
 | `services/design-service/` | Workflows, immutable versions, approvals, audit log (Java 21 / Spring Boot 4) |
-| `services/identity-service/` | Login, RS256 tokens + JWKS, tenant members, groups, invites (Java 21 / Spring Boot 4) |
-| `services/agentic-designer/` | Agentic Designer: LLM-assisted workflow authoring (Python / FastAPI) |
-| `services/spend-tracker/` | API spend tracker: usage events, spend summaries, API key health (Python / FastAPI) |
-| `Database/` | Schema + RLS (`schema.sql`, `policies.sql`), local seed (`local.sql`), one login role per service (`roles.sql`, local/compose only; check with `check_roles.sh`) |
+| `services/flowable-wrapper/` | Flowable 8 engine host: deploy, start, claim, complete, jobs, decisions (Java 21 / Spring Boot 4) |
+| `services/agentic-designer/` | AI-assisted workflow authoring (Python / FastAPI) |
+| `services/spend-tracker/` | API spend, budgets and key health (Python / FastAPI) |
+| `database/` | Ordered SQL scripts (roles, schemas, tables), `apply.sh`, role check, local seed |
+| `docs/` | Architecture, OpenShift deployment, database, operations, local development, code maps |
 
-Supabase (hosted) stays the identity and design-time data backend.
+Each service folder is self-contained (code, Dockerfile, README, tests) and
+builds on its own: `docker build services/<service>`.
 
-## Run the stack
+## Start here
+
+- Deploy to OpenShift: [docs/deployment-openshift.md](docs/deployment-openshift.md)
+- Architecture: [docs/architecture.md](docs/architecture.md)
+- Run locally: [docs/local-development.md](docs/local-development.md)
+
+Quick local run:
 
 ```
-cp .env.example .env        # set the *_DB_PASSWORD values, CWP_INTERNAL_TOKEN (any values) and GEMINI_API_KEY
-docker compose up -d --build
+createdb cwp && database/apply.sh --seed-local -- -d cwp
+./run-local.sh     # http://localhost:5173, users admin / designer / approver, password "password"
 ```
-
-Open `http://localhost:8080` (or `GATEWAY_PORT` from `.env`). The SPA is
-built into the gateway image and reads its Supabase settings from
-`Designer/.env.local`, so that file must exist before building.
-
-| Route | Goes to |
-|---|---|
-| `/` | SPA |
-| `/healthz` | Gateway health |
-| `/api/flowable/**` | flowable-wrapper (`/runtime/**`) |
-| `/api/identity/**` | identity-service (`/identity/**`) |
-| `/api/design/**` | design-service (`/design/**`) |
-| `/api/agent/**` | agentic-designer (`/**`) |
-| `/api/spend/**` | spend-tracker (`/**`); `/api/spend/events` is blocked (internal only) |
-
-identity-service issues RS256 login tokens; every service verifies them itself against its `/.well-known/jwks.json`. nginx does not, and never routes `/internal/**`.
-
-### Vite dev against the stack
-
-Run `npm run dev` in `Designer/` with
-`VITE_API_BASE_URL=http://localhost:<GATEWAY_PORT>/api` in
-`Designer/.env.local`. `http://localhost:5173` is in the gateway's default
-CORS allow-list (`CORS_ALLOWED_ORIGINS`).

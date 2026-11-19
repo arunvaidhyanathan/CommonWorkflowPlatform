@@ -1,15 +1,17 @@
 # identity-service configuration. Every secret-shaped value is env-var driven
 # with a local-dev-only fallback -- nothing here is a real credential.
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 25s
   application:
     name: identity-service
 
   datasource:
-    # identity's tables (app_auth.users, public.tenants / profiles /
+    # identity's tables (identity.users, identity.tenants / profiles /
     # group_members / invites) share the local `cwp` database with the other
     # services, but the cwp_identity role can reach only these
-    # (Database/roles.sql).
-    url: ${IDENTITY_DB_URL:jdbc:postgresql://localhost:5432/cwp?currentSchema=public}
+    # (database/00-roles.sql).
+    url: ${IDENTITY_DB_URL:jdbc:postgresql://localhost:5432/cwp?currentSchema=identity}
     username: ${IDENTITY_DB_USER:cwp_identity}
     password: ${IDENTITY_DB_PASSWORD:}
     hikari:
@@ -21,6 +23,9 @@ cwp:
     # generated at startup (local dev only -- every restart logs everyone out,
     # and two replicas would not accept each other's tokens).
     private-key: ${CWP_JWT_PRIVATE_KEY:}
+    # Local development only: without a key, generate a throwaway one instead
+    # of refusing to start. Never on OpenShift (replicas would disagree).
+    allow-ephemeral-key: ${CWP_JWT_ALLOW_EPHEMERAL_KEY:false}
     ttl: ${CWP_JWT_TTL:PT8H}
     issuer: ${CWP_JWT_ISSUER:cwp-identity}
   # design-service keeps the tenant's audit log; role and status changes are
@@ -34,9 +39,16 @@ cwp:
 
 server:
   port: ${PORT:8082}
+  # Finish in-flight requests before stopping (rolling deploys, scale-in).
+  shutdown: graceful
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+  # /actuator/health/liveness and /actuator/health/readiness for OpenShift probes.
+  endpoint:
+    health:
+      probes:
+        enabled: true

@@ -2,12 +2,14 @@
 # with a local-dev-only fallback -- nothing here is a real credential.
 # See README.md for what each of these needs to be set to for a real run.
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 25s
   application:
     name: flowable-wrapper
 
   datasource:
     # Local Postgres. JPA/Liquibase/Flowable create their tables in the
-    # `runtime` schema, which the cwp_runtime role owns (Database/roles.sql);
+    # `runtime` schema, which the cwp_runtime role owns (database/01-schemas.sql);
     # it has no access to the identity or design tables.
     url: ${WORKFLOW_RUNTIME_DB_URL:jdbc:postgresql://localhost:5432/cwp?currentSchema=runtime}
     username: ${WORKFLOW_RUNTIME_DB_USER:cwp_runtime}
@@ -39,8 +41,8 @@ spring:
     change-log: classpath:db/changelog/db.changelog-master.yaml
     # Where Liquibase applies changes AND where it creates its own
     # DATABASECHANGELOG/DATABASECHANGELOGLOCK tracking tables -- keeps
-    # everything Liquibase-related inside `runtime`, out of the
-    # Supabase-owned `public` schema entirely.
+    # everything Liquibase-related inside `runtime`, the only schema the
+    # cwp_runtime role owns (database/01-schemas.sql).
     default-schema: runtime
     liquibase-schema: runtime
 
@@ -105,12 +107,17 @@ cwp:
 
 server:
   port: ${PORT:8081}
+  # Finish in-flight requests before stopping (rolling deploys, scale-in).
+  shutdown: graceful
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+  # /actuator/health/liveness and /actuator/health/readiness for OpenShift probes.
   endpoint:
     health:
+      probes:
+        enabled: true
       show-details: when-authorized

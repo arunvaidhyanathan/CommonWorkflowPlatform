@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Users, profiles, groups, invites and tenants belong to identity-service;
  * design-service asks it through IdentityClient. Once each service gets its
- * own database role (Database/roles.sql), any direct query on those tables
+ * own database role and schema (database/00-roles.sql), any direct query on those tables
  * here fails with "permission denied".
  */
 class TableOwnershipTest {
@@ -23,7 +23,8 @@ class TableOwnershipTest {
     private static final Path ROOT = Path.of("src/main/java/com/waas/design");
 
     private static final Pattern IDENTITY_TABLE =
-            Pattern.compile("\\b(app_auth\\.[a-z_]+|public\\.(profiles|group_members|invites|tenants))\\b");
+            Pattern.compile("\\bidentity\\.(users|tenants|profiles|group_members|invites)\\b"
+                    + "|\\b(runtime|spend|public|app_auth)\\.[a-z_]+");
 
     @Test
     void designServiceDoesNotQueryIdentityTables() throws IOException {

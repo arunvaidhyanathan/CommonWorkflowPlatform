@@ -51,14 +51,14 @@ public class ApprovalController {
     public void submit(@Valid @RequestBody SubmitRequest request) {
         DesignDb.Actor actor = db.writer("designer", "tenant_admin");
         Boolean valid = db.jdbc.queryForObject("""
-                select exists (select 1 from public.workflow_versions v join public.workflows w on w.id = v.workflow_id
+                select exists (select 1 from design.workflow_versions v join design.workflows w on w.id = v.workflow_id
                                where v.id = ? and w.id = ? and w.tenant_id = ?)""",
                 Boolean.class, request.versionId(), request.workflowId(), actor.tenantId());
         if (!Boolean.TRUE.equals(valid)) {
             throw DesignDb.notFound("Workflow version");
         }
         db.jdbc.update("""
-                insert into public.approval_requests (tenant_id, workflow_id, version_id, requested_by)
+                insert into design.approval_requests (tenant_id, workflow_id, version_id, requested_by)
                 values (?, ?, ?, ?)""",
                 actor.tenantId(), request.workflowId(), request.versionId(), actor.userId());
     }
@@ -68,9 +68,9 @@ public class ApprovalController {
         return db.jdbc.query("""
                 select a.id, a.workflow_id, a.version_id, a.status, a.requested_by, a.requested_at, a.approver_id,
                        a.decided_at, a.comment, w.name, w.definition_key, w.spec_type, v.version_no
-                from public.approval_requests a
-                join public.workflows w on w.id = a.workflow_id
-                join public.workflow_versions v on v.id = a.version_id
+                from design.approval_requests a
+                join design.workflows w on w.id = a.workflow_id
+                join design.workflow_versions v on v.id = a.version_id
                 where a.tenant_id = ? and a.status = 'pending'
                 order by a.requested_at""",
                 (rs, i) -> new ApprovalRequest(rs.getObject("id", UUID.class), rs.getObject("workflow_id", UUID.class),
@@ -89,7 +89,7 @@ public class ApprovalController {
     public void decide(@PathVariable UUID id, @Valid @RequestBody DecisionRequest request) {
         DesignDb.Actor actor = db.writer("approver");
         List<UUID> requester = db.jdbc.query("""
-                select requested_by from public.approval_requests
+                select requested_by from design.approval_requests
                 where id = ? and tenant_id = ? and status = 'pending' for update""",
                 (rs, i) -> rs.getObject("requested_by", UUID.class), id, actor.tenantId());
         if (requester.isEmpty()) {
@@ -99,7 +99,7 @@ public class ApprovalController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot decide on your own submission.");
         }
         db.jdbc.update("""
-                update public.approval_requests
+                update design.approval_requests
                 set status = ?, approver_id = ?, decided_at = now(), comment = ?
                 where id = ?""",
                 request.decision(), actor.userId(), request.comment(), id);

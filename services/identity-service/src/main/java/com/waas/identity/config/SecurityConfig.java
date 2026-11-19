@@ -48,8 +48,9 @@ public class SecurityConfig {
     }
 
     @Bean
-    public RSAKey signingKey(@Value("${cwp.jwt.private-key:}") String pem) {
-        return SigningKeys.load(pem);
+    public RSAKey signingKey(@Value("${cwp.jwt.private-key:}") String pem,
+            @Value("${cwp.jwt.allow-ephemeral-key:false}") boolean allowEphemeralKey) {
+        return SigningKeys.load(pem, allowEphemeralKey);
     }
 
     @Bean

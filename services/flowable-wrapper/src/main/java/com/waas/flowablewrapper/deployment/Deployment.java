@@ -21,7 +21,7 @@ import jakarta.persistence.Table;
  *
  * <p>Deliberately NOT related by a JPA {@code @ManyToOne}/foreign key to
  * any tenant entity -- this service does not own or model {@code
- * public.tenants} (that stays entirely Supabase/RLS-owned). {@code
+ * identity.tenants} (owned by identity-service). {@code
  * tenantId} is a bare column, and every query against this table MUST be
  * scoped through {@link com.waas.flowablewrapper.common.TenantContext},
  * never trusted from a request body/path alone.

@@ -37,7 +37,7 @@ public class IdentityDb {
         Map<String, Object> profile;
         try {
             profile = jdbc.queryForMap(
-                    "select role, status from public.profiles where id = ? and tenant_id = ?", userId, tenantId);
+                    "select role, status from identity.profiles where id = ? and tenant_id = ?", userId, tenantId);
         } catch (EmptyResultDataAccessException e) {
             throw forbidden("You are not a member of this tenant.");
         }

@@ -30,7 +30,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
- * Runs the KYC samples in Designer/samples on the real Flowable 8 CMMN and
+ * Runs the KYC samples in src/test/resources/samples (copies of the SPA's samples) on the real Flowable 8 CMMN and
  * DMN engines (in-memory H2), so the samples stay proof that each OSS
  * capability they claim to show actually works. Each test names the business
  * rule it protects.
@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test;
 class FlowableKycSampleTest {
 
     // -Dcwp.samples=<dir> runs the same checks on other copies (e.g. files re-saved by the Designer).
-    private static final Path SAMPLES = Path.of(System.getProperty("cwp.samples", "../../Designer/samples"));
+    private static final Path SAMPLES = Path.of(System.getProperty("cwp.samples", "src/test/resources/samples"));
 
     private static CmmnEngine engine;
     private static CmmnRuntimeService runtime;

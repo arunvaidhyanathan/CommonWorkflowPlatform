@@ -1,7 +1,7 @@
 """CMMN case contract, validator and canvas conversion (AgenticDesigner.html
 phase A4).
 
-Mirrors the Designer's CMMN adapter (Designer/src/adapters/cmmnAdapter.ts):
+Mirrors the Designer's CMMN adapter (services/web-app/src/adapters/cmmnAdapter.ts):
 a single flat case plan. Plan items (human tasks, tasks, milestones,
 stages) and sentries are nodes; typed edges wire them:
 - onPart: plan item -> sentry, fired by one of the item's standard events;

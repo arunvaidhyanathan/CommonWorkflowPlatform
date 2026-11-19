@@ -1,0 +1,150 @@
+# CWP gateway: the platform's single internal entry point. Rendered by the
+# nginx image's envsubst step at container start (only ${VARS} defined in the
+# environment are substituted; nginx's own $variables are left alone).
+#
+# Responsibilities: routing to services, CORS, rate limits, request ids, JSON
+# access logs. NOT a responsibility: token validation (open-source nginx
+# can't verify JWKS-signed tokens); every service verifies the login token
+# issued by identity-service itself.
+#
+# Settings (see Dockerfile for defaults):
+#   NGINX_RESOLVER          DNS server for per-request upstream lookups
+#                           (Docker: 127.0.0.11; OpenShift: dns-default.openshift-dns.svc.cluster.local)
+#   *_UPSTREAM              host:port of each service (OpenShift: <svc>.<namespace>.svc.cluster.local:<port>)
+#   TRUSTED_PROXY_CIDR      where the OpenShift router / load balancer connects from;
+#                           X-Forwarded-For is trusted only from here
+#   API_RATE_LIMIT / AGENT_RATE_LIMIT   per-client-IP request rates (e.g. 50r/s)
+#   CORS_ALLOWED_ORIGINS    regex of browser origins allowed cross-origin
+
+log_format cwp_json escape=json
+  '{"time":"$time_iso8601","request_id":"$cwp_request_id","remote_addr":"$remote_addr",'
+  '"method":"$request_method","uri":"$request_uri","status":$status,'
+  '"bytes":$body_bytes_sent,"duration_s":$request_time,'
+  '"upstream":"$upstream_addr","upstream_status":"$upstream_status",'
+  '"upstream_duration_s":"$upstream_response_time"}';
+access_log /dev/stdout cwp_json;
+
+# Keep a caller-supplied request id, otherwise mint one.
+map $http_x_request_id $cwp_request_id {
+  default $http_x_request_id;
+  ""      $request_id;
+}
+
+# Echo the Origin back only when it matches the allow-list regex.
+map $http_origin $cwp_cors_origin {
+  default "";
+  "~${CORS_ALLOWED_ORIGINS}" $http_origin;
+}
+
+# Rate limits are per real client IP (see real_ip below), not per router pod.
+limit_req_zone $binary_remote_addr zone=cwp_api:20m   rate=${API_RATE_LIMIT};
+limit_req_zone $binary_remote_addr zone=cwp_agent:10m rate=${AGENT_RATE_LIMIT};
+limit_req_status 429;
+
+server {
+  listen 8080;
+  server_name _;
+
+  client_max_body_size 10m;
+
+  # Behind the OpenShift router every connection comes from the router;
+  # take the client address from X-Forwarded-For, trusted only from there.
+  set_real_ip_from ${TRUSTED_PROXY_CIDR};
+  real_ip_header X-Forwarded-For;
+  real_ip_recursive on;
+
+  # Upstreams are resolved per request (via the variables below), so the
+  # gateway starts even when a service isn't deployed yet -- that route
+  # returns 502 instead of nginx refusing to boot.
+  resolver ${NGINX_RESOLVER} valid=10s ipv6=off;
+
+  add_header X-Request-Id $cwp_request_id always;
+
+  location = /healthz {
+    access_log off;
+    default_type application/json;
+    return 200 '{"status":"ok"}';
+  }
+
+  # Service-to-service endpoints are never reachable through the gateway.
+  location /internal/ {
+    default_type application/json;
+    return 404 '{"message":"No CWP service is routed at this path."}';
+  }
+
+  # Each API route includes snippets/cwp-api.conf (CORS, preflight, proxy
+  # headers). It can't live in a shared parent location: an `if` in a parent
+  # location doesn't run for requests matched by a nested one.
+
+  # identity-service: login, tokens (JWKS), members, groups, invites, profile.
+  location /api/identity/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_api burst=40 nodelay;
+    set $identity_service ${IDENTITY_SERVICE_UPSTREAM};
+    rewrite ^/api(/identity/.*)$ $1 break;
+    proxy_pass http://$identity_service;
+  }
+
+  # design-service: workflows, versions, approvals, audit log.
+  location /api/design/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_api burst=40 nodelay;
+    set $design_service ${DESIGN_SERVICE_UPSTREAM};
+    rewrite ^/api(/design/.*)$ $1 break;
+    proxy_pass http://$design_service;
+  }
+
+  # flowable-wrapper: every Flowable engine endpoint. Its controllers serve
+  # /runtime/**, so the public /api/flowable/ prefix rewrites onto that.
+  location /api/flowable/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_api burst=40 nodelay;
+    set $flowable_wrapper ${FLOWABLE_WRAPPER_UPSTREAM};
+    rewrite ^/api/flowable(/.*)$ /runtime$1 break;
+    proxy_pass http://$flowable_wrapper;
+  }
+
+  # agentic-designer: AI generate / edit / review (server-sent events).
+  location /api/agent/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_agent burst=5 nodelay;
+    set $agentic_designer ${AGENTIC_DESIGNER_UPSTREAM};
+    rewrite ^/api/agent(/.*)$ $1 break;
+    proxy_pass http://$agentic_designer;
+    # Stream model progress instead of buffering it.
+    proxy_buffering off;
+    proxy_read_timeout 300s;
+  }
+
+  # Usage ingest is service-to-service only (with its own token).
+  location = /api/spend/events {
+    default_type application/json;
+    return 404 '{"message":"No CWP service is routed at this path."}';
+  }
+
+  # spend-tracker: API spend and key health.
+  location /api/spend/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_api burst=40 nodelay;
+    set $spend_tracker ${SPEND_TRACKER_UPSTREAM};
+    rewrite ^/api/spend(/.*)$ $1 break;
+    proxy_pass http://$spend_tracker;
+  }
+
+  location /api/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    default_type application/json;
+    return 404 '{"message":"No CWP service is routed at this path."}';
+  }
+
+  # web-app: everything else is the SPA (its container handles caching and
+  # the client-side route fallback).
+  location / {
+    set $web_app ${WEB_APP_UPSTREAM};
+    proxy_set_header Host $host;
+    proxy_set_header X-Request-Id $cwp_request_id;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_pass http://$web_app;
+  }
+}
