@@ -6,12 +6,11 @@ spring:
     name: flowable-wrapper
 
   datasource:
-    # Local Postgres (Database/local.sql creates the `cwp` database's
-    # schemas). search_path is `runtime` first, so JPA/Liquibase/Flowable
-    # create their tables there; `public` second, so the design-time triggers
-    # (policies.sql) resolve their unqualified helper functions.
-    url: ${WORKFLOW_RUNTIME_DB_URL:jdbc:postgresql://localhost:5432/cwp?currentSchema=runtime,public}
-    username: ${WORKFLOW_RUNTIME_DB_USER:${USER}}
+    # Local Postgres. JPA/Liquibase/Flowable create their tables in the
+    # `runtime` schema, which the cwp_runtime role owns (Database/roles.sql);
+    # it has no access to the identity or design tables.
+    url: ${WORKFLOW_RUNTIME_DB_URL:jdbc:postgresql://localhost:5432/cwp?currentSchema=runtime}
+    username: ${WORKFLOW_RUNTIME_DB_USER:cwp_runtime}
     password: ${WORKFLOW_RUNTIME_DB_PASSWORD:}
     hikari:
       maximum-pool-size: ${WORKFLOW_RUNTIME_DB_POOL_SIZE:10}

@@ -12,15 +12,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The tenant's audit log. Most entries come from the design-time triggers
- * (policies.sql), so this moves with design-service. Members, invites and
- * the caller's profile moved to identity-service.
+ * The tenant's audit log. Design-time entries come from the triggers in
+ * policies.sql; identity-service's (role and status changes) arrive through
+ * InternalAuditController. Actors are ids only: user details are
+ * identity-service's.
  */
 @RestController
 @RequestMapping("/design")
 public class AuditController {
 
-    public record AuditLogEntry(UUID id, UUID actorId, String actorEmail, String action, String entityType,
+    public record AuditLogEntry(UUID id, UUID actorId, String action, String entityType,
             UUID entityId, JsonNode before, JsonNode after, OffsetDateTime occurredAt) {
     }
 
@@ -37,12 +38,12 @@ public class AuditController {
             throw DesignDb.forbidden("Only tenant admins can see this.");
         }
         return db.jdbc.query("""
-                select a.id, a.actor_id, p.email as actor_email, a.action, a.entity_type, a.entity_id,
-                       a.before::text as before, a.after::text as after, a.occurred_at
-                from public.audit_logs a left join public.profiles p on p.id = a.actor_id
-                where a.tenant_id = ? order by a.occurred_at desc limit ?""",
+                select id, actor_id, action, entity_type, entity_id,
+                       before::text as before, after::text as after, occurred_at
+                from public.audit_logs
+                where tenant_id = ? order by occurred_at desc limit ?""",
                 (rs, i) -> new AuditLogEntry(rs.getObject("id", UUID.class), rs.getObject("actor_id", UUID.class),
-                        rs.getString("actor_email"), rs.getString("action"), rs.getString("entity_type"),
+                        rs.getString("action"), rs.getString("entity_type"),
                         rs.getObject("entity_id", UUID.class), db.parseJson(rs.getString("before")),
                         db.parseJson(rs.getString("after")), rs.getObject("occurred_at", OffsetDateTime.class)),
                 db.tenantId(), Math.min(Math.max(limit, 1), 500));

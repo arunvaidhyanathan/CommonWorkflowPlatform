@@ -5,6 +5,7 @@
 # Run: bash services/design-service/e2e/design_api_test.sh
 D=${CWP_DESIGN_BASE:-http://localhost:8083/design}
 I=${CWP_IDENTITY_BASE:-http://localhost:8082/identity}
+DB=${CWP_DB:-cwp}
 pass=0; fail=0
 check() { if [ "$2" == "$3" ]; then echo "PASS $1"; pass=$((pass+1)); else echo "FAIL $1 (expected $3, got $2)"; fail=$((fail+1)); fi; }
 code() { curl -s -o /tmp/cwp_body -w '%{http_code}' "$@"; }
@@ -26,12 +27,12 @@ check "save version 2 -> 201" $(code -X POST $D/workflows/$WF/versions -H "$(H $
 V2=$(j "['versionId']"); check "version number is 2" $(j "['versionNo']") 2
 check "load version graph round-trips" $(code $D/versions/$V2 -H "$(H $DES)" >/dev/null; j "['graph']['nodes'][0]['id']") n1
 check "submit for approval -> 201" $(code -X POST $D/approvals -H "$(H $DES)" -H 'Content-Type: application/json' -d "{\"workflowId\":\"$WF\",\"versionId\":\"$V2\"}") 201
-check "trigger set status pending_approval" $(psql -d cwp -Atc "select status from workflows where id='$WF'") pending_approval
-AR=$(psql -d cwp -Atc "select id from approval_requests where workflow_id='$WF'")
+check "trigger set status pending_approval" $(psql -d "$DB" -Atc "select status from workflows where id='$WF'") pending_approval
+AR=$(psql -d "$DB" -Atc "select id from approval_requests where workflow_id='$WF'")
 check "designer cannot decide -> 403" $(code -X POST $D/approvals/$AR/decision -H "$(H $DES)" -H 'Content-Type: application/json' -d '{"decision":"approved"}') 403
 check "approver approves -> 204" $(code -X POST $D/approvals/$AR/decision -H "$(H $APP)" -H 'Content-Type: application/json' -d '{"decision":"approved","comment":"ok"}') 204
-check "trigger set status approved" $(psql -d cwp -Atc "select status from workflows where id='$WF'") approved
-check "audit actor is the approver" $(psql -d cwp -Atc "select p.username from audit_logs a join app_auth.users p on p.id=a.actor_id where a.entity_id='$AR'") approver
+check "trigger set status approved" $(psql -d "$DB" -Atc "select status from workflows where id='$WF'") approved
+check "audit actor is the approver" $(psql -d "$DB" -Atc "select p.username from audit_logs a join app_auth.users p on p.id=a.actor_id where a.entity_id='$AR'") approver
 check "designer cannot read audit -> 403" $(code $D/audit -H "$(H $DES)") 403
 check "admin reads audit -> 200" $(code $D/audit -H "$(H $ADMIN)") 200
 NEWU=u_$RANDOM
@@ -42,12 +43,12 @@ NID=$(j "['id']"); NTOK=$(tok $NEWU password1)
 check "viewer cannot save versions -> 403" $(code -X POST $D/workflows/$WF/versions -H "$(H $NTOK)" -H 'Content-Type: application/json' -d '{"graph":{}}') 403
 check "admin promotes to designer -> 204" $(code -X PUT $I/members/$NID/role -H "$(H $ADMIN)" -H 'Content-Type: application/json' -d '{"role":"designer"}') 204
 check "promotion applies to writes at once" $(code -X POST $D/workflows/$WF/versions -H "$(H $NTOK)" -H 'Content-Type: application/json' -d '{"graph":{"nodes":[],"edges":[]}}') 201
-check "new version reset approved -> draft" $(psql -d cwp -Atc "select status from workflows where id='$WF'") draft
+check "new version reset approved -> draft" $(psql -d "$DB" -Atc "select status from workflows where id='$WF'") draft
 check "admin deactivates user -> 204" $(code -X PUT $I/members/$NID/status -H "$(H $ADMIN)" -H 'Content-Type: application/json' -d '{"status":"deactivated"}') 204
 check "deactivated token cannot write -> 403" $(code -X POST $D/workflows/$WF/versions -H "$(H $NTOK)" -H 'Content-Type: application/json' -d '{"graph":{}}') 403
 check "deactivated user cannot sign in -> 403" $(code -X POST $I/auth/login -H 'Content-Type: application/json' -d "{\"username\":\"$NEWU\",\"password\":\"password1\"}") 403
 # Tenant isolation: a user in a second tenant sees none of tenant 1's data.
-psql -q -d cwp -c "insert into tenants(id,name,slug) values ('00000000-0000-0000-0000-000000000002','Other','other') on conflict do nothing;
+psql -q -d "$DB" -c "insert into tenants(id,name,slug) values ('00000000-0000-0000-0000-000000000002','Other','other') on conflict do nothing;
  insert into app_auth.users(id,email,username,password_hash) values ('00000000-0000-0000-0000-0000000000b1','other','other',crypt('password',gen_salt('bf'))) on conflict do nothing;
  insert into profiles(id,tenant_id,role,email) values ('00000000-0000-0000-0000-0000000000b1','00000000-0000-0000-0000-000000000002','tenant_admin','other') on conflict do nothing;"
 OTH=$(tok other password)

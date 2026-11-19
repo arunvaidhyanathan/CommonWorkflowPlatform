@@ -2,7 +2,9 @@
 # Runs CWP natively against a local Postgres (no Docker, no Supabase).
 # One-time setup:
 #   createdb cwp && createdb cwp_spend
-#   psql -d cwp -f Database/schema.sql -f Database/policies.sql -f Database/local.sql
+#   psql -d cwp -f Database/schema.sql -f Database/policies.sql -f Database/local.sql -f Database/roles.sql
+# Each service connects as its own role (cwp_identity / cwp_design / cwp_runtime).
+# Existing database from before the per-service roles: psql -d cwp -f Database/roles.sql
 # Then: ./run-local.sh   -> http://localhost:5173  (users admin / designer / approver, password "password")
 # Logs go to ./.local-logs/; mail tasks land in .local-logs/mailbox.txt. Ctrl+C stops everything.
 set -euo pipefail
@@ -12,6 +14,7 @@ cd "$(dirname "$0")"
 # verifies them against its key set. With no CWP_JWT_PRIVATE_KEY it makes a
 # throwaway key, so restarting it logs everyone out.
 export IDENTITY_SERVICE_URL="${IDENTITY_SERVICE_URL:-http://localhost:8082}"
+export DESIGN_SERVICE_URL="${DESIGN_SERVICE_URL:-http://localhost:8083}"
 export IDENTITY_JWKS_URL="${IDENTITY_JWKS_URL:-$IDENTITY_SERVICE_URL/.well-known/jwks.json}"
 # The Python services still read their verification settings under the old name.
 export SUPABASE_JWKS_URL="$IDENTITY_JWKS_URL"

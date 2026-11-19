@@ -15,9 +15,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Users, profiles, groups, invites and tenants belong to identity-service;
  * design-service asks it through IdentityClient. Once each service gets its
- * own database, any direct query on those tables here breaks. The one known
- * exception is the audit log's actor email, which must be resolved before
- * the database split.
+ * own database role (Database/roles.sql), any direct query on those tables
+ * here fails with "permission denied".
  */
 class TableOwnershipTest {
 
@@ -25,9 +24,6 @@ class TableOwnershipTest {
 
     private static final Pattern IDENTITY_TABLE =
             Pattern.compile("\\b(app_auth\\.[a-z_]+|public\\.(profiles|group_members|invites|tenants))\\b");
-
-    /** Known cross-service read, to remove at the database split (Phase 3). */
-    private static final String AUDIT_ACTOR_EMAIL_JOIN = "left join public.profiles p on p.id = a.actor_id";
 
     @Test
     void designServiceDoesNotQueryIdentityTables() throws IOException {
@@ -39,8 +35,7 @@ class TableOwnershipTest {
                 List<String> lines = Files.readAllLines(file);
                 for (int i = 0; i < lines.size(); i++) {
                     String line = lines.get(i).trim();
-                    if (line.startsWith("*") || line.startsWith("//") || line.startsWith("/*")
-                            || line.contains(AUDIT_ACTOR_EMAIL_JOIN)) {
+                    if (line.startsWith("*") || line.startsWith("//") || line.startsWith("/*")) {
                         continue;
                     }
                     if (IDENTITY_TABLE.matcher(line).find()) {

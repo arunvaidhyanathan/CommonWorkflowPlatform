@@ -63,10 +63,12 @@ public class MemberController {
 
     private final IdentityDb db;
     private final PasswordEncoder passwords;
+    private final DesignAudit audit;
 
-    MemberController(IdentityDb db, PasswordEncoder passwords) {
+    MemberController(IdentityDb db, PasswordEncoder passwords, DesignAudit audit) {
         this.db = db;
         this.passwords = passwords;
+        this.audit = audit;
     }
 
     @GetMapping("/members")
@@ -119,12 +121,7 @@ public class MemberController {
             throw IdentityDb.notFound("Member");
         }
         db.jdbc.update("update public.profiles set role = ? where id = ?", request.role(), id);
-        // No trigger covers role changes. audit_logs is still a shared table until the database split.
-        db.jdbc.update("""
-                insert into public.audit_logs (tenant_id, actor_id, action, entity_type, entity_id, before, after)
-                values (?, ?, 'role_changed', 'profile', ?, ?::jsonb, ?::jsonb)""",
-                actor.tenantId(), actor.userId(), id,
-                db.toJson(Map.of("role", previous.get(0))), db.toJson(Map.of("role", request.role())));
+        audit.record(actor, "role_changed", id, Map.of("role", previous.get(0)), Map.of("role", request.role()));
     }
 
     /** Replaces the member's task candidate groups (their role is always an implicit group). */
@@ -154,10 +151,16 @@ public class MemberController {
         if (actor.userId().equals(id) && "deactivated".equals(request.status())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot deactivate yourself.");
         }
-        int updated = db.jdbc.update("update public.profiles set status = ? where id = ? and tenant_id = ?",
-                request.status(), id, actor.tenantId());
-        if (updated == 0) {
+        List<String> previous = db.jdbc.query(
+                "select status from public.profiles where id = ? and tenant_id = ? for update",
+                (rs, i) -> rs.getString("status"), id, actor.tenantId());
+        if (previous.isEmpty()) {
             throw IdentityDb.notFound("Member");
+        }
+        db.jdbc.update("update public.profiles set status = ? where id = ?", request.status(), id);
+        if (!previous.get(0).equals(request.status())) {
+            audit.record(actor, "profile_status_changed", id, Map.of("status", previous.get(0)),
+                    Map.of("status", request.status()));
         }
     }
 

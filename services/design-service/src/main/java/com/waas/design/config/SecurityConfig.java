@@ -12,7 +12,8 @@ import org.springframework.security.web.SecurityFilterChain;
 /**
  * Stateless JWT security. identity-service issues the login tokens (RS256);
  * this service verifies them against identity-service's published key set
- * ({@code cwp.identity.jwks-url}).
+ * ({@code cwp.identity.jwks-url}). {@code /internal/**} is not reachable
+ * through the gateway and is guarded by the internal service token.
  */
 @Configuration
 public class SecurityConfig {
@@ -24,6 +25,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+                        // Checked against the internal service token in InternalAuditController.
+                        .requestMatchers("/internal/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {
                 }));

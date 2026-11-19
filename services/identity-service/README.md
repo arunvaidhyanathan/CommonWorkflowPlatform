@@ -21,8 +21,9 @@ Token claims keep the shape the rest of CWP reads: `sub` is the user id,
 
 | Variable | Default | Notes |
 |---|---|---|
-| `IDENTITY_DB_URL` | `jdbc:postgresql://localhost:5432/cwp?currentSchema=public` | Shares the `cwp` database until the DB split |
-| `IDENTITY_DB_USER` / `IDENTITY_DB_PASSWORD` | `$USER` / empty | |
+| `IDENTITY_DB_URL` | `jdbc:postgresql://localhost:5432/cwp?currentSchema=public` | Shared database; the role reaches only identity tables |
+| `IDENTITY_DB_USER` / `IDENTITY_DB_PASSWORD` | `cwp_identity` / empty | Own role, Database/roles.sql |
+| `DESIGN_SERVICE_URL` | `http://localhost:8083` | Role and status changes are posted to its audit log; if that fails the change rolls back (503) |
 | `CWP_JWT_PRIVATE_KEY` | empty | PKCS#8 PEM. Empty: throwaway key per start (local dev only) |
 | `CWP_JWT_TTL` | `PT8H` | Token lifetime |
 | `CWP_INTERNAL_TOKEN` | empty | Empty refuses every `/internal` call |

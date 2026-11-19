@@ -50,7 +50,7 @@ def login(username):
 
 
 def psql(sql):
-    subprocess.run(["psql", "-q", "-d", "cwp", "-c", sql], check=True, capture_output=True)
+    subprocess.run(["psql", "-q", "-d", os.environ.get("CWP_DB", "cwp"), "-c", sql], check=True, capture_output=True)
 
 
 def task_names(token, flt):

@@ -13,14 +13,14 @@
 | `services/identity-service/` | Login, RS256 tokens + JWKS, tenant members, groups, invites (Java 21 / Spring Boot 4) |
 | `services/agentic-designer/` | Agentic Designer: LLM-assisted workflow authoring (Python / FastAPI) |
 | `services/spend-tracker/` | API spend tracker: usage events, spend summaries, API key health (Python / FastAPI) |
-| `Database/` | Portable schema + RLS for the Supabase design-time data |
+| `Database/` | Schema + RLS (`schema.sql`, `policies.sql`), local seed (`local.sql`), one login role per service (`roles.sql`, local/compose only; check with `check_roles.sh`) |
 
 Supabase (hosted) stays the identity and design-time data backend.
 
 ## Run the stack
 
 ```
-cp .env.example .env        # set WORKFLOW_RUNTIME_DB_PASSWORD, CWP_INTERNAL_TOKEN (any values) and GEMINI_API_KEY
+cp .env.example .env        # set the *_DB_PASSWORD values, CWP_INTERNAL_TOKEN (any values) and GEMINI_API_KEY
 docker compose up -d --build
 ```
 

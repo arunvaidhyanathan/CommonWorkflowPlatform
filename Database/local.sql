@@ -1,16 +1,16 @@
 -- ============================================================================
 -- CWP on a local Postgres -- simple username/password auth + seed data
 -- ============================================================================
--- Run AFTER schema.sql and policies.sql:
+-- Run AFTER schema.sql and policies.sql, then roles.sql:
 --   createdb cwp
---   psql -d cwp -f Database/schema.sql -f Database/policies.sql -f Database/local.sql
+--   psql -d cwp -f Database/schema.sql -f Database/policies.sql -f Database/local.sql -f Database/roles.sql
 --
--- flowable-wrapper checks passwords against app_auth.users.password_hash
--- (bcrypt) and issues its own JWT. It connects as the tables' owner, so the
--- RLS policies are not enforced at the database; flowable-wrapper enforces
--- the same tenant/role rules in code. The audit and status triggers still
--- run, reading the actor from request.jwt.claims, which flowable-wrapper
--- sets on each transaction.
+-- identity-service checks passwords against app_auth.users.password_hash
+-- (bcrypt) and issues the login JWT. Each service connects as its own role
+-- (roles.sql) with BYPASSRLS, so the RLS policies are not enforced at the
+-- database; the services enforce the same tenant/role rules in code. The
+-- design-time audit and status triggers still run, reading the actor from
+-- request.jwt.claims, which design-service sets on each write.
 -- ============================================================================
 
 begin;
@@ -18,7 +18,8 @@ begin;
 alter table app_auth.users add column if not exists username text unique;
 alter table app_auth.users add column if not exists password_hash text;
 
--- flowable-wrapper's own schema (Liquibase + Flowable ACT_* tables).
+-- flowable-wrapper's own schema (Liquibase + Flowable ACT_* tables); roles.sql
+-- hands it to cwp_runtime.
 create schema if not exists runtime;
 
 -- Seed: one tenant and one user per role. LOCAL DEVELOPMENT ONLY -- the

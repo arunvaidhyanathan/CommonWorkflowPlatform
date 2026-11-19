@@ -28,9 +28,10 @@ services:
   flowable-wrapper:
     build: services/flowable-wrapper
     environment:
+      # Own role (Database/roles.sql): the runtime schema only.
       WORKFLOW_RUNTIME_DB_URL: jdbc:postgresql://runtime-db:5432/cwp_runtime?currentSchema=runtime
-      WORKFLOW_RUNTIME_DB_USER: workflow_runtime
-      WORKFLOW_RUNTIME_DB_PASSWORD: ${WORKFLOW_RUNTIME_DB_PASSWORD:?set WORKFLOW_RUNTIME_DB_PASSWORD in .env}
+      WORKFLOW_RUNTIME_DB_USER: cwp_runtime
+      WORKFLOW_RUNTIME_DB_PASSWORD: ${CWP_RUNTIME_DB_PASSWORD:?set CWP_RUNTIME_DB_PASSWORD in .env}
       # Tokens come from identity-service; role/status/groups are looked up there too.
       IDENTITY_SERVICE_URL: http://identity-service:8082
       IDENTITY_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
@@ -44,10 +45,10 @@ services:
   design-service:
     build: services/design-service
     environment:
-      # Until the database split, the design tables share runtime-db.
+      # Own role (Database/roles.sql): workflows, versions, approvals, audit_logs only.
       DESIGN_DB_URL: jdbc:postgresql://runtime-db:5432/cwp_runtime?currentSchema=public
-      DESIGN_DB_USER: workflow_runtime
-      DESIGN_DB_PASSWORD: ${WORKFLOW_RUNTIME_DB_PASSWORD:?set WORKFLOW_RUNTIME_DB_PASSWORD in .env}
+      DESIGN_DB_USER: cwp_design
+      DESIGN_DB_PASSWORD: ${CWP_DESIGN_DB_PASSWORD:?set CWP_DESIGN_DB_PASSWORD in .env}
       IDENTITY_SERVICE_URL: http://identity-service:8082
       IDENTITY_JWKS_URL: http://identity-service:8082/.well-known/jwks.json
       CWP_INTERNAL_TOKEN: ${CWP_INTERNAL_TOKEN:?set CWP_INTERNAL_TOKEN in .env}
@@ -60,10 +61,11 @@ services:
   identity-service:
     build: services/identity-service
     environment:
-      # Until the database split, identity's tables share runtime-db.
+      # Own role (Database/roles.sql): users, tenants, profiles, groups, invites only.
       IDENTITY_DB_URL: jdbc:postgresql://runtime-db:5432/cwp_runtime?currentSchema=public
-      IDENTITY_DB_USER: workflow_runtime
-      IDENTITY_DB_PASSWORD: ${WORKFLOW_RUNTIME_DB_PASSWORD:?set WORKFLOW_RUNTIME_DB_PASSWORD in .env}
+      IDENTITY_DB_USER: cwp_identity
+      IDENTITY_DB_PASSWORD: ${CWP_IDENTITY_DB_PASSWORD:?set CWP_IDENTITY_DB_PASSWORD in .env}
+      DESIGN_SERVICE_URL: http://design-service:8083
       # PKCS#8 PEM. Unset: a throwaway key per start (everyone is logged out on restart).
       CWP_JWT_PRIVATE_KEY: ${CWP_JWT_PRIVATE_KEY:-}
       CWP_INTERNAL_TOKEN: ${CWP_INTERNAL_TOKEN:?set CWP_INTERNAL_TOKEN in .env}
@@ -140,9 +142,14 @@ services:
       POSTGRES_DB: cwp_runtime
       POSTGRES_USER: workflow_runtime
       POSTGRES_PASSWORD: ${WORKFLOW_RUNTIME_DB_PASSWORD:?set WORKFLOW_RUNTIME_DB_PASSWORD in .env}
+      CWP_IDENTITY_DB_PASSWORD: ${CWP_IDENTITY_DB_PASSWORD:?set CWP_IDENTITY_DB_PASSWORD in .env}
+      CWP_DESIGN_DB_PASSWORD: ${CWP_DESIGN_DB_PASSWORD:?set CWP_DESIGN_DB_PASSWORD in .env}
+      CWP_RUNTIME_DB_PASSWORD: ${CWP_RUNTIME_DB_PASSWORD:?set CWP_RUNTIME_DB_PASSWORD in .env}
     volumes:
       - runtime-db-data:/var/lib/postgresql/data
-      - ./services/flowable-wrapper/docker/initdb:/docker-entrypoint-initdb.d:ro
+      # First start builds the schema, seed users and per-service roles.
+      - ./Database/docker-initdb:/docker-entrypoint-initdb.d:ro
+      - ./Database:/cwp-sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U workflow_runtime -d cwp_runtime"]
       interval: 5s

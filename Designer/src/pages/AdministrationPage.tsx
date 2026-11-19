@@ -522,9 +522,7 @@ export function AdministrationPage() {
                 </div>
                 <div className="font-mono text-[11px] text-slate-400">
                   {entry.entityType} {entry.entityId?.slice(0, 8)}
-                  {(entry.actorEmail || entry.actorId) && (
-                    <> &middot; by {entry.actorEmail ?? entry.actorId?.slice(0, 8)}</>
-                  )}
+                  {entry.actorId && <> &middot; by {entry.actorId.slice(0, 8)}</>}
                 </div>
               </div>
             ))}

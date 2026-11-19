@@ -5,12 +5,13 @@ spring:
     name: design-service
 
   datasource:
-    # Until the database split, the design tables (public.workflows,
-    # workflow_versions, approval_requests, audit_logs) live in the same local
-    # `cwp` database as everything else. The audit and status triggers
-    # (Database/policies.sql) run here and read request.jwt.claims.
+    # The design tables (public.workflows, workflow_versions,
+    # approval_requests, audit_logs) share the local `cwp` database with the
+    # other services, but the cwp_design role can reach only these
+    # (Database/roles.sql). The audit and status triggers (policies.sql) run
+    # here and read request.jwt.claims.
     url: ${DESIGN_DB_URL:jdbc:postgresql://localhost:5432/cwp?currentSchema=public}
-    username: ${DESIGN_DB_USER:${USER}}
+    username: ${DESIGN_DB_USER:cwp_design}
     password: ${DESIGN_DB_PASSWORD:}
     hikari:
       maximum-pool-size: ${DESIGN_DB_POOL_SIZE:5}

@@ -20,16 +20,16 @@ identity-service (`IdentityClient`), cached for `IDENTITY_CACHE_TTL`
 (default 30s), then sets `request.jwt.claims` so the audit and status
 triggers in `Database/policies.sql` record who acted.
 
-Known cross-service read, to remove at the database split: the audit log
-joins `public.profiles` for the actor's email (`TableOwnershipTest` allows
-only that line).
+Audit entries carry the actor's id only. identity-service records role and
+status changes through `POST /internal/design/audit` (`X-Internal-Token`,
+never routed by the gateway).
 
 ## Configuration
 
 | Variable | Default |
 |---|---|
 | `DESIGN_DB_URL` | `jdbc:postgresql://localhost:5432/cwp?currentSchema=public` |
-| `DESIGN_DB_USER` / `DESIGN_DB_PASSWORD` | `$USER` / empty |
+| `DESIGN_DB_USER` / `DESIGN_DB_PASSWORD` | `cwp_design` / empty (own role, Database/roles.sql) |
 | `IDENTITY_SERVICE_URL` / `IDENTITY_JWKS_URL` | `http://localhost:8082` / `.../.well-known/jwks.json` |
 | `IDENTITY_CACHE_TTL` | `PT30S` |
 | `CWP_INTERNAL_TOKEN` | empty (identity lookups then fail) |
