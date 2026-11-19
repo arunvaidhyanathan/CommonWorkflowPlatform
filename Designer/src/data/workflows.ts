@@ -1,5 +1,5 @@
 // Design-time data layer (Designer.html Sections 3 and 4): workflows and their
-// immutable versions, via flowable-wrapper's /runtime/design API. The service
+// immutable versions, via design-service's /design API. The service
 // scopes every call to the caller's tenant and checks designer/admin write
 // access; these functions rely on that, not client checks. The tenantId and
 // createdBy parameters are kept for callers but the server uses the token's.
@@ -43,13 +43,13 @@ export async function isDefinitionKeyTaken(
   definitionKey: string,
 ): Promise<boolean> {
   const { taken } = await apiFetch<{ taken: boolean }>(
-    `/runtime/design/workflows/key-taken?key=${encodeURIComponent(definitionKey)}`,
+    `/design/workflows/key-taken?key=${encodeURIComponent(definitionKey)}`,
   )
   return taken
 }
 
 export async function listWorkflows(_tenantId: string): Promise<WorkflowSummary[]> {
-  return apiFetch<WorkflowSummary[]>('/runtime/design/workflows')
+  return apiFetch<WorkflowSummary[]>('/design/workflows')
 }
 
 /** Origination path: New (Section 4.1/4.2). Creates the workflow row and an empty draft version. */
@@ -75,7 +75,7 @@ export async function createWorkflowFromImport(params: {
   xmlContent: string
   createdBy: string
 }): Promise<{ workflowId: string; versionId: string }> {
-  return apiFetch('/runtime/design/workflows', {
+  return apiFetch('/design/workflows', {
     method: 'POST',
     body: JSON.stringify({
       definitionKey: params.definitionKey,
@@ -95,7 +95,7 @@ export async function saveDraftVersion(params: {
   xmlContent: string
   createdBy: string
 }): Promise<{ versionId: string; versionNo: number }> {
-  return apiFetch(`/runtime/design/workflows/${params.workflowId}/versions`, {
+  return apiFetch(`/design/workflows/${params.workflowId}/versions`, {
     method: 'POST',
     body: JSON.stringify({ graph: params.graph, xmlContent: params.xmlContent }),
   })
@@ -107,9 +107,9 @@ export async function loadWorkflowVersion(versionId: string): Promise<{
   graph: GraphSnapshot
   xmlContent: string
 }> {
-  return apiFetch(`/runtime/design/versions/${versionId}`)
+  return apiFetch(`/design/versions/${versionId}`)
 }
 
 export async function loadWorkflow(workflowId: string): Promise<WorkflowSummary> {
-  return apiFetch<WorkflowSummary>(`/runtime/design/workflows/${workflowId}`)
+  return apiFetch<WorkflowSummary>(`/design/workflows/${workflowId}`)
 }

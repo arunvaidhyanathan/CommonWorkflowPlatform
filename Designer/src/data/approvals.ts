@@ -27,14 +27,14 @@ export async function submitForApproval(params: {
   versionId: string
   requestedBy: string
 }): Promise<void> {
-  await apiFetch('/runtime/design/approvals', {
+  await apiFetch('/design/approvals', {
     method: 'POST',
     body: JSON.stringify({ workflowId: params.workflowId, versionId: params.versionId }),
   })
 }
 
 export async function listPendingApprovals(_tenantId: string): Promise<ApprovalRequest[]> {
-  return apiFetch<ApprovalRequest[]>('/runtime/design/approvals/pending')
+  return apiFetch<ApprovalRequest[]>('/design/approvals/pending')
 }
 
 export async function decideApproval(
@@ -43,7 +43,7 @@ export async function decideApproval(
   _approverId: string,
   comment?: string,
 ): Promise<void> {
-  await apiFetch(`/runtime/design/approvals/${requestId}/decision`, {
+  await apiFetch(`/design/approvals/${requestId}/decision`, {
     method: 'POST',
     body: JSON.stringify({ decision, comment: comment ?? null }),
   })

@@ -10,9 +10,7 @@ requests and the tenant audit log. Port 8083.
 | `/design/approvals`, `/design/approvals/pending`, `/design/approvals/{id}/decision` | designers / approvers | Submit, list, decide (never on your own submission) |
 | `GET /design/audit` | tenant admins | Audit log |
 
-Through the gateway these are `/api/design/**`. Until the SPA cutover the old
-`/api/runtime/design/**` paths are rewritten here by nginx and the Vite dev
-proxy (members, invites and `/me` go to identity-service instead).
+Through the gateway (and the Vite dev proxy) these are `/api/design/**`.
 
 Login tokens come from identity-service and are verified against its JWKS.
 Every write re-checks the caller's role and active status with

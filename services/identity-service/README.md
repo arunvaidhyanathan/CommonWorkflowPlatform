@@ -10,9 +10,7 @@ members, task groups, invites and the caller's own profile. Port 8082.
 | `/identity/members`, `/identity/invites`, `/identity/me` | logged-in users | Tenant admin screens and own profile |
 | `GET /internal/identity/tenants/{t}/members/{u}` | flowable-wrapper, design-service | Role, status, groups. Needs `X-Internal-Token`; never routed by the gateway |
 
-Through the gateway these are `/api/identity/**`. Until the SPA cutover the
-old paths (`/api/runtime/auth/**`, `/api/runtime/design/{members,invites,me}`)
-are rewritten here by nginx and the Vite dev proxy.
+Through the gateway (and the Vite dev proxy) these are `/api/identity/**`.
 
 Token claims keep the shape the rest of CWP reads: `sub` is the user id,
 `app_metadata.tenant_id` / `app_metadata.role` the tenant and role.

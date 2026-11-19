@@ -40,7 +40,7 @@ export interface Deployment {
 /**
  * WorkflowWrapper.html Section 9 Phase 2 / Designer.html Section 23.3:
  * one-click Publish. Packages the given artifact(s) into a single
- * deployment's manifest and calls POST /runtime/deployments. Gated by
+ * deployment's manifest and calls POST /flowable/deployments. Gated by
  * deploy authority (tenant_admin only, Governance.html Section 11.3
  * provisional rule) -- enforced server-side by the gateway; the caller
  * (DesignerPage.tsx) should also hide/disable the button for other roles
@@ -54,7 +54,7 @@ export async function createDeployment(params: {
   // #13: key of the app a multi-artifact manifest is released as.
   appKey?: string
 }): Promise<Deployment> {
-  return apiFetch<Deployment>('/runtime/deployments', {
+  return apiFetch<Deployment>('/flowable/deployments', {
     method: 'POST',
     body: JSON.stringify({
       name: params.name,
@@ -67,9 +67,9 @@ export async function createDeployment(params: {
 }
 
 export async function listDeployments(): Promise<Deployment[]> {
-  return apiFetch<Deployment[]>('/runtime/deployments')
+  return apiFetch<Deployment[]>('/flowable/deployments')
 }
 
 export async function getDeployment(id: string): Promise<Deployment> {
-  return apiFetch<Deployment>(`/runtime/deployments/${id}`)
+  return apiFetch<Deployment>(`/flowable/deployments/${id}`)
 }

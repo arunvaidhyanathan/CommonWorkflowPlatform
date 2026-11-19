@@ -35,9 +35,6 @@ built into the gateway image and reads its Supabase settings from
 | `/api/flowable/**` | flowable-wrapper (`/runtime/**`) |
 | `/api/identity/**` | identity-service (`/identity/**`) |
 | `/api/design/**` | design-service (`/design/**`) |
-| `/api/runtime/auth/**`, `/api/runtime/design/{members,invites,me}` | identity-service, legacy aliases until the SPA cutover |
-| `/api/runtime/design/**` (everything else) | design-service, legacy alias until the SPA cutover |
-| `/api/runtime/**` | flowable-wrapper, legacy alias until the SPA moves to `/api/flowable` |
 | `/api/agent/**` | agentic-designer (`/**`) |
 | `/api/spend/**` | spend-tracker (`/**`); `/api/spend/events` is blocked (internal only) |
 

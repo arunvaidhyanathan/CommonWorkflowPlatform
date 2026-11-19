@@ -10,9 +10,9 @@ export interface MyProfile {
 }
 
 export async function getMyProfile(_userId: string): Promise<MyProfile | null> {
-  return apiFetch<MyProfile>('/runtime/design/me')
+  return apiFetch<MyProfile>('/identity/me')
 }
 
 export async function dismissGettingStarted(_userId: string): Promise<void> {
-  await apiFetch('/runtime/design/me/dismiss-getting-started', { method: 'POST' })
+  await apiFetch('/identity/me/dismiss-getting-started', { method: 'POST' })
 }

@@ -1,6 +1,6 @@
 // Runtime work: deployed definitions, process/case instances and the task
-// inbox, via flowable-wrapper's /runtime/definitions, /runtime/instances and
-// /runtime/tasks. The service scopes everything to the caller's tenant and
+// inbox, via flowable-wrapper's /flowable/definitions, /flowable/instances and
+// /flowable/tasks. The service scopes everything to the caller's tenant and
 // decides who may claim, complete, update or terminate.
 import { apiFetch } from '../lib/apiClient'
 
@@ -104,37 +104,37 @@ export interface TaskDetail {
   canComplete: boolean
 }
 
-export const listDefinitions = () => apiFetch<Definition[]>('/runtime/definitions')
+export const listDefinitions = () => apiFetch<Definition[]>('/flowable/definitions')
 
 export const startInstance = (params: {
   kind: InstanceKind
   definitionKey: string
   businessKey?: string
   variables: Variables
-}) => apiFetch<InstanceSummary>('/runtime/instances', { method: 'POST', body: JSON.stringify(params) })
+}) => apiFetch<InstanceSummary>('/flowable/instances', { method: 'POST', body: JSON.stringify(params) })
 
 export const listInstances = (state: 'active' | 'all') =>
-  apiFetch<InstanceSummary[]>(`/runtime/instances?state=${state}`)
+  apiFetch<InstanceSummary[]>(`/flowable/instances?state=${state}`)
 
 export const getInstance = (kind: InstanceKind, id: string) =>
-  apiFetch<InstanceDetail>(`/runtime/instances/${kind}/${id}`)
+  apiFetch<InstanceDetail>(`/flowable/instances/${kind}/${id}`)
 
 export const setInstanceVariables = (kind: InstanceKind, id: string, variables: Variables) =>
-  apiFetch<void>(`/runtime/instances/${kind}/${id}/variables`, {
+  apiFetch<void>(`/flowable/instances/${kind}/${id}/variables`, {
     method: 'PUT',
     body: JSON.stringify(variables),
   })
 
 export const terminateInstance = (kind: InstanceKind, id: string) =>
-  apiFetch<void>(`/runtime/instances/${kind}/${id}`, { method: 'DELETE' })
+  apiFetch<void>(`/flowable/instances/${kind}/${id}`, { method: 'DELETE' })
 
 export const planItemAction = (id: string, action: PlanItemAction) =>
-  apiFetch<void>(`/runtime/plan-items/${id}/${action}`, { method: 'POST' })
+  apiFetch<void>(`/flowable/plan-items/${id}/${action}`, { method: 'POST' })
 
-export const listDecisions = () => apiFetch<DecisionSummary[]>('/runtime/decisions')
+export const listDecisions = () => apiFetch<DecisionSummary[]>('/flowable/decisions')
 
 export const evaluateDecision = (key: string, variables: Variables) =>
-  apiFetch<DecisionEvaluation>(`/runtime/decisions/${encodeURIComponent(key)}/evaluate`, {
+  apiFetch<DecisionEvaluation>(`/flowable/decisions/${encodeURIComponent(key)}/evaluate`, {
     method: 'POST',
     body: JSON.stringify(variables),
   })
@@ -170,28 +170,28 @@ export interface BatchStatus {
 }
 
 export const listVersions = (kind: InstanceKind, key: string) =>
-  apiFetch<VersionSummary[]>(`/runtime/definitions/${kind}/${encodeURIComponent(key)}/versions`)
+  apiFetch<VersionSummary[]>(`/flowable/definitions/${kind}/${encodeURIComponent(key)}/versions`)
 
 export const validateMigration = (request: MigrationRequest) =>
-  apiFetch<ValidationReport>('/runtime/migrations/validate', { method: 'POST', body: JSON.stringify(request) })
+  apiFetch<ValidationReport>('/flowable/migrations/validate', { method: 'POST', body: JSON.stringify(request) })
 
 export const migrateInstances = (request: MigrationRequest) =>
-  apiFetch<{ migrated: number }>('/runtime/migrations', { method: 'POST', body: JSON.stringify(request) })
+  apiFetch<{ migrated: number }>('/flowable/migrations', { method: 'POST', body: JSON.stringify(request) })
 
 export const startBatchMigration = (request: MigrationRequest) =>
-  apiFetch<BatchStatus>('/runtime/migrations/batch', { method: 'POST', body: JSON.stringify(request) })
+  apiFetch<BatchStatus>('/flowable/migrations/batch', { method: 'POST', body: JSON.stringify(request) })
 
 export const getBatch = (kind: InstanceKind, id: string) =>
-  apiFetch<BatchStatus>(`/runtime/migrations/batches/${kind}/${id}`)
+  apiFetch<BatchStatus>(`/flowable/migrations/batches/${kind}/${id}`)
 
 export const injectTask = (processInstanceId: string, name: string, assignee: string) =>
-  apiFetch<void>(`/runtime/instances/process/${processInstanceId}/inject-task`, {
+  apiFetch<void>(`/flowable/instances/process/${processInstanceId}/inject-task`, {
     method: 'POST',
     body: JSON.stringify({ name, assignee }),
   })
 
 export const injectPlanItem = (caseInstanceId: string, elementId: string, name: string, stageInstanceId?: string) =>
-  apiFetch<void>(`/runtime/instances/case/${caseInstanceId}/inject-plan-item`, {
+  apiFetch<void>(`/flowable/instances/case/${caseInstanceId}/inject-plan-item`, {
     method: 'POST',
     body: JSON.stringify({ elementId, name, stageInstanceId }),
   })
@@ -228,33 +228,33 @@ export interface ExpressionResult {
 }
 
 export const getTimeline = (kind: InstanceKind, id: string) =>
-  apiFetch<TimelineEntry[]>(`/runtime/instances/${kind}/${id}/timeline`)
+  apiFetch<TimelineEntry[]>(`/flowable/instances/${kind}/${id}/timeline`)
 
 export const setBusinessStatus = (kind: InstanceKind, id: string, status: string) =>
-  apiFetch<void>(`/runtime/instances/${kind}/${id}/business-status`, { method: 'PUT', body: JSON.stringify({ status }) })
+  apiFetch<void>(`/flowable/instances/${kind}/${id}/business-status`, { method: 'PUT', body: JSON.stringify({ status }) })
 
-export const listJobs = (state: JobSummary['state']) => apiFetch<JobSummary[]>(`/runtime/jobs?state=${state}`)
-export const jobStacktrace = (id: string) => apiFetch<{ stacktrace: string }>(`/runtime/jobs/${id}/stacktrace`)
-export const retryJob = (id: string) => apiFetch<void>(`/runtime/jobs/${id}/retry`, { method: 'POST' })
-export const deleteJob = (id: string) => apiFetch<void>(`/runtime/jobs/${id}`, { method: 'DELETE' })
-export const fireTimer = (id: string) => apiFetch<void>(`/runtime/jobs/${id}/fire`, { method: 'POST' })
+export const listJobs = (state: JobSummary['state']) => apiFetch<JobSummary[]>(`/flowable/jobs?state=${state}`)
+export const jobStacktrace = (id: string) => apiFetch<{ stacktrace: string }>(`/flowable/jobs/${id}/stacktrace`)
+export const retryJob = (id: string) => apiFetch<void>(`/flowable/jobs/${id}/retry`, { method: 'POST' })
+export const deleteJob = (id: string) => apiFetch<void>(`/flowable/jobs/${id}`, { method: 'DELETE' })
+export const fireTimer = (id: string) => apiFetch<void>(`/flowable/jobs/${id}/fire`, { method: 'POST' })
 
 export const evaluateExpression = (expression: string, variables: Variables) =>
-  apiFetch<ExpressionResult>('/runtime/expressions/evaluate', {
+  apiFetch<ExpressionResult>('/flowable/expressions/evaluate', {
     method: 'POST',
     body: JSON.stringify({ expression, variables }),
   })
 
-export const listTasks = (filter: TaskFilter) => apiFetch<TaskSummary[]>(`/runtime/tasks?filter=${filter}`)
+export const listTasks = (filter: TaskFilter) => apiFetch<TaskSummary[]>(`/flowable/tasks?filter=${filter}`)
 
-export const getTask = (id: string) => apiFetch<TaskDetail>(`/runtime/tasks/${id}`)
+export const getTask = (id: string) => apiFetch<TaskDetail>(`/flowable/tasks/${id}`)
 
-export const claimTask = (id: string) => apiFetch<void>(`/runtime/tasks/${id}/claim`, { method: 'POST' })
+export const claimTask = (id: string) => apiFetch<void>(`/flowable/tasks/${id}/claim`, { method: 'POST' })
 
-export const unclaimTask = (id: string) => apiFetch<void>(`/runtime/tasks/${id}/unclaim`, { method: 'POST' })
+export const unclaimTask = (id: string) => apiFetch<void>(`/flowable/tasks/${id}/unclaim`, { method: 'POST' })
 
 export const completeTask = (id: string, variables: Variables) =>
-  apiFetch<void>(`/runtime/tasks/${id}/complete`, { method: 'POST', body: JSON.stringify(variables) })
+  apiFetch<void>(`/flowable/tasks/${id}/complete`, { method: 'POST', body: JSON.stringify(variables) })
 
 /** Parses a JSON object typed by a person; returns an error message instead of throwing. */
 export function parseVariables(text: string): { variables: Variables } | { error: string } {

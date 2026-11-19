@@ -51,8 +51,8 @@ server {
   # Each API route includes snippets/cwp-api.conf (CORS, preflight, proxy
   # headers). It can't live in a shared parent location: an `if` in a parent
   # location doesn't run for requests matched by a nested one.
-  # flowable-wrapper: the Flowable engine host. Its controllers still serve
-  # /runtime/**, so both public prefixes rewrite onto that.
+  # flowable-wrapper: the Flowable engine host. Its controllers serve
+  # /runtime/**, so the public /api/flowable/ prefix rewrites onto that.
   location /api/flowable/ {
     include /etc/nginx/snippets/cwp-api.conf;
     limit_req zone=cwp_api burst=40 nodelay;
@@ -70,24 +70,6 @@ server {
     proxy_pass http://$identity_service;
   }
 
-  # Legacy paths the SPA still calls, now served by identity-service. Regex
-  # locations win over the /api/runtime/ prefix below. Delete at SPA cutover.
-  location ~ ^/api/runtime/auth/ {
-    include /etc/nginx/snippets/cwp-api.conf;
-    limit_req zone=cwp_api burst=40 nodelay;
-    set $identity_service ${IDENTITY_SERVICE_UPSTREAM};
-    rewrite ^/api/runtime(/auth/.*)$ /identity$1 break;
-    proxy_pass http://$identity_service;
-  }
-
-  location ~ ^/api/runtime/design/(members|invites|me)(/|$) {
-    include /etc/nginx/snippets/cwp-api.conf;
-    limit_req zone=cwp_api burst=40 nodelay;
-    set $identity_service ${IDENTITY_SERVICE_UPSTREAM};
-    rewrite ^/api/runtime/design(/.*)$ /identity$1 break;
-    proxy_pass http://$identity_service;
-  }
-
   # design-service: workflows, versions, approvals, audit log.
   location /api/design/ {
     include /etc/nginx/snippets/cwp-api.conf;
@@ -95,38 +77,6 @@ server {
     set $design_service ${DESIGN_SERVICE_UPSTREAM};
     rewrite ^/api(/design/.*)$ $1 break;
     proxy_pass http://$design_service;
-  }
-
-  # Legacy design paths, now served by design-service. A longer prefix than
-  # /api/runtime/, and the identity regexes above still win for
-  # members/invites/me. Delete at SPA cutover.
-  location /api/runtime/design/ {
-    include /etc/nginx/snippets/cwp-api.conf;
-    limit_req zone=cwp_api burst=40 nodelay;
-    set $design_service ${DESIGN_SERVICE_UPSTREAM};
-    rewrite ^/api/runtime(/design/.*)$ $1 break;
-    proxy_pass http://$design_service;
-  }
-
-  # Legacy alias kept until the SPA moves to /api/flowable, /api/identity
-  # and /api/design (microservice split, final phase); then delete it.
-  location /api/runtime/ {
-    include /etc/nginx/snippets/cwp-api.conf;
-    limit_req zone=cwp_api burst=40 nodelay;
-    set $flowable_wrapper ${FLOWABLE_WRAPPER_UPSTREAM};
-    rewrite ^/api(/runtime/.*)$ $1 break;
-    proxy_pass http://$flowable_wrapper;
-  }
-
-  location /api/agent/ {
-    include /etc/nginx/snippets/cwp-api.conf;
-    limit_req zone=cwp_agent burst=5 nodelay;
-    set $agentic_designer ${AGENTIC_DESIGNER_UPSTREAM};
-    rewrite ^/api/agent(/.*)$ $1 break;
-    proxy_pass http://$agentic_designer;
-    # Server-sent events: stream model progress instead of buffering it.
-    proxy_buffering off;
-    proxy_read_timeout 300s;
   }
 
   # Usage ingest is service-to-service only (internal network, with its own

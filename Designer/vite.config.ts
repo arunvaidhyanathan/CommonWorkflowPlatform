@@ -21,19 +21,9 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      // First match wins: the identity routes must come before /api/runtime.
       '/api/identity': { target: IDENTITY, rewrite: (p) => p.replace(/^\/api/, '') },
-      // Legacy paths the SPA still calls, now served by identity-service.
-      '^/api/runtime/auth/': { target: IDENTITY, rewrite: (p) => p.replace(/^\/api\/runtime/, '/identity') },
-      '^/api/runtime/design/(members|invites|me)(/|$|\\?)': {
-        target: IDENTITY,
-        rewrite: (p) => p.replace(/^\/api\/runtime\/design/, '/identity'),
-      },
       '/api/design': { target: DESIGN, rewrite: (p) => p.replace(/^\/api/, '') },
-      // Legacy design paths (after the identity ones above), now served by design-service.
-      '^/api/runtime/design/': { target: DESIGN, rewrite: (p) => p.replace(/^\/api\/runtime/, '') },
       '/api/flowable': { target: RUNTIME, rewrite: (p) => p.replace(/^\/api\/flowable/, '/runtime') },
-      '/api/runtime': { target: RUNTIME, rewrite: (p) => p.replace(/^\/api/, '') },
       '/api/agent': { target: AGENT, rewrite: (p) => p.replace(/^\/api\/agent/, '') },
       // /api/spend/events is service-to-service only, as at the gateway.
       '^/api/spend/(?!events$)': { target: SPEND, rewrite: (p) => p.replace(/^\/api\/spend/, '') },

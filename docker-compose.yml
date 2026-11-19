@@ -2,7 +2,6 @@
 # are CWP's own services. Entry point: http://localhost:${GATEWAY_PORT:-8080}
 #   /            -> SPA (built from Designer/)
 #   /api/flowable -> flowable-wrapper (Flowable engine host)
-#   /api/runtime  -> flowable-wrapper (legacy alias, removed after SPA cutover)
 #   /api/identity -> identity-service (login, members, groups, invites; issues RS256 tokens)
 #   /api/design   -> design-service (workflows, versions, approvals, audit log)
 #   /api/agent   -> agentic-designer (LLM-assisted authoring)

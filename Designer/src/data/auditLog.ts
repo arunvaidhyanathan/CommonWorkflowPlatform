@@ -16,5 +16,5 @@ export interface AuditLogEntry {
 }
 
 export async function listAuditLog(_tenantId: string, limit = 100): Promise<AuditLogEntry[]> {
-  return apiFetch<AuditLogEntry[]>(`/runtime/design/audit?limit=${limit}`)
+  return apiFetch<AuditLogEntry[]>(`/design/audit?limit=${limit}`)
 }

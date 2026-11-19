@@ -2,9 +2,11 @@
 // gateway (gateway/ at the repo root). VITE_API_BASE_URL is the gateway's
 // /api prefix -- e.g. http://localhost:8080/api in Vite dev, or /api when the
 // SPA is served by the gateway itself -- and each service lives under its own
-// path: /runtime/** -> flowable-wrapper, /agent/** -> agentic-designer.
-// Every call attaches the login token issued by flowable-wrapper
-// (POST /runtime/auth/login) as a Bearer token; each service verifies it.
+// path: /identity/** -> identity-service, /design/** -> design-service,
+// /flowable/** -> flowable-wrapper, /agent/** -> agentic-designer,
+// /spend/** -> spend-tracker. Every call attaches the login token issued by
+// identity-service (POST /identity/auth/login) as a Bearer token; each
+// service verifies it.
 import { getSession, setSession, type Session } from './useSession'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(
@@ -27,7 +29,7 @@ export class ApiError extends Error {
   body: unknown
 
   constructor(status: number, body: unknown) {
-    // flowable-wrapper (Spring) errors carry `message`; agentic-designer
+    // The Java services' (Spring) errors carry `message`; agentic-designer
     // (FastAPI) errors carry `detail`, a string for the errors it raises itself.
     const fields = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
     const message =
@@ -52,7 +54,7 @@ async function authHeader(): Promise<Record<string, string>> {
 /** Exchanges a username and password for a session (no Bearer token needed). */
 export async function login(username: string, password: string): Promise<void> {
   if (!API_BASE_URL) throw new ApiNotConfiguredError()
-  const res = await fetch(`${API_BASE_URL}/runtime/auth/login`, {
+  const res = await fetch(`${API_BASE_URL}/identity/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),

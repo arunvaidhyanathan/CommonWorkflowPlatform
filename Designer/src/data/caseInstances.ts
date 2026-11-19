@@ -15,5 +15,5 @@ export interface CaseInstance {
 }
 
 export async function listCaseInstances(): Promise<CaseInstance[]> {
-  return apiFetch<CaseInstance[]>('/runtime/case-instances')
+  return apiFetch<CaseInstance[]>('/flowable/case-instances')
 }

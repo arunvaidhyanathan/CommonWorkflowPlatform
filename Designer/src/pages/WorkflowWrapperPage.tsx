@@ -100,7 +100,7 @@ function DeploymentsSection() {
   return (
     <SectionShell
       title="Deployments"
-      subtitle="Everything published via Designer's Publish button (POST /runtime/deployments)."
+      subtitle="Everything published via Designer's Publish button (POST /flowable/deployments)."
       state={state}
       empty="No deployments yet."
     >

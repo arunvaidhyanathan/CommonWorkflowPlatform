@@ -3,7 +3,7 @@
 CWP's second backend: a Java service embedding a real Flowable 8.0.0
 engine, sitting alongside the existing Supabase (Postgres + Auth + Edge
 Functions) backend. It is not itself a gateway: browsers reach it through
-the nginx edge gateway (`gateway/` at the repo root) at `/api/runtime/**`,
+the nginx edge gateway (`gateway/` at the repo root) at `/api/flowable/**`,
 which nginx forwards here as `/runtime/**`. Full architecture rationale lives in
 [`Documents/WorkflowWrapper.html`](../../Documents/WorkflowWrapper.html) --
 read that first if anything below is unclear.

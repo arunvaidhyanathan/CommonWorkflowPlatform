@@ -15,5 +15,5 @@ export interface HistoricTaskInstance {
 }
 
 export async function listHistoricTaskInstances(): Promise<HistoricTaskInstance[]> {
-  return apiFetch<HistoricTaskInstance[]>('/runtime/history/task-instances')
+  return apiFetch<HistoricTaskInstance[]>('/flowable/history/task-instances')
 }

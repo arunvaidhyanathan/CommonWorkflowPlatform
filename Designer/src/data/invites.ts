@@ -15,9 +15,9 @@ export interface Invite {
 }
 
 export async function listInvites(_tenantId: string): Promise<Invite[]> {
-  return apiFetch<Invite[]>('/runtime/design/invites')
+  return apiFetch<Invite[]>('/identity/invites')
 }
 
 export async function revokeInvite(inviteId: string): Promise<void> {
-  await apiFetch(`/runtime/design/invites/${inviteId}/revoke`, { method: 'POST' })
+  await apiFetch(`/identity/invites/${inviteId}/revoke`, { method: 'POST' })
 }
