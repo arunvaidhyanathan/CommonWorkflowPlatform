@@ -1,19 +1,18 @@
 # CodeGraph snapshot: CommonWorkflowPlatform
 
-Generated with [CodeGraph](https://github.com/colbymchenry/codegraph) 1.6.3 from the local index (`.codegraph/`, not committed). Regenerate: `codegraph sync && python3 -I Documents/codegraph/export.py .` (see [CodeMaps.html](../CodeMaps.html)).
+Generated with [CodeGraph](https://github.com/colbymchenry/codegraph) 1.6.3 from the local index (`.codegraph/`, not committed). Regenerate: `codegraph sync && python3 -I docs/code-maps/codegraph/export.py .` (see [the code maps index](../index.html)).
 
 ## Index
 
 - Files: 200 (java 68, javascript 1, python 55, tsx 38, typescript 30, xml 3, yaml 5)
-- Symbols: 4827, edges: 9817
-- By kind: import 1332, function 792, method 741, property 467, field 413, class 225, file 195, variable 193, constant 182, interface 79, route 78, namespace 68, type_alias 33, component 29
+- Symbols: 4803, edges: 9723
+- By kind: import 1325, function 773, method 734, property 467, field 413, class 224, file 195, constant 193, variable 192, interface 79, route 78, namespace 68, type_alias 33, component 29
 - Parse errors: 0
 
 ## Routes detected
 
 HTTP routes CodeGraph found: Spring `@*Mapping` endpoints, FastAPI routes and the SPA's React Router routes. Paths are as each service serves them (the gateway adds `/api/identity`, `/api/design`, `/api/flowable`, ...).
 
-- `Designer/src/App.tsx`: `/` (L37), `/designer` (L38), `/onboarding` (L39), `/workbench` (L40), `/tasks` (L41), `/instances` (L42), `/decisions` (L43), `/workflow-wrapper` (L44), `/agentic-designer` (L46), `/admin` (L47), `/approvals` (L55), `/jobs` (L63), `/spend` (L71), `/*` (L82)
 - `services/design-service/src/main/java/com/waas/design/ApprovalController.java`: `POST /design/approvals` (L48), `GET /design/approvals/pending` (L66), `POST /design/approvals/{id}/decision` (L86)
 - `services/design-service/src/main/java/com/waas/design/AuditController.java`: `GET /design/audit` (L34)
 - `services/design-service/src/main/java/com/waas/design/InternalAuditController.java`: `POST /internal/design/audit` (L45)
@@ -36,6 +35,7 @@ HTTP routes CodeGraph found: Spring `@*Mapping` endpoints, FastAPI routes and th
 - `services/identity-service/src/main/java/com/waas/identity/InternalController.java`: `GET /internal/identity/tenants/{tenantId}/members/{userId}` (L40)
 - `services/identity-service/src/main/java/com/waas/identity/MemberController.java`: `GET /identity/members` (L74), `POST /identity/members` (L90), `PUT /identity/members/{id}/role` (L109), `PUT /identity/members/{id}/groups` (L128), `PUT /identity/members/{id}/status` (L146), `GET /identity/invites` (L167), `POST /identity/invites/{id}/revoke` (L180), `GET /identity/me` (L193), `POST /identity/me/dismiss-getting-started` (L203)
 - `services/identity-service/src/main/java/com/waas/identity/config/JwksController.java`: `GET /.well-known/jwks.json` (L21)
+- `services/web-app/src/App.tsx`: `/` (L37), `/designer` (L38), `/onboarding` (L39), `/workbench` (L40), `/tasks` (L41), `/instances` (L42), `/decisions` (L43), `/workflow-wrapper` (L44), `/agentic-designer` (L46), `/admin` (L47), `/approvals` (L55), `/jobs` (L63), `/spend` (L71), `/*` (L82)
 
 ## Cross-service seams (callers)
 
@@ -51,11 +51,11 @@ method com.waas.design::IdentityClient::requireActive (java) — services/design
 method      demotedApproverLosesApprovalRightsOnceTheCacheExpires
   services/design-service/src/test/java/com/waas/design/IdentityClientTest.java:73, 77, 80
 
-method      writer
-  services/design-service/src/main/java/com/waas/design/DesignDb.java:50
-
 method      deactivatedOrUnknownUsersCannotWrite
   services/design-service/src/test/java/com/waas/design/IdentityClientTest.java:88, 92
+
+method      writer
+  services/design-service/src/main/java/com/waas/design/DesignDb.java:49
 
 
 method com.waas.flowablewrapper.identity::HttpIdentityDirectory::requireActive (java) — services/flowable-wrapper/src/main/java/com/waas/flowablewrapper/identity/HttpIdentityDirectory.java:63 (5):
@@ -143,7 +143,7 @@ Every design-time write goes through DesignDb.writer() (identity check + audit c
 ```
 Callers of "writer" (6):
 
-method com.waas.design::DesignDb::writer (java) — services/design-service/src/main/java/com/waas/design/DesignDb.java:49
+method com.waas.design::DesignDb::writer (java) — services/design-service/src/main/java/com/waas/design/DesignDb.java:48
 method      delete
   services/design-service/src/main/java/com/waas/design/WorkflowController.java:168
 
@@ -194,126 +194,126 @@ SPA calls to the backend (one client for every service)
 ```
 Callers of "apiFetch" (40 of 74):
 
-function apiFetch (typescript) — Designer/src/lib/apiClient.ts:72
-function    evaluateExpression
-  Designer/src/data/work.ts:243
-
-function    startBatchMigration
-  Designer/src/data/work.ts:182
-
-function    getTimeline
-  Designer/src/data/work.ts:231
-
-function    listTenantMembers
-  Designer/src/data/admin.ts:22
-
-function    retryJob
-  Designer/src/data/work.ts:238
-
-function    startInstance
-  Designer/src/data/work.ts:114
-
-function    setBusinessStatus
-  Designer/src/data/work.ts:234
-
-function    completeTask
-  Designer/src/data/work.ts:257
-
-function    listDecisions
-  Designer/src/data/work.ts:134
-
-function    createDeployment
-  Designer/src/data/deployments.ts:57
-
-function    getOpenAlerts
-  Designer/src/data/spend.ts:109
-
+function apiFetch (typescript) — services/web-app/src/lib/apiClient.ts:72
 function    acknowledgeAlert
-  Designer/src/data/spend.ts:113
+  services/web-app/src/data/spend.ts:113
 
-function    listAuditLog
-  Designer/src/data/auditLog.ts:19
-
-function    getBatch
-  Designer/src/data/work.ts:185
-
-function    revokeInvite
-  Designer/src/data/invites.ts:22
+function    migrateInstances
+  services/web-app/src/data/work.ts:179
 
 function    loadWorkflowVersion
-  Designer/src/data/workflows.ts:110
-
-function    listVersions
-  Designer/src/data/work.ts:173
-
-function    getSpendSummary
-  Designer/src/data/spend.ts:75
-
-function    saveDraftVersion
-  Designer/src/data/workflows.ts:98
-
-function    getBudgets
-  Designer/src/data/spend.ts:94
-
-function    runKeyChecks
-  Designer/src/data/spend.ts:89
-
-function    unclaimTask
-  Designer/src/data/work.ts:254
-
-function    terminateInstance
-  Designer/src/data/work.ts:129
-
-function    listCaseInstances
-  Designer/src/data/caseInstances.ts:18
-
-function    listDefinitions
-  Designer/src/data/work.ts:107
-
-function    validateMigration
-  Designer/src/data/work.ts:176
+  services/web-app/src/data/workflows.ts:110
 
 function    getTask
-  Designer/src/data/work.ts:250
+  services/web-app/src/data/work.ts:250
 
-function    getKeyStatus
-  Designer/src/data/spend.ts:81
+function    createDeployment
+  services/web-app/src/data/deployments.ts:54
 
-function    setBudget
-  Designer/src/data/spend.ts:98
+function    validateMigration
+  services/web-app/src/data/work.ts:176
 
-function    jobStacktrace
-  Designer/src/data/work.ts:237
+function    isDefinitionKeyTaken
+  services/web-app/src/data/workflows.ts:45
 
-function    getMyProfile
-  Designer/src/data/profile.ts:13
+function    listVersions
+  services/web-app/src/data/work.ts:173
 
-function    decideApproval
-  Designer/src/data/approvals.ts:46
+function    deleteJob
+  services/web-app/src/data/work.ts:239
 
-function    createWorkflowFromImport
-  Designer/src/data/workflows.ts:78
+function    listDefinitions
+  services/web-app/src/data/work.ts:107
+
+function    getSpendSummary
+  services/web-app/src/data/spend.ts:75
+
+function    terminateInstance
+  services/web-app/src/data/work.ts:129
+
+function    getBatch
+  services/web-app/src/data/work.ts:185
+
+function    deleteWorkflowPermanently
+  services/web-app/src/data/admin.ts:61
+
+function    listTasks
+  services/web-app/src/data/work.ts:248
+
+function    evaluateDecision
+  services/web-app/src/data/work.ts:137
 
 function    claimTask
-  Designer/src/data/work.ts:252
+  services/web-app/src/data/work.ts:252
+
+function    fireTimer
+  services/web-app/src/data/work.ts:240
+
+function    setUserRole
+  services/web-app/src/data/admin.ts:31
+
+function    getOpenAlerts
+  services/web-app/src/data/spend.ts:109
 
 function    planItemAction
-  Designer/src/data/work.ts:132
+  services/web-app/src/data/work.ts:132
 
-function    setMemberStatus
-  Designer/src/data/admin.ts:50
+function    loadWorkflow
+  services/web-app/src/data/workflows.ts:114
+
+function    listCaseInstances
+  services/web-app/src/data/caseInstances.ts:18
+
+function    decideApproval
+  services/web-app/src/data/approvals.ts:46
+
+function    startBatchMigration
+  services/web-app/src/data/work.ts:182
+
+function    completeTask
+  services/web-app/src/data/work.ts:257
+
+function    setMemberGroups
+  services/web-app/src/data/admin.ts:39
+
+function    runKeyChecks
+  services/web-app/src/data/spend.ts:89
+
+function    injectTask
+  services/web-app/src/data/work.ts:188
+
+function    setInstanceVariables
+  services/web-app/src/data/work.ts:123
+
+function    listInvites
+  services/web-app/src/data/invites.ts:18
 
 function    listDeployments
-  Designer/src/data/deployments.ts:70
+  services/web-app/src/data/deployments.ts:67
+
+function    getMyProfile
+  services/web-app/src/data/profile.ts:13
+
+function    getKeyStatus
+  services/web-app/src/data/spend.ts:81
+
+function    unclaimTask
+  services/web-app/src/data/work.ts:254
+
+function    listAuditLog
+  services/web-app/src/data/auditLog.ts:19
 
 function    getDeployment
-  Designer/src/data/deployments.ts:74
+  services/web-app/src/data/deployments.ts:71
 
-function    listPendingApprovals
-  Designer/src/data/approvals.ts:37
+function    createUser
+  services/web-app/src/data/admin.ts:27
 
-function    dismissGettingStarted
-  Designer/src/data/profile.ts:17
+function    revokeInvite
+  services/web-app/src/data/invites.ts:22
+
+function    setMemberStatus
+  services/web-app/src/data/admin.ts:50
 
 Showing 40 of 74; pass --limit to widen.
 ```

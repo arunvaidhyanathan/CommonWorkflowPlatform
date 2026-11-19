@@ -88,12 +88,12 @@
 <body>
 
 <div class="container">
-    <div class="doc-nav">&larr; <a href="CWP.html">Common Workflow Platform (CWP) index</a></div>
+    <div class="doc-nav">&larr; <a href="../README.md">CWP documentation</a></div>
     <header>
         <h1>Code Maps</h1>
         <div class="subtitle">Generated maps of the codebase: a knowledge graph (Graphify), a source-cited architecture diagram (Archify) and a symbol index for AI agents (CodeGraph).</div>
         <div class="meta-grid">
-            <div class="meta-item"><strong>Generated</strong>November 18, 2026, from commit <code>154f73c</code></div>
+            <div class="meta-item"><strong>Generated</strong>November 18, 2026, from commit <code>fb87092</code></div>
             <div class="meta-item"><strong>Network</strong>All three ran locally; no code or docs were sent to an LLM or other service</div>
             <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
         </div>
@@ -111,7 +111,7 @@
 
     <section>
         <h2 id="sec-1">1. Archify: service architecture</h2>
-        <p><a href="archify/cwp-services-architecture.html"><strong>Open the architecture diagram &rarr;</strong></a> Interactive, self-contained HTML (pan, zoom, dark/light, export to PNG/SVG). It shows the browser path through the nginx gateway to the five services, the internal calls between the Java services (role lookups and audit events), and which database role each service uses. Every box cites the source lines it is based on, verified against commit <code>154f73c</code>.</p>
+        <p><a href="archify/cwp-services-architecture.html"><strong>Open the architecture diagram &rarr;</strong></a> Interactive, self-contained HTML (pan, zoom, dark/light, export to PNG/SVG). It shows the path from the OpenShift Route through the gateway to web-app and the five API services, the internal calls between the Java services (role lookups and audit events), and the database role each service uses. Every box cites the source lines it is based on, verified against commit <code>fb87092</code>.</p>
         <ul>
             <li>Source: <code>archify/architecture-cwp-services/candidate.json</code> (the diagram's data); Archify's validation receipts (<code>*.json</code> next to the HTML) stay local and are git-ignored, because they record absolute paths.</li>
             <li>Automated checks passed (schema, layout, source evidence, real-browser rendering); not visually reviewed by a person.</li>
@@ -124,10 +124,10 @@
         <h2 id="sec-2">2. Graphify: knowledge graph</h2>
         <p><a href="graphify/graph.html"><strong>Open the interactive graph &rarr;</strong></a> &middot; <a href="graphify/GRAPH_TREE.html">collapsible tree</a> &middot; <a href="graphify/GRAPH_REPORT.md">report</a> (most-connected symbols, surprising connections, suggested questions) &middot; <code>graphify/graph.json</code> (the full graph, queryable).</p>
         <ul>
-            <li>211 code files &rarr; 1,753 nodes, 3,571 edges, 125 communities. Built from tree-sitter parsing only (no LLM), so communities are numbered, not named.</li>
+            <li>1,718 nodes, 3,481 edges, 116 communities. Built from tree-sitter parsing only (no LLM), so communities are numbered, not named.</li>
             <li>81% of edges are <code>EXTRACTED</code> from the code; 19% are <code>INFERRED</code> by name matching and can be wrong (for example, a link from <code>BpmnProperties.tsx</code> to a Python test helper). Check inferred edges before relying on them.</li>
-            <li>Built from the committed code only, without <code>Documents/</code>, lockfiles or build output.</li>
-            <li>Query it: <code>graphify query "how does a task get completed" --graph Documents/graphify/graph.json</code>, <code>graphify path "TaskController" "HttpIdentityDirectory" --graph ...</code>.</li>
+            <li>Built from the committed code only, without <code>docs/</code>, lockfiles or build output.</li>
+            <li>Query it: <code>graphify query "how does a task get completed" --graph docs/code-maps/graphify/graph.json</code>, <code>graphify path "TaskController" "HttpIdentityDirectory" --graph ...</code>.</li>
             <li>Tool: <a href="https://github.com/Graphify-Labs/graphify">Graphify-Labs/graphify</a> (<code>graphifyy</code> 0.7.13 via <code>uv tool</code>; its <code>/graphify</code> skill was already installed).</li>
         </ul>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
@@ -137,7 +137,7 @@
         <h2 id="sec-3">3. CodeGraph: symbol index</h2>
         <p><a href="codegraph/README.md"><strong>Open the CodeGraph snapshot &rarr;</strong></a> Index statistics, every HTTP route it found (Spring, FastAPI and the SPA's React routes), and the callers of each cross-service seam: role lookups, the audit post, the <code>writer()</code> access checks and the SPA's <code>apiFetch</code>.</p>
         <ul>
-            <li>199 files &rarr; 4,811 symbols, 9,799 edges, 78 routes, no parse errors. The index lives in <code>.codegraph/</code> (SQLite, kept out of git) and stays in sync through a file watcher.</li>
+            <li>200 files &rarr; 4,803 symbols, 9,723 edges, 78 routes, no parse errors. The index lives in <code>.codegraph/</code> (SQLite, kept out of git) and stays in sync through a file watcher.</li>
             <li>Claude Code uses it through the <code>codegraph</code> MCP server, registered for this project only (<code>claude mcp get codegraph</code>); start a new session to get its tools (<code>codegraph_explore</code>, callers, callees, ...). CLI: <code>codegraph explore "role check"</code>, <code>codegraph callers requireActive</code>.</li>
             <li>Tool: <a href="https://github.com/colbymchenry/codegraph">colbymchenry/codegraph</a> 1.6.3 (<code>npm i -g @colbymchenry/codegraph</code>), telemetry off.</li>
         </ul>
@@ -147,20 +147,20 @@
     <section>
         <h2 id="sec-4">4. Regenerating</h2>
         <pre><code># CodeGraph (repo root)
-codegraph sync &amp;&amp; python3 -I Documents/codegraph/export.py .
+codegraph sync &amp;&amp; python3 -I docs/code-maps/codegraph/export.py .
 
 # Graphify: build from committed code only, then copy the outputs here
-tmp=$(mktemp -d) &amp;&amp; git archive HEAD -- . ':!Documents' ':!**/package-lock.json' ':!**/uv.lock' | tar -x -C "$tmp"
+tmp=$(mktemp -d) &amp;&amp; git archive HEAD -- . ':!docs' ':!**/package-lock.json' ':!**/uv.lock' | tar -x -C "$tmp"
 (cd "$tmp" &amp;&amp; GRAPHIFY_BACKEND=none graphify update . &amp;&amp; graphify tree --label CommonWorkflowPlatform)
-cp "$tmp"/graphify-out/{GRAPH_REPORT.md,graph.html,graph.json,GRAPH_TREE.html} Documents/graphify/
+cp "$tmp"/graphify-out/{GRAPH_REPORT.md,graph.html,graph.json,GRAPH_TREE.html} docs/code-maps/graphify/
 
 # Archify: update the cited lines and the revision in candidate.json, then
 ARCHIFY_UPDATE_CHECK_DISABLED=1 node ~/.claude/skills/archify/bin/archify.mjs finalize architecture \
-  Documents/archify/architecture-cwp-services/candidate.json Documents/archify/cwp-services-architecture.html \
+  docs/code-maps/archify/architecture-cwp-services/candidate.json docs/code-maps/archify/cwp-services-architecture.html \
   --repo-root . --quality showcase --json</code></pre>
         <div class="callout">
             <div class="callout-title">Keeping data local</div>
-            <p>Graphify can name communities and read docs with an LLM (<code>graphify extract</code> with a Gemini key), which sends file contents to Google. That was not done: <code>Documents/</code> holds connection details that must not leave this machine. If you want named communities, run it on the code export only.</p>
+            <p>Graphify can name communities and read docs with an LLM (<code>graphify extract</code> with a Gemini key), which sends file contents to Google. That was not done. If you want named communities, run it on the code export only (never on files holding credentials).</p>
         </div>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
     </section>

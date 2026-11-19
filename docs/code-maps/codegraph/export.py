@@ -1,7 +1,7 @@
-"""Export a CodeGraph snapshot of the repo into Documents/codegraph/.
+"""Export a CodeGraph snapshot of the repo into docs/code-maps/codegraph/.
 
 Usage (repo root, after `codegraph init --local-only` once and `codegraph sync`):
-    python3 -I Documents/codegraph/export.py .
+    python3 -I docs/code-maps/codegraph/export.py .
 """
 import json
 import os
@@ -10,7 +10,7 @@ import subprocess
 import sys
 
 repo = pathlib.Path(sys.argv[1]).resolve()
-out = repo / "Documents" / "codegraph"
+out = repo / "docs" / "code-maps" / "codegraph"
 out.mkdir(parents=True, exist_ok=True)
 env = {**os.environ, "CODEGRAPH_TELEMETRY": "0", "NO_COLOR": "1"}
 
@@ -44,8 +44,8 @@ seams = [  # (symbol, defining file suffix or None, why it matters)
 md = ["# CodeGraph snapshot: CommonWorkflowPlatform", "",
       "Generated with [CodeGraph](https://github.com/colbymchenry/codegraph) "
       f"{status.get('version')} from the local index (`.codegraph/`, not committed). "
-      "Regenerate: `codegraph sync && python3 -I Documents/codegraph/export.py .` "
-      "(see [CodeMaps.html](../CodeMaps.html)).", "",
+      "Regenerate: `codegraph sync && python3 -I docs/code-maps/codegraph/export.py .` "
+      "(see [the code maps index](../index.html)).", "",
       "## Index", "",
       f"- Files: {status['fileCount']} ({', '.join(f'{k} {v}' for k, v in status['filesByLanguage'].items())})",
       f"- Symbols: {status['nodeCount']}, edges: {status['edgeCount']}",

@@ -2,90 +2,430 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "CWP services after the microservice split",
-    "output": "Documents/archify/cwp-services-architecture.html",
+    "title": "CWP services on OpenShift",
+    "output": "docs/code-maps/archify/cwp-services-architecture.html",
     "quality_profile": "showcase",
     "locale": "en",
     "repository": {
       "url": "git@github.com:arunvaidhyanathan/CommonWorkflowPlatform.git",
       "link_mode": "local-only",
-      "revision": "154f73ca039934a6d9c2f5c21162af182269bb8d"
+      "revision": "fb87092aae7a2607a75b8482b1d41181304e36e0"
     }
   },
   "components": [
-    { "id": "users", "type": "external", "label": "Users", "sublabel": "browser", "pos": [40, 192], "size": [110, 60] },
-    { "id": "spa", "type": "frontend", "label": "Designer SPA", "sublabel": "React · apiFetch", "pos": [210, 190], "size": [130, 64],
+    {
+      "id": "users",
+      "type": "external",
+      "label": "Users",
+      "sublabel": "browser via Route",
+      "pos": [
+        40,
+        302
+      ],
+      "size": [
+        120,
+        60
+      ]
+    },
+    {
+      "id": "gateway",
+      "type": "cloud",
+      "label": "gateway",
+      "sublabel": "nginx · routes /api/*",
+      "tag": "no token check",
+      "pos": [
+        220,
+        262
+      ],
+      "size": [
+        150,
+        140
+      ],
       "sources": [
-        { "path": "Designer/src/lib/apiClient.ts", "line": 57, "end_line": 57, "label": "login call" },
-        { "path": "Designer/src/lib/apiClient.ts", "line": 72, "end_line": 72, "label": "apiFetch" }
-      ] },
-    { "id": "gateway", "type": "cloud", "label": "nginx gateway", "sublabel": "routes /api/*", "tag": "no JWT check", "pos": [410, 162], "size": [150, 120],
+        {
+          "path": "services/gateway/templates/cwp.conf.template",
+          "line": 70,
+          "end_line": 149,
+          "label": "routes, /internal refused, web-app"
+        }
+      ]
+    },
+    {
+      "id": "webapp",
+      "type": "frontend",
+      "label": "web-app",
+      "sublabel": "React SPA · nginx",
+      "pos": [
+        500,
+        50
+      ],
+      "size": [
+        190,
+        64
+      ],
       "sources": [
-        { "path": "gateway/templates/cwp.conf.template", "line": 56, "end_line": 82, "label": "flowable, identity, design routes" }
-      ] },
-    { "id": "design", "type": "backend", "label": "design-service", "sublabel": "workflows · approvals · audit", "pos": [690, 40], "size": [190, 64],
+        {
+          "path": "services/web-app/nginx.conf",
+          "line": 28,
+          "end_line": 30,
+          "label": "SPA fallback"
+        },
+        {
+          "path": "services/web-app/src/lib/apiClient.ts",
+          "line": 57,
+          "end_line": 57,
+          "label": "login call"
+        },
+        {
+          "path": "services/web-app/src/lib/apiClient.ts",
+          "line": 72,
+          "end_line": 72,
+          "label": "apiFetch"
+        }
+      ]
+    },
+    {
+      "id": "design",
+      "type": "backend",
+      "label": "design-service",
+      "sublabel": "workflows · approvals · audit",
+      "pos": [
+        500,
+        170
+      ],
+      "size": [
+        190,
+        64
+      ],
       "sources": [
-        { "path": "services/design-service/src/main/java/com/waas/design/DesignDb.java", "line": 49, "end_line": 56, "label": "writer(): role check + audit claims" },
-        { "path": "services/design-service/src/main/java/com/waas/design/InternalAuditController.java", "line": 45, "end_line": 59, "label": "internal audit endpoint" }
-      ] },
-    { "id": "identity", "type": "security", "label": "identity-service", "sublabel": "login · RS256 + JWKS · members", "pos": [690, 190], "size": [190, 64],
+        {
+          "path": "services/design-service/src/main/java/com/waas/design/DesignDb.java",
+          "line": 48,
+          "end_line": 55,
+          "label": "writer(): role check + audit claims"
+        },
+        {
+          "path": "services/design-service/src/main/java/com/waas/design/InternalAuditController.java",
+          "line": 45,
+          "end_line": 59,
+          "label": "internal audit endpoint"
+        }
+      ]
+    },
+    {
+      "id": "identity",
+      "type": "security",
+      "label": "identity-service",
+      "sublabel": "login · RS256 + JWKS · members",
+      "pos": [
+        500,
+        290
+      ],
+      "size": [
+        190,
+        64
+      ],
       "sources": [
-        { "path": "services/identity-service/src/main/java/com/waas/identity/AuthController.java", "line": 62, "end_line": 102, "label": "login issues RS256 token" },
-        { "path": "services/identity-service/src/main/java/com/waas/identity/config/JwksController.java", "line": 21, "end_line": 24, "label": "JWKS" },
-        { "path": "services/identity-service/src/main/java/com/waas/identity/InternalController.java", "line": 40, "end_line": 54, "label": "internal member lookup" }
-      ] },
-    { "id": "flowable", "type": "backend", "label": "flowable-wrapper", "sublabel": "Flowable 8 · deploy, tasks, jobs", "pos": [690, 340], "size": [190, 64],
+        {
+          "path": "services/identity-service/src/main/java/com/waas/identity/AuthController.java",
+          "line": 62,
+          "end_line": 102,
+          "label": "login issues RS256 token"
+        },
+        {
+          "path": "services/identity-service/src/main/java/com/waas/identity/config/JwksController.java",
+          "line": 21,
+          "end_line": 24,
+          "label": "JWKS"
+        },
+        {
+          "path": "services/identity-service/src/main/java/com/waas/identity/InternalController.java",
+          "line": 40,
+          "end_line": 54,
+          "label": "internal member lookup"
+        }
+      ]
+    },
+    {
+      "id": "flowable",
+      "type": "backend",
+      "label": "flowable-wrapper",
+      "sublabel": "Flowable 8 · deploy, tasks, jobs",
+      "pos": [
+        500,
+        410
+      ],
+      "size": [
+        190,
+        64
+      ],
       "sources": [
-        { "path": "services/flowable-wrapper/src/main/java/com/waas/flowablewrapper/work/TaskController.java", "line": 108, "end_line": 122, "label": "complete task" },
-        { "path": "services/flowable-wrapper/src/main/java/com/waas/flowablewrapper/identity/HttpIdentityDirectory.java", "line": 106, "end_line": 119, "label": "identity lookup, 503 if down" }
-      ] },
-    { "id": "agent", "type": "backend", "label": "agentic-designer", "sublabel": "generate · edit · review", "pos": [690, 490], "size": [190, 64],
+        {
+          "path": "services/flowable-wrapper/src/main/java/com/waas/flowablewrapper/work/TaskController.java",
+          "line": 108,
+          "end_line": 122,
+          "label": "complete task"
+        },
+        {
+          "path": "services/flowable-wrapper/src/main/java/com/waas/flowablewrapper/identity/HttpIdentityDirectory.java",
+          "line": 106,
+          "end_line": 119,
+          "label": "identity lookup, 503 if down"
+        }
+      ]
+    },
+    {
+      "id": "spend",
+      "type": "backend",
+      "label": "spend-tracker",
+      "sublabel": "usage · spend · key health",
+      "pos": [
+        500,
+        530
+      ],
+      "size": [
+        190,
+        64
+      ],
       "sources": [
-        { "path": "services/agentic-designer/src/agentic_designer/app.py", "line": 207, "end_line": 236, "label": "generate, edit, review" },
-        { "path": "services/agentic-designer/src/agentic_designer/app.py", "line": 299, "end_line": 303, "label": "usage events sink" }
-      ] },
-    { "id": "spend", "type": "backend", "label": "spend-tracker", "sublabel": "usage · spend · key health", "pos": [690, 640], "size": [190, 64],
+        {
+          "path": "services/spend-tracker/src/spend_tracker/app.py",
+          "line": 93,
+          "end_line": 98,
+          "label": "ingest and summary"
+        }
+      ]
+    },
+    {
+      "id": "agent",
+      "type": "backend",
+      "label": "agentic-designer",
+      "sublabel": "generate · edit · review",
+      "pos": [
+        500,
+        660
+      ],
+      "size": [
+        190,
+        64
+      ],
       "sources": [
-        { "path": "services/spend-tracker/src/spend_tracker/app.py", "line": 95, "end_line": 100, "label": "ingest and summary" }
-      ] },
-    { "id": "cwpdb", "type": "database", "label": "cwp Postgres", "sublabel": "one role per service", "tag": "cwp_identity · cwp_design · cwp_runtime", "pos": [1010, 152], "size": [200, 140],
+        {
+          "path": "services/agentic-designer/src/agentic_designer/app.py",
+          "line": 208,
+          "end_line": 236,
+          "label": "generate, edit, review"
+        },
+        {
+          "path": "services/agentic-designer/src/agentic_designer/app.py",
+          "line": 283,
+          "end_line": 288,
+          "label": "usage events sink"
+        }
+      ]
+    },
+    {
+      "id": "cwpdb",
+      "type": "database",
+      "label": "PostgreSQL cwp",
+      "sublabel": "one schema + role per service",
+      "tag": "identity · design · runtime · spend",
+      "pos": [
+        830,
+        170
+      ],
+      "size": [
+        210,
+        424
+      ],
       "sources": [
-        { "path": "Database/roles.sql", "line": 65, "end_line": 79, "label": "per-service grants" }
-      ] },
-    { "id": "ai", "type": "external", "label": "AI providers", "sublabel": "Gemini · NVIDIA · OpenRouter", "pos": [1010, 490], "size": [200, 64],
+        {
+          "path": "database/01-schemas.sql",
+          "line": 20,
+          "end_line": 23,
+          "label": "schema per service"
+        },
+        {
+          "path": "database/00-roles.sql",
+          "line": 28,
+          "end_line": 28,
+          "label": "four login roles"
+        }
+      ]
+    },
+    {
+      "id": "ai",
+      "type": "external",
+      "label": "AI providers",
+      "sublabel": "Gemini · NVIDIA · OpenRouter",
+      "pos": [
+        830,
+        660
+      ],
+      "size": [
+        210,
+        64
+      ],
       "sources": [
-        { "path": "services/agentic-designer/src/agentic_designer/llm.py", "line": 56, "end_line": 57, "label": "GeminiProvider" },
-        { "path": "services/agentic-designer/src/agentic_designer/llm.py", "line": 110, "end_line": 112, "label": "NVIDIA / OpenRouter" }
-      ] },
-    { "id": "spenddb", "type": "database", "label": "spend-db", "sublabel": "Postgres cwp_spend", "pos": [1010, 640], "size": [200, 64],
-      "sources": [
-        { "path": "docker-compose.yml", "line": 123, "end_line": 134, "label": "spend-db container" }
-      ] }
+        {
+          "path": "services/agentic-designer/src/agentic_designer/llm.py",
+          "line": 56,
+          "end_line": 57,
+          "label": "GeminiProvider"
+        },
+        {
+          "path": "services/agentic-designer/src/agentic_designer/llm.py",
+          "line": 110,
+          "end_line": 112,
+          "label": "NVIDIA / OpenRouter"
+        }
+      ]
+    }
   ],
   "boundaries": [
-    { "kind": "region", "label": "Internal network: services never exposed directly", "wraps": ["design", "identity", "flowable", "agent", "spend"] }
+    {
+      "kind": "region",
+      "label": "Cluster-internal Services: reachable only through the gateway",
+      "wraps": [
+        "webapp",
+        "design",
+        "identity",
+        "flowable",
+        "spend",
+        "agent"
+      ]
+    }
   ],
   "connections": [
-    { "id": "users-spa", "from": "users", "to": "spa", "label": "uses" },
-    { "id": "spa-gateway", "from": "spa", "to": "gateway", "label": "Bearer JWT", "variant": "emphasis" },
-    { "id": "gw-design", "from": "gateway", "to": "design", "label": "/api/design" },
-    { "id": "gw-identity", "from": "gateway", "to": "identity", "label": "/api/identity", "variant": "emphasis" },
-    { "id": "gw-flowable", "from": "gateway", "to": "flowable", "label": "/api/flowable" },
-    { "id": "gw-agent", "from": "gateway", "to": "agent", "label": "/api/agent" },
-    { "id": "gw-spend", "from": "gateway", "to": "spend", "label": "/api/spend" },
-    { "id": "design-role", "from": "design", "to": "identity", "label": "role lookup", "variant": "security" },
-    { "id": "identity-audit", "from": "identity", "to": "design", "label": "audit event", "variant": "dashed" },
-    { "id": "flowable-role", "from": "flowable", "to": "identity", "label": "role + groups", "variant": "security" },
-    { "id": "design-db", "from": "design", "to": "cwpdb", "label": "as cwp_design" },
-    { "id": "identity-db", "from": "identity", "to": "cwpdb", "label": "as cwp_identity" },
-    { "id": "flowable-db", "from": "flowable", "to": "cwpdb", "label": "as cwp_runtime" },
-    { "id": "agent-ai", "from": "agent", "to": "ai", "label": "LLM calls" },
-    { "id": "agent-usage", "from": "agent", "to": "spend", "label": "usage events", "variant": "dashed" },
-    { "id": "spend-db", "from": "spend", "to": "spenddb", "label": "SQL" }
+    {
+      "id": "users-gateway",
+      "from": "users",
+      "to": "gateway",
+      "label": "HTTPS",
+      "variant": "emphasis"
+    },
+    {
+      "id": "gw-webapp",
+      "from": "gateway",
+      "to": "webapp",
+      "label": "/"
+    },
+    {
+      "id": "gw-design",
+      "from": "gateway",
+      "to": "design",
+      "label": "/api/design"
+    },
+    {
+      "id": "gw-identity",
+      "from": "gateway",
+      "to": "identity",
+      "label": "/api/identity",
+      "variant": "emphasis"
+    },
+    {
+      "id": "gw-flowable",
+      "from": "gateway",
+      "to": "flowable",
+      "label": "/api/flowable"
+    },
+    {
+      "id": "gw-spend",
+      "from": "gateway",
+      "to": "spend",
+      "label": "/api/spend"
+    },
+    {
+      "id": "gw-agent",
+      "from": "gateway",
+      "to": "agent",
+      "label": "/api/agent"
+    },
+    {
+      "id": "design-role",
+      "from": "design",
+      "to": "identity",
+      "label": "role lookup",
+      "variant": "security"
+    },
+    {
+      "id": "identity-audit",
+      "from": "identity",
+      "to": "design",
+      "label": "audit event",
+      "variant": "dashed"
+    },
+    {
+      "id": "flowable-role",
+      "from": "flowable",
+      "to": "identity",
+      "label": "role + groups",
+      "variant": "security"
+    },
+    {
+      "id": "design-db",
+      "from": "design",
+      "to": "cwpdb",
+      "label": "as cwp_design"
+    },
+    {
+      "id": "identity-db",
+      "from": "identity",
+      "to": "cwpdb",
+      "label": "as cwp_identity"
+    },
+    {
+      "id": "flowable-db",
+      "from": "flowable",
+      "to": "cwpdb",
+      "label": "as cwp_runtime"
+    },
+    {
+      "id": "spend-db",
+      "from": "spend",
+      "to": "cwpdb",
+      "label": "as cwp_spend"
+    },
+    {
+      "id": "agent-usage",
+      "from": "agent",
+      "to": "spend",
+      "label": "usage events",
+      "variant": "dashed"
+    },
+    {
+      "id": "agent-ai",
+      "from": "agent",
+      "to": "ai",
+      "label": "LLM calls"
+    }
   ],
   "cards": [
-    { "dot": "rose", "title": "Trust", "items": ["identity-service signs login tokens (RS256); every service verifies them against its JWKS", "nginx routes only; it never validates tokens or routes /internal/**", "Internal calls carry the shared X-Internal-Token"] },
-    { "dot": "violet", "title": "Who may write", "items": ["design-service and flowable-wrapper re-check role and status with identity-service on every write, cached up to 30s", "If identity-service is down, writes fail with 503 instead of trusting the token"] },
-    { "dot": "emerald", "title": "Data ownership", "items": ["One Postgres, three login roles: each service is refused on the others' tables", "Role and status changes are posted to design-service's audit log inside the change's transaction", "spend-tracker keeps its own database"] }
+    {
+      "dot": "rose",
+      "title": "Trust",
+      "items": [
+        "identity-service signs login tokens (RS256) with one shared key; every service verifies them against its JWKS",
+        "The gateway routes and rate-limits per client IP; it never validates tokens and refuses /internal/**",
+        "Internal calls carry the shared X-Internal-Token"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Who may write",
+      "items": [
+        "design-service and flowable-wrapper re-check role and status with identity-service on every write, cached up to 30s per pod",
+        "If identity-service is down, writes fail with 503 instead of trusting the token"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Scale and data",
+      "items": [
+        "Every service is a stateless image that scales horizontally behind its own Service",
+        "One database, one schema and login role per service, no cross-schema foreign keys: any service can move to its own database",
+        "flowable-wrapper and spend-tracker create their own tables at startup under a lock"
+      ]
+    }
   ]
 }
