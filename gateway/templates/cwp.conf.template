@@ -79,6 +79,17 @@ server {
     proxy_pass http://$design_service;
   }
 
+  location /api/agent/ {
+    include /etc/nginx/snippets/cwp-api.conf;
+    limit_req zone=cwp_agent burst=5 nodelay;
+    set $agentic_designer ${AGENTIC_DESIGNER_UPSTREAM};
+    rewrite ^/api/agent(/.*)$ $1 break;
+    proxy_pass http://$agentic_designer;
+    # Server-sent events: stream model progress instead of buffering it.
+    proxy_buffering off;
+    proxy_read_timeout 300s;
+  }
+
   # Usage ingest is service-to-service only (internal network, with its own
   # token); it is never reachable from outside.
   location = /api/spend/events {
