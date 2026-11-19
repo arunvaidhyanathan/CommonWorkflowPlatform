@@ -20,3 +20,4 @@ For the current platform read [../README.md](../README.md).
 | DataArchitecture.html | Data catalog (Supabase era) |
 | AgenticDesigner.html | AI-assisted authoring phases A0-A5 |
 | SpendTracker.html | API spend tracker design |
+| SUPABASE_FREE_STACK_PROMPT.md | Implementation prompt for replacing Supabase with plain PostgreSQL (since done) |

@@ -8,6 +8,7 @@
 | [operations.md](operations.md) | Probes, secrets and rotation, logs and request ids, troubleshooting |
 | [local-development.md](local-development.md) | Running everything locally (native or compose) and the test suites |
 | [code-maps/](code-maps/index.html) | Generated maps: architecture diagram (Archify), knowledge graph (Graphify), symbol index (CodeGraph) |
+| [Devin_Presentation.html](Devin_Presentation.html) | Presentation: Devin and AI agent principles for product teams |
 | [archive/](archive/README.md) | The original design documents, kept for history |
 
 Each service's own README (in `services/<service>/`) documents its API,

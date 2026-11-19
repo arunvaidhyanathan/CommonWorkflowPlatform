@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Devin & AI Agent Principles for Product Teams</title>
+    <style>
+        :root {
+            --bg-main: #f0f7ff;
+            --card-bg: #ffffff;
+            --primary: #0284c7;
+            --primary-dark: #0369a1;
+            --primary-light: #e0f2fe;
+            --accent: #38bdf8;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #bae6fd;
+            --shadow: 0 10px 25px -5px rgba(14, 165, 233, 0.1), 0 8px 10px -6px rgba(14, 165, 233, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            justify-content: space-between;
+        }
+
+        header {
+            background: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .slide-counter {
+            font-weight: 600;
+            color: var(--primary);
+            background: var(--primary-light);
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .slide {
+            display: none;
+            width: 100%;
+            max-width: 1100px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 3rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            animation: fadeIn 0.4s ease-in-out;
+        }
+
+        .slide.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            font-size: 2.25rem;
+            color: var(--primary-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            color: var(--primary-dark);
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--primary-light);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        p.subtitle {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+
+        p {
+            line-height: 1.6;
+            color: var(--text-main);
+            margin-bottom: 1rem;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+            margin-top: 1rem;
+        }
+
+        .card {
+            background: var(--bg-main);
+            padding: 1.5rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .card-highlight {
+            background: var(--primary-light);
+            border-left: 4px solid var(--primary);
+        }
+
+        ul {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+            line-height: 1.5;
+        }
+
+        .badge {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        footer {
+            background: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 2px solid var(--border);
+        }
+
+        .nav-btns {
+            display: flex;
+            gap: 1rem;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.4rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: var(--primary-dark);
+        }
+
+        button:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background: var(--primary-light);
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">⚡ Devin for Product Owners & Managers</div>
+        <div class="slide-counter" id="slide-counter">Slide 1 of 8</div>
+    </header>
+    <div class="progress-bar-container">
+        <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <main>
+        <div class="slide active">
+            <span class="badge">Enablement Deck</span>
+            <h1>AI Agents & Devin in Product Development</h1>
+            <p class="subtitle">A guide for POs & PMs on 12-Factor Agent Principles, Harnesses, and Operationalizing Devin.</p>
+            <div class="grid-2">
+                <div class="card card-highlight">
+                    <h3>Target Audience</h3>
+                    <p>Product Owners, Product Managers, and Business Analysts aiming to leverage Devin as an autonomous engineering partner.</p>
+                </div>
+                <div class="card">
+                    <h3>Core Takeaways</h3>
+                    <p>Understand how agentic architecture works, move from raw chat to deterministic harness management, and optimize SDLC velocity safely.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide">
+            <h2>1. Dex Horthy’s 12-Factor Agent Principles</h2>
+            <p class="subtitle">Key takeaways from Dex Horthy (HumanLayer) on building production-grade AI systems.</p>
+            <div class="grid-3">
+                <div class="card">
+                    <h3>1. Control & Ownership</h3>
+                    <ul>
+                        <li><b>Own Prompts & Control Flow:</b> Avoid black-box magic loops; control explicit paths.</li>
+                        <li><b>Stateless Reducers:</b> Treat agents as pure functions (Input + Event → State).</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3>2. Context Management</h3>
+                    <ul>
+                        <li><b>Own Context Window:</b> Stay out of the "dumb zone" (middle 40–60% context degradation).</li>
+                        <li><b>Compact Errors & Pre-fetch:</b> Summarize errors and retrieve docs upfront.</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3>3. Interfaces & Humans</h3>
+                    <ul>
+                        <li><b>Tools = Structured Output:</b> Translate natural language into typed JSON calls.</li>
+                        <li><b>Human-in-the-Loop:</b> Treat human approvals as standard tool-call events.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide">
+            <h2>2. Raw Chat vs. Agent Harness</h2>
+            <p class="subtitle">Why simple prompt interfaces fail for complex software tasks—and how a Harness fixes it.</p>
+            <div class="grid-2">
+                <div class="card">
+                    <h3>Raw Chat Interface</h3>
+                    <ul>
+                        <li>Unstructured natural language input/output.</li>
+                        <li>No persistent execution state or native sandbox.</li>
+                        <li>High chance of hallucination in large codebases.</li>
+                        <li>Requires manual copying & pasting of code snippets.</li>
+                    </ul>
+                </div>
+                <div class="card card-highlight">
+                    <h3>The Harness Advantage (Devin)</h3>
+                    <ul>
+                        <li><b>Deterministic Shell:</b> Wraps the LLM with real runtime tools (terminal, browser, editor).</li>
+                        <li><b>Guarded Execution:</b> Controls permissions, execution loops, and error boundaries.</li>
+                        <li><b>State Integration:</b> Maps directly to git branches, PRs, and execution logs.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide">
+            <h2>3. Repository Setup & Deep Indexing</h2>
+            <p class="subtitle">Setting Devin up to understand your application architecture.</p>
+            <div class="grid-2">
+                <div class="card">
+                    <h3>1. Connecting the Git Repo</h3>
+                    <p>Link your GitHub/GitLab repository directly to Devin. Devin provisions a secure, isolated sandbox environment with full repository context.</p>
+                </div>
+                <div class="card">
+                    <h3>2. Codebase Indexing</h3>
+                    <p>Devin runs background indexing jobs to map file dependency trees, symbol resolutions, external libraries, and architecture hierarchy.</p>
+                </div>
+            </div>
+            <div class="card card-highlight" style="margin-top: 1rem;">
+                <h3>Product Manager Tip</h3>
+                <p>Proper indexing allows Devin to understand cross-cutting concerns (e.g., how a frontend API call traces down to PostgreSQL tables via Spring Boot controllers).</p>
+            </div>
+        </div>
+
+        <div class="slide">
+            <h2>4. Devin Ask & Session Conversion</h2>
+            <p class="subtitle">From initial discovery to active execution and production pipeline integration.</p>
+            <div class="grid-2">
+                <div class="card">
+                    <h3>1. "Devin Ask" Discovery</h3>
+                    <p>Use <b>Devin Ask</b> for read-only exploration. Query codebase flows, map system logic, or review feature impact without mutating code.</p>
+                </div>
+                <div class="card">
+                    <h3>2. Converting Ask to Session</h3>
+                    <p>Once requirements are verified, convert the Q&A thread into an active implementation session with clear execution goals.</p>
+                </div>
+            </div>
+            <div class="card" style="margin-top: 1rem;">
+                <h3>3. PR & Release Pipeline (UAT to PROD)</h3>
+                <p>Devin creates the Pull Request → CI/CD runs automated test suites → PO/Engineering reviews Efficiency Score & Code → Merge to UAT → Promotion to PROD.</p>
+            </div>
+        </div>
+
+        <div class="slide">
+            <h2>5. Efficiency Scores & Production Readiness</h2>
+            <p class="subtitle">Measuring performance while keeping human-in-the-loop oversight.</p>
+            <div class="grid-2">
+                <div class="card card-highlight">
+                    <h3>Efficiency Scores</h3>
+                    <ul>
+                        <li>Measures resolution speed, prompt accuracy, context usage, and token consumption.</li>
+                        <li>Helps PMs quantify sprint capacity improvements and identify prompt bottlenecks.</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h3>PR Merge & Production Safety</h3>
+                    <ul>
+                        <li>Devin submits PRs like an engineer; it does <i>not</i> auto-deploy to production independently.</li>
+                        <li>Human gatekeeping ensures architecture standards, security compliance, and final business sign-off.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="slide">
+            <h2>6. Scaling Knowledge: Wiki, Playbooks & Rules</h2>
+            <p class="subtitle">Building organizational context so Devin gets smarter over time.</p>
+            <div class="grid-2">
+                <div class="card">
+                    <h3>Devin Wiki & Knowledge</h3>
+                    <p>Stores domain-specific architecture documentation, business rules, API specs, and system dependencies across all team sessions.</p>
+                </div>
+                <div class="card">
+                    <h3>Playbooks & Custom Skills</h3>
+                    <p>Reusable operational playbooks for common tasks (e.g., "Create Microservice Endpoint", "Migration Script Setup", "Regression Testing Run").</p>
+                </div>
+            </div>
+            <div class="card card-highlight" style="margin-top: 1rem;">
+                <h3>Devin Rules</h3>
+                <p>Global guidelines for your repository (e.g., "Always write unit tests with JUnit 5", "Never hardcode secret keys", "Follow light-blue design system standards").</p>
+            </div>
+        </div>
+
+        <div class="slide">
+            <h2>7. The Ideal PM Workflow with Devin</h2>
+            <p class="subtitle">Putting it all together for feature delivery.</p>
+            <div class="grid-3">
+                <div class="card">
+                    <h3>Step 1: Explore</h3>
+                    <p>Use <b>Devin Ask</b> to research existing code structure and validate technical feasibility for a user story.</p>
+                </div>
+                <div class="card">
+                    <h3>Step 2: Execute</h3>
+                    <p>Convert Ask to an active session using established <b>Playbooks & Rules</b>. Let Devin build the branch and PR.</p>
+                </div>
+                <div class="card">
+                    <h3>Step 3: Review</h3>
+                    <p>Check the <b>Efficiency Score</b>, review the generated PR, run UAT validation, and merge for PROD release.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <span style="color: var(--text-muted); font-size: 0.9rem;">Use ← Left / Right → keys to navigate</span>
+        <div class="nav-btns">
+            <button id="prev-btn" onclick="changeSlide(-1)">Previous</button>
+            <button id="next-btn" onclick="changeSlide(1)">Next</button>
+        </div>
+    </footer>
+
+    <script>
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.slide');
+        const counter = document.getElementById('slide-counter');
+        const progressBar = document.getElementById('progress-bar');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+
+        function updateSlide() {
+            slides.forEach((slide, index) => {
+                slide.classList.toggle('active', index === currentSlide);
+            });
+            counter.innerText = `Slide ${currentSlide + 1} of ${slides.length}`;
+            progressBar.style.width = `${((currentSlide + 1) / slides.length) * 100}%`;
+            
+            prevBtn.disabled = currentSlide === 0;
+            nextBtn.disabled = currentSlide === slides.length - 1;
+        }
+
+        function changeSlide(direction) {
+            currentSlide += direction;
+            if (currentSlide < 0) currentSlide = 0;
+            if (currentSlide >= slides.length) currentSlide = slides.length - 1;
+            updateSlide();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                if (currentSlide < slides.length - 1) changeSlide(1);
+            } else if (e.key === 'ArrowLeft') {
+                if (currentSlide > 0) changeSlide(-1);
+            }
+        });
+
+        updateSlide();
+    </script>
+</body>
+</html>
