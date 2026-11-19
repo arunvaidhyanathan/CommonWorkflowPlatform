@@ -31,3 +31,6 @@ __pycache__/
 *.log
 npm-debug.log*
 .local-logs/
+
+# Archify validation receipts (contain absolute local paths); the diagram and its candidate.json are committed
+Documents/archify/*.json

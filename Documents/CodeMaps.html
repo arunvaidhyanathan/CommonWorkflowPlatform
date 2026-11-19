@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CWP Code Maps</title>
+    <style>
+        :root {
+            --citi-blue-dark: #003B70;
+            --citi-blue: #0066B2;
+            --citi-blue-light: #56A0D3;
+            --bg-primary: #FFFFFF;
+            --bg-panel: #EAF3FB;
+            --bg-panel-deep: #D6E7F5;
+            --code-bg: #F4F8FC;
+            --text-primary: #16212E;
+            --text-secondary: #44566B;
+            --border-color: #C2D8EC;
+            --accent-green: #1E7E34;
+            --accent-amber: #A85E00;
+            --accent-red: #C4262E;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { border-bottom: 4px solid var(--citi-blue); padding-bottom: 2rem; margin-bottom: 2.5rem; }
+        h1 { font-size: 2.25rem; color: var(--citi-blue-dark); margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1.1rem; color: var(--text-secondary); }
+        .meta-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-top: 1.5rem; background: var(--bg-panel);
+            padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);
+        }
+        .meta-item strong { color: var(--citi-blue); display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        section { margin-bottom: 3rem; }
+        h2 { font-size: 1.5rem; color: var(--citi-blue-dark); border-bottom: 2px solid var(--bg-panel-deep); padding-bottom: 0.5rem; margin-bottom: 1.25rem; }
+        h3 { font-size: 1.15rem; color: var(--citi-blue); margin: 1.5rem 0 0.75rem 0; }
+        p { color: var(--text-secondary); margin-bottom: 1rem; }
+        ul, ol { color: var(--text-secondary); margin-left: 1.5rem; margin-bottom: 1rem; }
+        li { margin-bottom: 0.35rem; }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background-color: var(--bg-panel); color: var(--citi-blue-dark);
+            padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.875rem;
+        }
+        table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; background-color: var(--bg-primary); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-color); }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { background-color: var(--citi-blue-dark); color: #FFFFFF; font-weight: 600; }
+        td { color: var(--text-secondary); }
+        tr:nth-child(even) td { background-color: var(--bg-panel); }
+        tr:last-child td { border-bottom: none; }
+        td a { color: var(--citi-blue); font-weight: 600; text-decoration: none; }
+        td a:hover { text-decoration: underline; }
+        .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .badge-built { background-color: #DDF0E2; color: var(--accent-green); }
+        .badge-design { background-color: var(--bg-panel-deep); color: var(--citi-blue-dark); }
+        .badge-future { background-color: #F5E4E4; color: var(--accent-red); }
+        .callout { background-color: var(--bg-panel); border-left: 4px solid var(--citi-blue); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; margin: 1.5rem 0; }
+        .callout-title { font-weight: 600; color: var(--citi-blue-dark); margin-bottom: 0.25rem; }
+        .decision { background-color: var(--bg-panel-deep); border: 1px solid var(--citi-blue-light); border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; }
+        .decision-title { font-weight: 700; color: var(--citi-blue-dark); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        h2, h3 { scroll-margin-top: 1.5rem; }
+        .toc { background-color: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem 1.75rem; margin-bottom: 3rem; }
+        .toc-title { font-size: 1.1rem; font-weight: 700; color: var(--citi-blue-dark); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .toc ol { list-style: none; margin-left: 0; }
+        .toc > ol > li { margin-bottom: 0.4rem; }
+        .toc a { color: var(--citi-blue-dark); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+        .toc a:hover { color: var(--citi-blue); text-decoration: underline; }
+        .back-to-top { display: inline-block; margin-top: 0.5rem; font-size: 0.75rem; color: var(--citi-blue); text-decoration: none; }
+        .back-to-top:hover { text-decoration: underline; }
+        .doc-card {
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 1.25rem;
+            margin-bottom: 1rem; background: var(--bg-primary);
+        }
+        .doc-card h3 { margin-top: 0; }
+        .doc-card a.doc-link { font-size: 0.85rem; font-weight: 600; color: var(--citi-blue); text-decoration: none; }
+        .doc-card a.doc-link:hover { text-decoration: underline; }
+        pre { background-color: var(--code-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; overflow-x: auto; margin: 1rem 0; }
+        pre code { background: none; padding: 0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="doc-nav">&larr; <a href="CWP.html">Common Workflow Platform (CWP) index</a></div>
+    <header>
+        <h1>Code Maps</h1>
+        <div class="subtitle">Generated maps of the codebase: a knowledge graph (Graphify), a source-cited architecture diagram (Archify) and a symbol index for AI agents (CodeGraph).</div>
+        <div class="meta-grid">
+            <div class="meta-item"><strong>Generated</strong>November 18, 2026, from commit <code>154f73c</code></div>
+            <div class="meta-item"><strong>Network</strong>All three ran locally; no code or docs were sent to an LLM or other service</div>
+            <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
+        </div>
+    </header>
+
+    <nav class="toc" id="top">
+        <div class="toc-title">Contents</div>
+        <ol>
+            <li><a href="#sec-1">1. Archify: service architecture</a></li>
+            <li><a href="#sec-2">2. Graphify: knowledge graph</a></li>
+            <li><a href="#sec-3">3. CodeGraph: symbol index</a></li>
+            <li><a href="#sec-4">4. Regenerating</a></li>
+        </ol>
+    </nav>
+
+    <section>
+        <h2 id="sec-1">1. Archify: service architecture</h2>
+        <p><a href="archify/cwp-services-architecture.html"><strong>Open the architecture diagram &rarr;</strong></a> Interactive, self-contained HTML (pan, zoom, dark/light, export to PNG/SVG). It shows the browser path through the nginx gateway to the five services, the internal calls between the Java services (role lookups and audit events), and which database role each service uses. Every box cites the source lines it is based on, verified against commit <code>154f73c</code>.</p>
+        <ul>
+            <li>Source: <code>archify/architecture-cwp-services/candidate.json</code> (the diagram's data); Archify's validation receipts (<code>*.json</code> next to the HTML) stay local and are git-ignored, because they record absolute paths.</li>
+            <li>Automated checks passed (schema, layout, source evidence, real-browser rendering); not visually reviewed by a person.</li>
+            <li>Tool: <a href="https://github.com/tt-a1i/archify">tt-a1i/archify</a> 3.2, installed as a Claude Code skill in <code>~/.claude/skills/archify</code>.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-2">2. Graphify: knowledge graph</h2>
+        <p><a href="graphify/graph.html"><strong>Open the interactive graph &rarr;</strong></a> &middot; <a href="graphify/GRAPH_TREE.html">collapsible tree</a> &middot; <a href="graphify/GRAPH_REPORT.md">report</a> (most-connected symbols, surprising connections, suggested questions) &middot; <code>graphify/graph.json</code> (the full graph, queryable).</p>
+        <ul>
+            <li>211 code files &rarr; 1,753 nodes, 3,571 edges, 125 communities. Built from tree-sitter parsing only (no LLM), so communities are numbered, not named.</li>
+            <li>81% of edges are <code>EXTRACTED</code> from the code; 19% are <code>INFERRED</code> by name matching and can be wrong (for example, a link from <code>BpmnProperties.tsx</code> to a Python test helper). Check inferred edges before relying on them.</li>
+            <li>Built from the committed code only, without <code>Documents/</code>, lockfiles or build output.</li>
+            <li>Query it: <code>graphify query "how does a task get completed" --graph Documents/graphify/graph.json</code>, <code>graphify path "TaskController" "HttpIdentityDirectory" --graph ...</code>.</li>
+            <li>Tool: <a href="https://github.com/Graphify-Labs/graphify">Graphify-Labs/graphify</a> (<code>graphifyy</code> 0.7.13 via <code>uv tool</code>; its <code>/graphify</code> skill was already installed).</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-3">3. CodeGraph: symbol index</h2>
+        <p><a href="codegraph/README.md"><strong>Open the CodeGraph snapshot &rarr;</strong></a> Index statistics, every HTTP route it found (Spring, FastAPI and the SPA's React routes), and the callers of each cross-service seam: role lookups, the audit post, the <code>writer()</code> access checks and the SPA's <code>apiFetch</code>.</p>
+        <ul>
+            <li>199 files &rarr; 4,811 symbols, 9,799 edges, 78 routes, no parse errors. The index lives in <code>.codegraph/</code> (SQLite, kept out of git) and stays in sync through a file watcher.</li>
+            <li>Claude Code uses it through the <code>codegraph</code> MCP server, registered for this project only (<code>claude mcp get codegraph</code>); start a new session to get its tools (<code>codegraph_explore</code>, callers, callees, ...). CLI: <code>codegraph explore "role check"</code>, <code>codegraph callers requireActive</code>.</li>
+            <li>Tool: <a href="https://github.com/colbymchenry/codegraph">colbymchenry/codegraph</a> 1.6.3 (<code>npm i -g @colbymchenry/codegraph</code>), telemetry off.</li>
+        </ul>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+
+    <section>
+        <h2 id="sec-4">4. Regenerating</h2>
+        <pre><code># CodeGraph (repo root)
+codegraph sync &amp;&amp; python3 -I Documents/codegraph/export.py .
+
+# Graphify: build from committed code only, then copy the outputs here
+tmp=$(mktemp -d) &amp;&amp; git archive HEAD -- . ':!Documents' ':!**/package-lock.json' ':!**/uv.lock' | tar -x -C "$tmp"
+(cd "$tmp" &amp;&amp; GRAPHIFY_BACKEND=none graphify update . &amp;&amp; graphify tree --label CommonWorkflowPlatform)
+cp "$tmp"/graphify-out/{GRAPH_REPORT.md,graph.html,graph.json,GRAPH_TREE.html} Documents/graphify/
+
+# Archify: update the cited lines and the revision in candidate.json, then
+ARCHIFY_UPDATE_CHECK_DISABLED=1 node ~/.claude/skills/archify/bin/archify.mjs finalize architecture \
+  Documents/archify/architecture-cwp-services/candidate.json Documents/archify/cwp-services-architecture.html \
+  --repo-root . --quality showcase --json</code></pre>
+        <div class="callout">
+            <div class="callout-title">Keeping data local</div>
+            <p>Graphify can name communities and read docs with an LLM (<code>graphify extract</code> with a Gemini key), which sends file contents to Google. That was not done: <code>Documents/</code> holds connection details that must not leave this machine. If you want named communities, run it on the code export only.</p>
+        </div>
+        <a class="back-to-top" href="#top">&uarr; Back to top</a>
+    </section>
+</div>
+
+</body>
+</html>

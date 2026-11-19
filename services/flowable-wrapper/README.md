@@ -1,152 +1,82 @@
-# Workflow Runtime (formerly "Runtime Gateway" / Workflow Wrapper)
+# flowable-wrapper
 
-CWP's second backend: a Java service embedding a real Flowable 8.0.0
-engine, sitting alongside the existing Supabase (Postgres + Auth + Edge
-Functions) backend. It is not itself a gateway: browsers reach it through
-the nginx edge gateway (`gateway/` at the repo root) at `/api/flowable/**`,
-which nginx forwards here as `/runtime/**`. Full architecture rationale lives in
-[`Documents/WorkflowWrapper.html`](../../Documents/WorkflowWrapper.html) --
-read that first if anything below is unclear.
+CWP's Flowable engine host: a Java 21 / Spring Boot 4 service embedding
+Flowable 8 (BPMN, CMMN, DMN and app engines). It owns every engine endpoint
+(deploy, start, claim, complete and the rest) and nothing else. Login and
+members live in [identity-service](../identity-service/README.md); workflows,
+versions, approvals and the audit log in [design-service](../design-service/README.md).
+Port 8081.
 
-## What this is (and isn't)
+Browsers reach it through the nginx gateway at `/api/flowable/**`, which
+forwards here as `/runtime/**`. Architecture and history:
+[`Documents/WorkflowWrapper.html`](../../Documents/WorkflowWrapper.html)
+(Section 12 for the current shape) and
+[`Documents/Services.html`](../../Documents/Services.html).
 
-This is **Phase 1, 2, and 7** of WorkflowWrapper.html's Section 9 roadmap,
-plus Governance Phase 4 (the deploy-authority SoD check).
+## Auth and access
 
-An earlier version of this service was a "thin API layer" with no real
-engine behind it, because Flowable's stable line was believed not to run
-on Spring Boot 4. That was true when first checked in isolation, but
-**Flowable Open Source 8.0.0 shipped official Spring Boot 4 support in
-February 2026** and this wasn't rechecked until later -- see
-WorkflowWrapper.html Section 4 for the full correction. As of this
-revision:
+- Login tokens are issued by identity-service (RS256) and verified here
+  against its JWKS (`IDENTITY_JWKS_URL`). This service holds no signing secret.
+- Every query is scoped to the token's tenant (Flowable's tenant id is the
+  CWP tenant id).
+- Writes re-check the caller's role and active status, and task candidate
+  groups come from identity-service, through `identity.IdentityDirectory`
+  (`HttpIdentityDirectory`: `GET /internal/identity/tenants/{t}/members/{u}`
+  with `X-Internal-Token`, cached for `IDENTITY_CACHE_TTL`, default 30s).
+  If identity-service is unreachable, writes fail with 503.
+- Deploying is `tenant_admin` only. Script tasks are off unless
+  `CWP_SCRIPTS_ENABLED=true`; deployed expressions are sandboxed (no Spring
+  beans, no reflection).
 
-- Real: JWT authentication against Supabase Auth, tenant-scoped
-  persistence into a genuine `runtime` schema in the shared Supabase
-  Postgres project, a `POST/GET /runtime/deployments` API that deploys
-  each manifest artifact to a real, embedded Flowable engine
-  (`RepositoryService`/`CmmnRepositoryService`/`DmnRepositoryService`
-  depending on `specType`), a deploy-authority check gating who may
-  deploy, and `/runtime/case-instances` / `/runtime/history/task-instances`
-  reading real data from the embedded `CmmnRuntimeService`/`HistoryService`.
-- Still stubbed: `/runtime/form-definitions/{id}`. Not an engine-embedding
-  problem -- Flowable's standalone Form Engine (a separate, independently
-  versioned form-definition repository) was deprecated as of Flowable
-  7.0.1 and isn't part of `flowable-spring-boot-starter` 8.0.0. Flowable 8's
-  actual form mechanism is the Process/CMMN engine's own `FormService`,
-  tied to a specific definition's embedded form key rather than a
-  browsable repository -- this endpoint needs a real redesign against
-  that API, not just wiring (WorkflowWrapper.html Section 10).
+## Data
 
-## NOT YET COMPILED
+Connects as the `cwp_runtime` role (`Database/roles.sql`), which owns the
+`runtime` schema: Liquibase's tables (`src/main/resources/db/changelog/`)
+and Flowable's `ACT_*` tables. It has no access to the identity or design
+tables. `ServiceBoundaryTest` fails the build if code here imports the old
+design/auth modules or queries `public.*` / `app_auth.*`.
 
-This project was hand-written in a sandboxed environment with only JDK 11
-installed, no Maven, and no network access to resolve dependencies. Every
-file was reviewed carefully against Flowable's official Spring Boot
-integration docs, but **none of it has been compiled, run, or tested.**
-The Flowable engine-embedding code (deployment, case-instance, and history
-wiring) is materially riskier uncompiled surface area than the original
-thin layer was -- treat this as genuinely unverified, not a formality.
-Before trusting this code:
+## API (`/runtime/**`, public `/api/flowable/**`)
 
-```
-mvn clean verify
-```
+| Area | Endpoints |
+|---|---|
+| Deployments | `GET/POST /runtime/deployments`, `GET /runtime/deployments/{id}` |
+| Definitions | `GET /runtime/definitions`, `GET /runtime/definitions/{kind}/{key}/versions` |
+| Instances | `GET/POST /runtime/instances`, `GET/DELETE /runtime/instances/{kind}/{id}`, `PUT .../variables`, `GET .../timeline`, `GET/PUT .../business-status` |
+| Process events and ad-hoc | `POST /runtime/instances/process/{id}/signal/{name}`, `.../message/{name}`, `.../adhoc/{activityId}`, `.../inject-task`; `POST /runtime/instances/case/{id}/inject-plan-item` |
+| Tasks | `GET /runtime/tasks`, `GET /runtime/tasks/{id}`, `POST /runtime/tasks/{id}/claim`, `/unclaim`, `/complete` |
+| Plan items | `POST /runtime/plan-items/{id}/{action}` |
+| Jobs | `GET /runtime/jobs`, `POST /runtime/jobs/{id}/retry`, `/fire`, `GET .../stacktrace`, `DELETE /runtime/jobs/{id}` |
+| Decisions | `GET /runtime/decisions`, `POST /runtime/decisions/{key}/evaluate` |
+| Expressions | `POST /runtime/expressions/evaluate` |
+| Migrations | `POST /runtime/migrations`, `/validate`, `/batch`, `GET /runtime/migrations/batches/{kind}/{id}` |
+| History and views | `GET /runtime/history/task-instances`, `GET /runtime/case-instances`, `GET /runtime/form-definitions/{id}` (still a stub) |
 
-on a machine with JDK 21 and normal network access. Fix whatever that
-turns up (dependency version mismatches against the real Spring Boot 4.0
-GA release, or against Flowable 8.0.0's actual released API, are the most
-likely surprises) before deploying anywhere.
-
-## Prerequisites
-
-- JDK 21 (not 25 -- see the note on `pom.xml`'s `java.version`: Spring Boot
-  4.0 supports both, but Flowable's own official system requirements only
-  list Java 17 or 21 as supported, not 25)
-- Maven 3.9+
-- Network access to Maven Central and to the Supabase project below
-- A Postgres role scoped to the `runtime` schema (see "Database setup")
+Health: `GET /actuator/health` (no token).
 
 ## Configuration
 
-All configuration is environment-variable driven (`application.yml`).
-Nothing in that file is a real credential.
-
-| Variable | Purpose | Local default |
+| Variable | Default | Notes |
 |---|---|---|
-| `WORKFLOW_RUNTIME_DB_URL` | JDBC URL, direct Postgres connection (not PostgREST) | `jdbc:postgresql://localhost:5432/postgres?currentSchema=runtime` |
-| `WORKFLOW_RUNTIME_DB_USER` | Postgres role, scoped to `runtime` schema only | `runtime_gateway_service` |
-| `WORKFLOW_RUNTIME_DB_PASSWORD` | That role's password | *(none -- must be set)* |
-| `SUPABASE_JWKS_URL` | Supabase Auth JWKS endpoint | `https://nrhsoabqeskybrznxfyi.supabase.co/auth/v1/.well-known/jwks.json` |
-| `SUPABASE_JWT_MODE` | `jwks` (default) or `hs256` (legacy Supabase projects) | `jwks` |
-| `SUPABASE_JWT_HS256_SECRET` | Only used when `SUPABASE_JWT_MODE=hs256` | *(none)* |
-| `PORT` | HTTP port | `8081` |
+| `WORKFLOW_RUNTIME_DB_URL` | `jdbc:postgresql://localhost:5432/cwp?currentSchema=runtime` | |
+| `WORKFLOW_RUNTIME_DB_USER` / `WORKFLOW_RUNTIME_DB_PASSWORD` | `cwp_runtime` / empty | Own role, `Database/roles.sql` |
+| `IDENTITY_SERVICE_URL` / `IDENTITY_JWKS_URL` | `http://localhost:8082` / `.../.well-known/jwks.json` | |
+| `IDENTITY_CACHE_TTL` | `PT30S` | Most a role, status or group change can lag |
+| `CWP_INTERNAL_TOKEN` | empty | Must match identity-service's |
+| `CWP_SCRIPTS_ENABLED` | `false` | Script tasks run in this JVM |
+| `CWP_MAIL_PORT`, `CWP_HISTORY_LEVEL` | `2525`, `audit` | `run-local.sh` sets `full` history (every variable change) and the dev mail sink |
+| `PORT` | `8081` | |
 
-Confirm which JWT signing mode project `nrhsoabqeskybrznxfyi` actually uses
-in the Supabase dashboard (Project Settings -> API -> JWT Settings) before
-relying on the `jwks` default in anything beyond local development.
-
-## Database setup
-
-The `runtime` schema and `runtime.deployments` table are defined as
-Liquibase changesets in `src/main/resources/db/changelog/`. That exact SQL
-has already been applied directly to the live Supabase project as part of
-scaffolding this service (ahead of the service itself ever connecting), so
-that the schema exists and other CWP work isn't blocked on this service's
-first successful boot.
-
-**The first time this service connects to that project**, run:
+## Run and test
 
 ```
-mvn liquibase:changelogSync
+./run-local.sh                 # repo root: the whole stack (after Database/roles.sql)
+mvn spring-boot:run            # this service alone
+mvn test                       # engine samples, sandbox, boundary and identity-cache tests
+IDENTITY_CACHE_TTL=PT0S mvn spring-boot:run
+python3 -I e2e/runtime_work_test.py   # 147 end-to-end checks; CWP_RUNTIME_BASE / CWP_IDENTITY_BASE / CWP_DB to point elsewhere
 ```
 
-(or the equivalent Spring Boot Actuator/Liquibase API) so Liquibase marks
-changeset `001-init-runtime-schema.sql` as already applied instead of
-re-running `create schema`/`create table` and failing on "already exists."
-Any changesets added *after* this point will run normally.
-
-You will also need to create the `runtime_gateway_service` Postgres role
-yourself and set its password -- this was deliberately left for you to do
-directly in the Supabase SQL editor rather than handled here, since this
-service should never see or generate that credential. Grant `USAGE` and
-`CREATE` on schema `runtime` (not just `SELECT/INSERT/UPDATE` on
-`runtime.deployments` -- `CREATE` is now required because
-`flowable.database-schema-update=true` needs this role to create and
-manage Flowable's own tables in the same schema on boot), and nothing on
-`public`.
-
-## Running locally
-
-With the whole stack (recommended), from the repo root:
-
-```
-docker compose up -d --build
-```
-
-That runs this service against its own `runtime-db` Postgres container, so
-no Supabase database credentials are needed locally. To run it on its own
-instead, set the `WORKFLOW_RUNTIME_DB_*` variables below and:
-
-```
-mvn spring-boot:run
-```
-
-Health check: `GET http://localhost:8081/actuator/health` (unauthenticated).
-Everything under `/runtime/**` requires a valid Supabase-issued JWT in the
-`Authorization: Bearer <token>` header.
-
-## API surface
-
-| Method | Path | Status |
-|---|---|---|
-| `POST` | `/runtime/deployments` | Real. Requires `tenant_admin` role (Governance.html Section 11.3, provisional). Deploys each `manifest` artifact (`definitionKey`/`name`/`specType`/`xml`) to the matching Flowable engine (BPMN/CMMN/DMN) and records the resulting engine deployment id(s) in `engine_deployment_ids_json`. |
-| `GET` | `/runtime/deployments` | Real. Tenant-scoped list, including manifest and engine deployment ids. |
-| `GET` | `/runtime/deployments/{id}` | Real. 404 outside caller's tenant. |
-| `GET` | `/runtime/case-instances` | Real. Queries the embedded `CmmnRuntimeService`, tenant-scoped. |
-| `GET` | `/runtime/form-definitions/{id}` | Stub. Always 404 -- needs a redesign, not just wiring (see above). |
-| `GET` | `/runtime/history/task-instances` | Real. Queries the embedded (BPMN) `HistoryService`, tenant-scoped. CMMN task history not included yet. |
-
-See WorkflowWrapper.html Section 8 for the full contract and Section 9 for
-what's still not built (Designer's Form Builder, deployment target
-mapping, tenant-aware seed bundles, and dynamic form rendering).
+The e2e suite expects group changes to apply at once, hence
+`IDENTITY_CACHE_TTL=PT0S`. Mail tasks land in `.local-logs/mailbox.txt`
+via `e2e/smtp_sink.py`.

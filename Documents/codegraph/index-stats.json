@@ -1,0 +1,72 @@
+{
+  "initialized": true,
+  "version": "1.6.3",
+  "lastIndexed": "2026-11-19T00:30:42.318Z",
+  "fileCount": 200,
+  "nodeCount": 4827,
+  "edgeCount": 9817,
+  "dbSizeBytes": 13901824,
+  "walSizeBytes": 2303112,
+  "backend": "node-sqlite",
+  "journalMode": "wal",
+  "nodesByKind": {
+    "class": 225,
+    "component": 29,
+    "constant": 182,
+    "field": 413,
+    "file": 195,
+    "function": 792,
+    "import": 1332,
+    "interface": 79,
+    "method": 741,
+    "namespace": 68,
+    "property": 467,
+    "route": 78,
+    "type_alias": 33,
+    "variable": 193
+  },
+  "languages": [
+    "java",
+    "javascript",
+    "python",
+    "tsx",
+    "typescript",
+    "xml",
+    "yaml"
+  ],
+  "filesByLanguage": {
+    "java": 68,
+    "javascript": 1,
+    "python": 55,
+    "tsx": 38,
+    "typescript": 30,
+    "xml": 3,
+    "yaml": 5
+  },
+  "parsedFilesByLanguage": {
+    "java": 68,
+    "javascript": 1,
+    "python": 52,
+    "tsx": 38,
+    "typescript": 30
+  },
+  "unparsedLanguages": [],
+  "pendingChanges": {
+    "added": 0,
+    "modified": 0,
+    "removed": 0
+  },
+  "worktreeMismatch": null,
+  "rebuildInProgress": false,
+  "index": {
+    "builtWithVersion": "1.6.3",
+    "builtWithExtractionVersion": 28,
+    "currentExtractionVersion": 28,
+    "reindexRecommended": false,
+    "frameworksChangedSinceIndex": null,
+    "state": "complete",
+    "pendingRefs": 0,
+    "filesNeedingReindex": 0,
+    "filesWithParseErrors": 0
+  }
+}

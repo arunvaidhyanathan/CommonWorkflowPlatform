@@ -231,7 +231,7 @@
         <h2 id="sec-4">4. Service Internals</h2>
         <ul>
             <li><strong>Routes:</strong> <code>POST /generate</code>, <code>POST /edit</code>, <code>POST /review</code>, streaming progress and the final proposal as server-sent events. The gateway exposes them as <code>/api/agent/generate</code> and so on.</li>
-            <li><strong>Auth:</strong> verifies the Supabase JWT against JWKS, the same as workflow-runtime, and reads the tenant id and <code>app_metadata.role</code>. Only <code>designer</code> and <code>tenant_admin</code> can generate and edit.</li>
+            <li><strong>Auth:</strong> verifies the login token against identity-service&rsquo;s JWKS (since November 18, 2026; <code>SUPABASE_JWKS_URL</code> points there), like every CWP service, and reads the tenant id and <code>app_metadata.role</code>. Only <code>designer</code> and <code>tenant_admin</code> can generate and edit.</li>
             <li><strong>LLM layer:</strong> as built, <code>LLMProvider.generate_json(system, turns, schema) -&gt; JSON text</code> (Section 4a); Gemini first, Anthropic later. A thin interface over the two SDKs rather than a large framework, because tool-calling behavior differs between providers and the repair loop needs to see the raw calls.</li>
             <li><strong>Cost and safety:</strong> per-tenant rate limits in the service plus per-IP limits at nginx; a token cap per request; workflow names, descriptions and imported XML are treated as untrusted data in prompts, never as instructions; API keys live only in this service's environment.</li>
         </ul>

@@ -99,9 +99,9 @@
         <h1>CWP Developer Manifesto</h1>
         <div class="subtitle">Everything a developer needs to understand, run, change, test and operate the Common Workflow Platform, in one place.</div>
         <div class="meta-grid">
-            <div class="meta-item"><strong>Platform State</strong>Feature-complete for the current plan (September 27, 2026): gateway, services, Agentic Designer A0&ndash;A5, spend tracker S0&ndash;S3</div>
-            <div class="meta-item"><strong>Repository</strong><code>/Users/arunvaidhyanathan/Developer/CommonWorkflowPlatform</code></div>
-            <div class="meta-item"><strong>Document Version</strong>1.0.0</div>
+            <div class="meta-item"><strong>Platform State</strong>Five services behind the gateway (November 18, 2026): identity, design, flowable-wrapper, Agentic Designer A0&ndash;A5, spend tracker S0&ndash;S3</div>
+            <div class="meta-item"><strong>Repository</strong><code>CommonWorkflowPlatform</code></div>
+            <div class="meta-item"><strong>Document Version</strong>1.1.0 (microservice split)</div>
             <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
             <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
         </div>
@@ -151,7 +151,9 @@
                 <tr><td><strong>Governance</strong></td><td>Roles (designer, tenant_admin, approver, viewer), Administration, Approvals, audit log, invites</td><td><span class="badge badge-built">Built</span></td><td><a href="Governance.html">Governance.html</a></td></tr>
                 <tr><td><strong>Onboarding</strong></td><td>Invite flow, getting-started panel, sample import</td><td><span class="badge badge-built">Phases 1&ndash;2</span></td><td><a href="Onboarding.html">Onboarding.html</a></td></tr>
                 <tr><td><strong>Workbench</strong></td><td>Operator landing page</td><td><span class="badge badge-built">Phases 1&ndash;3</span></td><td><a href="Workbench.html">Workbench.html</a></td></tr>
-                <tr><td><strong>Workflow Wrapper</strong> (<code>workflow-runtime</code>)</td><td>Hosts Flowable 8: deployments, case instances, task history</td><td><span class="badge badge-built">Built; boots</span></td><td><a href="WorkflowWrapper.html">WorkflowWrapper.html</a></td></tr>
+                <tr><td><strong>Workflow Wrapper</strong> (<code>flowable-wrapper</code>)</td><td>Hosts Flowable 8: deployments, instances, tasks, jobs, history, decisions, migrations</td><td><span class="badge badge-built">Built; tested</span></td><td><a href="WorkflowWrapper.html">WorkflowWrapper.html</a></td></tr>
+                <tr><td><strong>Identity</strong> (<code>identity-service</code>)</td><td>Login, RS256 tokens + JWKS, members, groups, invites</td><td><span class="badge badge-built">Built; tested</span></td><td><a href="Services.html">Services.html</a></td></tr>
+                <tr><td><strong>Design time</strong> (<code>design-service</code>)</td><td>Workflows, versions, approvals, audit log</td><td><span class="badge badge-built">Built; tested</span></td><td><a href="Services.html">Services.html</a></td></tr>
                 <tr><td><strong>Edge gateway</strong> (nginx)</td><td>Single entry point; serves the SPA; routes <code>/api/*</code>; CORS, rate limits, request ids</td><td><span class="badge badge-built">Built</span></td><td><a href="Services.html">Services.html</a></td></tr>
                 <tr><td><strong>Agentic Designer</strong></td><td>AI Generate / Edit / Review for all three notations, validated by code, grounded in the tenant&rsquo;s own workflows</td><td><span class="badge badge-built">A0&ndash;A5 built</span></td><td><a href="AgenticDesigner.html">AgenticDesigner.html</a></td></tr>
                 <tr><td><strong>API Spend Tracker</strong></td><td>Metered cost of every AI call, key health, budgets and alerts</td><td><span class="badge badge-built">S0&ndash;S3 built</span></td><td><a href="SpendTracker.html">SpendTracker.html</a></td></tr>
@@ -162,70 +164,82 @@
 
     <section>
         <h2 id="s2">2. Architecture</h2>
-        <p>The browser talks to two backends. <strong>Supabase</strong> (hosted) provides identity (Auth, JWTs), the design-time database with row-level security, and two Edge Functions. <strong>CWP&rsquo;s own services</strong> run in Docker Compose behind one nginx gateway. Every service verifies the Supabase JWT itself.</p>
+        <p>The browser talks to one entry point: an <strong>nginx gateway</strong> that serves the SPA and routes <code>/api/*</code> to five services. <strong>identity-service</strong> signs users in and issues the login token (RS256); every other service verifies it against identity-service&rsquo;s public key set. The three Java services share one Postgres database but each logs in as its own role and can reach only its own tables. Since November 18, 2026; the authoritative map is <a href="Services.html">Services.html</a>.</p>
         <figure class="diagram">
-            <svg viewBox="0 0 960 470" role="img" aria-label="CWP architecture: browser, nginx gateway, services and their databases, Supabase, AI providers">
+            <svg viewBox="0 0 960 470" role="img" aria-label="CWP architecture: browser, nginx gateway, five services, their databases and AI providers">
                 <defs>
                     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#44566B"/></marker>
                 </defs>
                 <g font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="13" fill="#16212E">
-                    <rect x="20" y="190" width="150" height="70" rx="8" fill="#EAF3FB" stroke="#0066B2"/>
-                    <text x="95" y="220" text-anchor="middle" font-weight="600">Browser</text>
-                    <text x="95" y="240" text-anchor="middle" font-size="11" fill="#44566B">Designer SPA</text>
+                    <rect x="20" y="205" width="140" height="60" rx="8" fill="#EAF3FB" stroke="#0066B2"/>
+                    <text x="90" y="231" text-anchor="middle" font-weight="600">Browser</text>
+                    <text x="90" y="249" text-anchor="middle" font-size="11" fill="#44566B">Designer SPA</text>
 
-                    <rect x="240" y="190" width="160" height="70" rx="8" fill="#D6E7F5" stroke="#003B70"/>
-                    <text x="320" y="220" text-anchor="middle" font-weight="600">nginx gateway</text>
-                    <text x="320" y="240" text-anchor="middle" font-size="11" fill="#44566B">:8080 (local :8088)</text>
+                    <rect x="210" y="205" width="150" height="60" rx="8" fill="#D6E7F5" stroke="#003B70"/>
+                    <text x="285" y="231" text-anchor="middle" font-weight="600">nginx gateway</text>
+                    <text x="285" y="249" text-anchor="middle" font-size="11" fill="#44566B">:8080 &#183; /api/*</text>
 
-                    <rect x="480" y="40" width="190" height="60" rx="8" fill="#FFFFFF" stroke="#0066B2"/>
-                    <text x="575" y="66" text-anchor="middle" font-weight="600">workflow-runtime</text>
-                    <text x="575" y="84" text-anchor="middle" font-size="11" fill="#44566B">Java 21 &#183; Flowable 8 &#183; /api/runtime</text>
-                    <rect x="740" y="40" width="190" height="60" rx="8" fill="#F4F8FC" stroke="#C2D8EC"/>
-                    <text x="835" y="75" text-anchor="middle">runtime-db (Postgres)</text>
+                    <rect x="430" y="20" width="210" height="60" rx="8" fill="#FFFFFF" stroke="#0066B2"/>
+                    <text x="535" y="46" text-anchor="middle" font-weight="600">identity-service</text>
+                    <text x="535" y="64" text-anchor="middle" font-size="11" fill="#44566B">Java &#183; login, JWKS &#183; /api/identity</text>
+                    <rect x="430" y="110" width="210" height="60" rx="8" fill="#FFFFFF" stroke="#0066B2"/>
+                    <text x="535" y="136" text-anchor="middle" font-weight="600">design-service</text>
+                    <text x="535" y="154" text-anchor="middle" font-size="11" fill="#44566B">Java &#183; workflows, approvals &#183; /api/design</text>
+                    <rect x="430" y="200" width="210" height="60" rx="8" fill="#FFFFFF" stroke="#0066B2"/>
+                    <text x="535" y="226" text-anchor="middle" font-weight="600">flowable-wrapper</text>
+                    <text x="535" y="244" text-anchor="middle" font-size="11" fill="#44566B">Java &#183; Flowable 8 &#183; /api/flowable</text>
+                    <rect x="430" y="290" width="210" height="60" rx="8" fill="#FFFFFF" stroke="#0066B2"/>
+                    <text x="535" y="316" text-anchor="middle" font-weight="600">agentic-designer</text>
+                    <text x="535" y="334" text-anchor="middle" font-size="11" fill="#44566B">Python &#183; FastAPI &#183; /api/agent</text>
+                    <rect x="430" y="380" width="210" height="60" rx="8" fill="#FFFFFF" stroke="#0066B2"/>
+                    <text x="535" y="406" text-anchor="middle" font-weight="600">spend-tracker</text>
+                    <text x="535" y="424" text-anchor="middle" font-size="11" fill="#44566B">Python &#183; FastAPI &#183; /api/spend</text>
 
-                    <rect x="480" y="195" width="190" height="60" rx="8" fill="#FFFFFF" stroke="#0066B2"/>
-                    <text x="575" y="221" text-anchor="middle" font-weight="600">agentic-designer</text>
-                    <text x="575" y="239" text-anchor="middle" font-size="11" fill="#44566B">Python &#183; FastAPI &#183; /api/agent</text>
-                    <rect x="740" y="165" width="190" height="60" rx="8" fill="#F4F8FC" stroke="#C2D8EC"/>
-                    <text x="835" y="191" text-anchor="middle">AI providers</text>
-                    <text x="835" y="209" text-anchor="middle" font-size="11" fill="#44566B">Gemini &#183; NVIDIA &#183; OpenRouter</text>
+                    <rect x="720" y="20" width="220" height="240" rx="8" fill="#F4F8FC" stroke="#C2D8EC"/>
+                    <text x="830" y="120" text-anchor="middle" font-weight="600">cwp (Postgres)</text>
+                    <text x="830" y="140" text-anchor="middle" font-size="11" fill="#44566B">one role per service:</text>
+                    <text x="830" y="156" text-anchor="middle" font-size="11" fill="#44566B">cwp_identity &#183; cwp_design</text>
+                    <text x="830" y="172" text-anchor="middle" font-size="11" fill="#44566B">cwp_runtime</text>
 
-                    <rect x="480" y="340" width="190" height="60" rx="8" fill="#FFFFFF" stroke="#0066B2"/>
-                    <text x="575" y="366" text-anchor="middle" font-weight="600">spend-tracker</text>
-                    <text x="575" y="384" text-anchor="middle" font-size="11" fill="#44566B">Python &#183; FastAPI &#183; /api/spend</text>
-                    <rect x="740" y="340" width="190" height="60" rx="8" fill="#F4F8FC" stroke="#C2D8EC"/>
-                    <text x="835" y="375" text-anchor="middle">spend-db (Postgres)</text>
+                    <rect x="720" y="290" width="220" height="60" rx="8" fill="#F4F8FC" stroke="#C2D8EC"/>
+                    <text x="830" y="316" text-anchor="middle">AI providers</text>
+                    <text x="830" y="334" text-anchor="middle" font-size="11" fill="#44566B">Gemini &#183; NVIDIA &#183; OpenRouter</text>
 
-                    <rect x="20" y="370" width="380" height="80" rx="8" fill="#FFFFFF" stroke="#1E7E34" stroke-dasharray="5 3"/>
-                    <text x="210" y="398" text-anchor="middle" font-weight="600">Supabase (hosted)</text>
-                    <text x="210" y="418" text-anchor="middle" font-size="11" fill="#44566B">Auth (JWT) &#183; Postgres + RLS + pgvector &#183; PostgREST</text>
-                    <text x="210" y="436" text-anchor="middle" font-size="11" fill="#44566B">Edge Functions: admin-set-role, invite-user</text>
+                    <rect x="720" y="380" width="220" height="60" rx="8" fill="#F4F8FC" stroke="#C2D8EC"/>
+                    <text x="830" y="415" text-anchor="middle">spend-db (Postgres)</text>
                 </g>
                 <g stroke="#44566B" stroke-width="1.5" fill="none" marker-end="url(#arr)">
-                    <path d="M170,225 L238,225"/>
-                    <path d="M400,215 C440,215 440,70 478,70"/>
-                    <path d="M400,225 L478,225"/>
-                    <path d="M400,235 C440,235 440,370 478,370"/>
-                    <path d="M670,70 L738,70"/>
-                    <path d="M670,215 L738,200"/>
-                    <path d="M670,370 L738,370"/>
-                    <path d="M575,255 L575,338"/>
-                    <path d="M95,260 L95,368"/>
-                    <path d="M480,245 C420,300 420,380 402,395"/>
+                    <path d="M160,235 L208,235"/>
+                    <path d="M360,225 C395,225 395,50 428,50"/>
+                    <path d="M360,230 C400,230 400,140 428,140"/>
+                    <path d="M360,235 L428,230"/>
+                    <path d="M360,240 C400,240 400,320 428,320"/>
+                    <path d="M360,245 C395,245 395,410 428,410"/>
+                    <path d="M640,50 L718,50"/>
+                    <path d="M640,140 L718,140"/>
+                    <path d="M640,230 L718,230"/>
+                    <path d="M640,320 L718,320"/>
+                    <path d="M640,410 L718,410"/>
+                    <path d="M535,350 L535,378"/>
+                </g>
+                <g stroke="#0066B2" stroke-width="1.2" fill="none" stroke-dasharray="4 3" marker-end="url(#arr)">
+                    <path d="M430,215 C410,170 410,100 430,65"/>
+                    <path d="M430,125 C418,110 418,90 430,75"/>
+                    <path d="M640,40 C690,60 690,110 642,125"/>
                 </g>
                 <g font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="11" fill="#44566B">
-                    <text x="585" y="300">usage events (internal)</text>
-                    <text x="102" y="320">sign-in, design-time data (RLS)</text>
-                    <text x="392" y="362" text-anchor="end">grounding, as the user</text>
+                    <text x="545" y="368">usage events</text>
+                    <text x="660" y="88">audit events</text>
+                    <text x="376" y="110" text-anchor="end">role lookups</text>
                 </g>
             </svg>
-            <figcaption>Requests carry the user&rsquo;s Supabase JWT end to end. The agent reads Supabase as the user (never with a service key); the spend tracker&rsquo;s ingest endpoint is internal only.</figcaption>
+            <figcaption>Solid arrows: requests through the gateway and each service&rsquo;s own data. Dashed arrows: internal calls with the shared <code>X-Internal-Token</code>, never routed by nginx &mdash; flowable-wrapper and design-service look up the caller&rsquo;s role and status at identity-service (cached up to 30s); identity-service posts role and status changes to design-service&rsquo;s audit log. Optional: agentic-designer&rsquo;s grounding reads hosted Supabase as the user.</figcaption>
         </figure>
         <h3>Principles</h3>
         <ul>
-            <li><strong>One login, many planes:</strong> the Supabase JWT authorizes Postgres RLS and every CWP service. Tenant id and role come from <code>app_metadata</code>.</li>
-            <li><strong>The gateway routes; services decide:</strong> nginx does not validate tokens (open-source nginx can&rsquo;t check JWKS signatures); each service does.</li>
-            <li><strong>Database per service:</strong> workflow-runtime and spend-tracker each own a Postgres; design-time data stays in Supabase.</li>
+            <li><strong>One login, every service:</strong> identity-service issues an RS256 token; services verify it against <code>/.well-known/jwks.json</code>. Tenant id and role come from <code>app_metadata</code>, but writes re-check role and status with identity-service.</li>
+            <li><strong>The gateway routes; services decide:</strong> nginx does not validate tokens; each service does, and each scopes every query to the caller&rsquo;s tenant in code.</li>
+            <li><strong>Each service owns its tables:</strong> one Postgres role per service (<code>Database/roles.sql</code>), so a service that queries another&rsquo;s tables gets &ldquo;permission denied&rdquo;; spend-tracker has its own database.</li>
             <li><strong>The model proposes, code decides:</strong> AI output is typed, validated and shown for review before anything changes; saving and approvals are untouched (Section 9).</li>
         </ul>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
@@ -238,7 +252,9 @@
             <tbody>
                 <tr><td><code>Designer/</code></td><td>The web app (app shell: Designer, Onboarding, Workbench, Workflow Wrapper, Administration, Approvals, API Spend). Adapters for BPMN/CMMN/DMN in <code>src/adapters</code>; agent client in <code>src/data/agent.ts</code>, <code>src/components/AgentPanel.tsx</code></td><td>React 19, TypeScript, Vite, Tailwind 4, React Flow 12, zustand + zundo, bpmn/cmmn/dmn-moddle, elkjs</td></tr>
                 <tr><td><code>gateway/</code></td><td>nginx config (<code>templates/cwp.conf.template</code>, <code>snippets/cwp-api.conf</code>) and the Dockerfile that also builds the SPA</td><td>nginx 1.28</td></tr>
-                <tr><td><code>services/workflow-runtime/</code></td><td>Flowable engine host (formerly the &ldquo;Runtime Gateway&rdquo;)</td><td>Java 21, Spring Boot 4, Flowable 8, Liquibase</td></tr>
+                <tr><td><code>services/flowable-wrapper/</code></td><td>Flowable engine host (formerly workflow-runtime, before that the &ldquo;Runtime Gateway&rdquo;)</td><td>Java 21, Spring Boot 4, Flowable 8, Liquibase</td></tr>
+                <tr><td><code>services/identity-service/</code></td><td>Login, tokens, members, groups, invites</td><td>Java 21, Spring Boot 4</td></tr>
+                <tr><td><code>services/design-service/</code></td><td>Workflows, versions, approvals, audit log</td><td>Java 21, Spring Boot 4</td></tr>
                 <tr><td><code>services/agentic-designer/</code></td><td>AI Generate/Edit/Review, contracts and validators, grounding, evaluation harness (<code>scripts/eval.py</code>), Gemini diagnostic (<code>scripts/check_gemini.py</code>)</td><td>Python 3.13, FastAPI, Pydantic, google-genai, openai, uv</td></tr>
                 <tr><td><code>services/spend-tracker/</code></td><td>Usage events, spend summaries, key health, budgets, alerts</td><td>Python 3.13, FastAPI, psycopg 3, uv</td></tr>
                 <tr><td><code>Database/</code></td><td>Portable copies of the Supabase schema (<code>schema.sql</code>) and RLS (<code>policies.sql</code>); migration plan</td><td>PostgreSQL</td></tr>
@@ -253,7 +269,7 @@
         <h2 id="s4">4. Getting Started</h2>
         <h3>Prerequisites</h3>
         <ul>
-            <li>Docker Desktop (Compose v2); Node 22+ and npm; Python 3.12+ with <a href="https://docs.astral.sh/uv/">uv</a>; Java 21 and Maven (only to build workflow-runtime outside Docker).</li>
+            <li>Docker Desktop (Compose v2); Node 22+ and npm; Python 3.12+ with <a href="https://docs.astral.sh/uv/">uv</a>; Java 21 and Maven (to run the Java services outside Docker).</li>
             <li>A Supabase account on the project, with <code>app_metadata.tenant_id</code> and <code>app_metadata.role</code> set.</li>
             <li>At least one AI provider key (Gemini recommended; Section 5).</li>
         </ul>
@@ -261,7 +277,7 @@
 <pre><code>cd CommonWorkflowPlatform
 cp .env.example .env                # fill in: passwords (any value locally), SUPABASE_*, provider keys
 cp Designer/.env.example Designer/.env.local   # VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
-docker compose up -d --build        # gateway, workflow-runtime, runtime-db, agentic-designer, spend-tracker, spend-db
+docker compose up -d --build        # gateway, identity-service, design-service, flowable-wrapper, runtime-db, agentic-designer, spend-tracker, spend-db
 open http://localhost:8080          # or http://localhost:$GATEWAY_PORT (8088 on this machine)</code></pre>
         <h3>Where things are</h3>
         <div class="table-wrap"><table class="stack-table">
@@ -269,7 +285,7 @@ open http://localhost:8080          # or http://localhost:$GATEWAY_PORT (8088 on
             <tbody>
                 <tr><td><code>http://localhost:8088/</code></td><td>The app, served by the gateway (8080 by default; this machine uses 8088 because another container holds 8080)</td></tr>
                 <tr><td><code>http://localhost:8088/healthz</code></td><td>Gateway health</td></tr>
-                <tr><td><code>/api/runtime/**</code>, <code>/api/agent/**</code>, <code>/api/spend/**</code></td><td>The three services (all need a login; <code>/api/agent/healthz</code> and <code>/api/spend/healthz</code> don&rsquo;t)</td></tr>
+                <tr><td><code>/api/identity/**</code>, <code>/api/design/**</code>, <code>/api/flowable/**</code>, <code>/api/agent/**</code>, <code>/api/spend/**</code></td><td>The five services (all need a login except <code>/api/identity/auth/login</code>, <code>/api/agent/healthz</code> and <code>/api/spend/healthz</code>)</td></tr>
                 <tr><td><code>cd Designer &amp;&amp; VITE_API_BASE_URL=http://localhost:8088/api npm run dev</code></td><td>Vite dev server on :5173 against the running stack (5173 is in the gateway&rsquo;s CORS allow-list)</td></tr>
                 <tr><td><code>docker compose logs -f agentic-designer</code></td><td>Logs for any service (JSON access log for the gateway)</td></tr>
             </tbody>
@@ -285,8 +301,11 @@ open http://localhost:8080          # or http://localhost:$GATEWAY_PORT (8088 on
             <tbody>
                 <tr><td><code>GATEWAY_PORT</code></td><td>gateway</td><td>Host port (default 8080)</td><td>no</td></tr>
                 <tr><td><code>CORS_ALLOWED_ORIGINS</code></td><td>gateway</td><td>Regex of browser origins allowed cross-origin (default <code>^http://localhost:5173$</code>)</td><td>no</td></tr>
-                <tr><td><code>SUPABASE_JWKS_URL</code>, <code>SUPABASE_JWT_HS256_SECRET</code></td><td>all services</td><td>How services verify the Supabase login token. Tokens signed with a key in the JWKS (ES256/RS256) are always accepted; HS256 tokens (this project still issues them) are checked with the project&rsquo;s legacy JWT secret if set, otherwise by <strong>Supabase Auth</strong> (<code>GET /auth/v1/user</code>, answer reused for 60 s) using <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code>. This project has migrated to signing keys and no longer reveals the secret, so leave it blank.</td><td>the HS256 secret, if you have it</td></tr>
-                <tr><td><code>WORKFLOW_RUNTIME_DB_PASSWORD</code></td><td>workflow-runtime, runtime-db</td><td>Local runtime DB password</td><td>yes</td></tr>
+                <tr><td><code>SUPABASE_JWKS_URL</code></td><td>agentic-designer, spend-tracker</td><td>Where the Python services fetch the login token&rsquo;s public key (the name predates identity-service). Compose and <code>run-local.sh</code> point it at identity-service&rsquo;s <code>/.well-known/jwks.json</code>; the Java services use <code>IDENTITY_JWKS_URL</code></td><td>set for you</td></tr>
+                <tr><td><code>WORKFLOW_RUNTIME_DB_PASSWORD</code></td><td>runtime-db</td><td>Superuser password of the local CWP database</td><td>yes</td></tr>
+                <tr><td><code>CWP_IDENTITY_DB_PASSWORD</code>, <code>CWP_DESIGN_DB_PASSWORD</code>, <code>CWP_RUNTIME_DB_PASSWORD</code></td><td>runtime-db and the three Java services</td><td>Per-service database role passwords</td><td>yes</td></tr>
+                <tr><td><code>CWP_INTERNAL_TOKEN</code></td><td>identity, design, flowable-wrapper</td><td>Shared token for <code>/internal/**</code> calls</td><td>yes</td></tr>
+                <tr><td><code>CWP_JWT_PRIVATE_KEY</code></td><td>identity-service</td><td>Token signing key (PKCS#8 PEM); empty means a throwaway key per start</td><td>no</td></tr>
                 <tr><td><code>AGENT_PROVIDER</code>, <code>AGENT_MODEL</code>, <code>AGENT_EDIT_MODEL</code></td><td>agentic-designer</td><td>AI provider (<code>gemini</code> | <code>nvidia</code> | <code>openrouter</code>), model (empty = provider default: <code>gemini-3.8-flash</code>, <code>moonshotai/kimi-k3</code>, <code>google/gemini-3.8-flash</code>), optional Edit-only model</td><td>no</td></tr>
                 <tr><td><code>GEMINI_API_KEY</code>, <code>NVIDIA_API_KEY</code>, <code>OPENROUTER_API_KEY</code>, <code>TYPESAFE_JEV_API_KEY</code></td><td>agentic-designer, spend-tracker</td><td>Provider keys (the tracker only checks them)</td><td>yes</td></tr>
                 <tr><td><code>AGENT_TENANT_RPM</code></td><td>agentic-designer</td><td>AI requests per tenant per minute (default 10)</td><td>no</td></tr>
@@ -313,10 +332,12 @@ open http://localhost:8080          # or http://localhost:$GATEWAY_PORT (8088 on
         </ul>
 
         <h3>6.2 Edge gateway</h3>
-        <p>nginx serves the built SPA (deep links fall back to <code>index.html</code>) and routes <code>/api/runtime/**</code> &rarr; workflow-runtime <code>/runtime/**</code>, <code>/api/agent/**</code> &rarr; agentic-designer, <code>/api/spend/**</code> &rarr; spend-tracker; <code>/api/spend/events</code> is blocked (internal only). It answers CORS preflights itself, rate-limits per IP (20 req/s for runtime and spend, 2 req/s for agent), passes or mints <code>X-Request-Id</code>, logs JSON, and streams agent responses unbuffered. Upstreams resolve per request, so the gateway starts even if a service is down (that route returns 502). Details: <a href="Services.html">Services.html</a>.</p>
+        <p>nginx serves the built SPA (deep links fall back to <code>index.html</code>) and routes <code>/api/identity/**</code> &rarr; identity-service, <code>/api/design/**</code> &rarr; design-service, <code>/api/flowable/**</code> &rarr; flowable-wrapper <code>/runtime/**</code>, <code>/api/agent/**</code> &rarr; agentic-designer, <code>/api/spend/**</code> &rarr; spend-tracker; <code>/api/spend/events</code> is blocked (internal only). It answers CORS preflights itself, rate-limits per IP (20 req/s for runtime and spend, 2 req/s for agent), passes or mints <code>X-Request-Id</code>, logs JSON, and streams agent responses unbuffered. Upstreams resolve per request, so the gateway starts even if a service is down (that route returns 502). Details: <a href="Services.html">Services.html</a>.</p>
 
-        <h3>6.3 workflow-runtime (Flowable)</h3>
-        <p>Java 21 / Spring Boot 4 / Flowable 8 in <code>services/workflow-runtime</code>, with its own Postgres (<code>runtime-db</code>) holding the <code>runtime</code> schema (Liquibase) and Flowable&rsquo;s engine tables. Endpoints: <code>POST/GET /runtime/deployments</code>, <code>GET /runtime/deployments/{id}</code>, <code>GET /runtime/case-instances</code>, <code>GET /runtime/history/task-instances</code>, <code>GET /runtime/form-definitions/{id}</code> (still a stub). Deploying is <code>tenant_admin</code>-only. First compiled and booted September 27, 2026 after five fixes, including a real bug where user roles were never mapped. Details: <a href="WorkflowWrapper.html">WorkflowWrapper.html</a>.</p>
+        <h3>6.3 flowable-wrapper (Flowable), identity-service and design-service</h3>
+        <p><strong>flowable-wrapper</strong> &mdash; Java 21 / Spring Boot 4 / Flowable 8 in <code>services/flowable-wrapper</code>, owning the <code>runtime</code> schema (Liquibase) and Flowable&rsquo;s engine tables as role <code>cwp_runtime</code>. Every engine endpoint lives here under <code>/api/flowable/**</code> (served as <code>/runtime/**</code>): deployments, instances, tasks (claim, complete, unclaim), plan items, jobs, history, decisions, expressions and migrations. Deploying is <code>tenant_admin</code>-only. Identity data comes only through <code>identity.IdentityDirectory</code> (HTTP to identity-service, 30s cache); <code>ServiceBoundaryTest</code> fails if engine code touches identity or design tables. Details: <a href="WorkflowWrapper.html">WorkflowWrapper.html</a>.</p>
+        <p><strong>identity-service</strong> &mdash; <code>services/identity-service</code>, role <code>cwp_identity</code>. Login against <code>app_auth.users</code>, RS256 tokens and <code>/.well-known/jwks.json</code>, members, task groups, invites and <code>/me</code>; answers <code>/internal/identity/tenants/{t}/members/{u}</code> for the other Java services.</p>
+        <p><strong>design-service</strong> &mdash; <code>services/design-service</code>, role <code>cwp_design</code>. Workflows, immutable versions, approvals (never on your own submission) and the audit log. Sets <code>request.jwt.claims</code> so the triggers in <code>policies.sql</code> record who acted; accepts identity-service&rsquo;s role and status changes at <code>/internal/design/audit</code>.</p>
 
         <h3>6.4 agentic-designer (AI)</h3>
         <div class="table-wrap"><table class="stack-table">
@@ -350,7 +371,7 @@ open http://localhost:8080          # or http://localhost:$GATEWAY_PORT (8088 on
         <div class="table-wrap"><table class="stack-table">
             <thead><tr><th>Concern</th><th>How it is handled</th></tr></thead>
             <tbody>
-                <tr><td>Tenant isolation</td><td>Row-level security on every design-time table, via <code>current_tenant_id()</code> from the JWT. Services add their own tenant scoping (workflow-runtime in code; spend-tracker in SQL; agentic-designer reads Supabase <em>as the user</em>, so RLS applies). Verified live for <code>workflow_embeddings</code> with rolled-back synthetic tenants.</td></tr>
+                <tr><td>Tenant isolation</td><td>Every service scopes every query to the token&rsquo;s tenant in code (identity, design and flowable-wrapper in SQL and engine queries; spend-tracker in SQL). The services connect with <code>BYPASSRLS</code> roles, so the RLS policies in <code>policies.sql</code> apply only to the hosted Supabase project. Covered by the e2e suites (another tenant sees nothing and gets 404). Each service&rsquo;s database role also keeps it off the other services&rsquo; tables (<code>Database/check_roles.sh</code>).</td></tr>
                 <tr><td>Authentication</td><td>Supabase JWT (ES256, JWKS) checked by every service; nginx only routes.</td></tr>
                 <tr><td>Authorization</td><td>Roles in <code>app_metadata.role</code>: designer, tenant_admin, approver, viewer. AI authoring: designer and tenant_admin. Deploy: tenant_admin. Platform-wide spend and key health: user ids in <code>SPEND_ADMIN_USER_IDS</code> (stand-in for a platform role).</td></tr>
                 <tr><td>Service-to-service</td><td>Usage ingest requires <code>X-Ingest-Token</code> and is unreachable through the gateway.</td></tr>
@@ -368,7 +389,7 @@ open http://localhost:8080          # or http://localhost:$GATEWAY_PORT (8088 on
             <thead><tr><th>Store</th><th>Holds</th><th>Schema changes</th></tr></thead>
             <tbody>
                 <tr><td>Supabase Postgres (<code>public</code>)</td><td>tenants, profiles, workflows, workflow_versions, deployments, form_schemas, approval_requests, audit_logs, invites, <strong>workflow_embeddings</strong> (pgvector)</td><td>Supabase migrations (latest: <code>agentic_designer_workflow_embeddings</code>, <code>&hellip;_revoke_anon</code>); keep <code>Database/schema.sql</code> and <code>policies.sql</code> in step. <strong>The project is shared with another project</strong> (officecollab): changes must be additive and clearly named.</td></tr>
-                <tr><td><code>runtime-db</code></td><td><code>runtime.deployments</code> and Flowable&rsquo;s engine tables</td><td>Liquibase changelog in workflow-runtime; Flowable manages its own tables</td></tr>
+                <tr><td><code>runtime-db</code> / local <code>cwp</code></td><td>Identity and design tables (<code>public</code>, <code>app_auth</code>), <code>runtime.deployments</code> and Flowable&rsquo;s engine tables, one role per service</td><td><code>Database/*.sql</code> (with <code>roles.sql</code>) for identity and design; Liquibase changelog in flowable-wrapper; Flowable manages its own tables</td></tr>
                 <tr><td><code>spend-db</code></td><td>usage_events, key_checks, budgets, alerts, provider_usage</td><td>Numbered SQL files in <code>spend_tracker/migrations</code>, applied once each at startup</td></tr>
             </tbody>
         </table></div>
@@ -404,7 +425,7 @@ open http://localhost:8080          # or http://localhost:$GATEWAY_PORT (8088 on
                 <tr><td>agentic-designer (unit + API, no model calls)</td><td><code>cd services/agentic-designer &amp;&amp; uv run pytest</code></td><td>222 passing</td></tr>
                 <tr><td>spend-tracker (against a throwaway Postgres in Docker)</td><td><code>cd services/spend-tracker &amp;&amp; uv run pytest</code></td><td>54 passing</td></tr>
                 <tr><td>Designer typecheck and lint</td><td><code>cd Designer &amp;&amp; npx tsc -b &amp;&amp; npm run lint</code></td><td>clean</td></tr>
-                <tr><td>workflow-runtime</td><td><code>cd services/workflow-runtime &amp;&amp; mvn -DskipTests package</code> (builds)</td><td><strong>no automated tests yet</strong></td></tr>
+                <tr><td>flowable-wrapper, identity-service, design-service</td><td><code>mvn test</code> in each; e2e: <code>services/design-service/e2e/design_api_test.sh</code>, <code>services/flowable-wrapper/e2e/runtime_work_test.py</code></td><td>Engine samples, sandbox, boundary and table-ownership tests, identity cache and signing tests; e2e covers tenant isolation. Role isolation: <code>Database/check_roles.sh</code></td></tr>
                 <tr><td>AI evaluation (real, metered calls)</td><td><code>cd services/agentic-designer &amp;&amp; uv run python scripts/eval.py run --provider gemini --pause 2 --env-file ../../.env</code>; compare with <code>scripts/eval.py compare A.json B.json</code></td><td>22 cases; reports in <code>evals/reports/</code></td></tr>
             </tbody>
         </table></div>
@@ -421,7 +442,7 @@ open http://localhost:8080          # or http://localhost:$GATEWAY_PORT (8088 on
         <p>These need a real login and so can&rsquo;t be automated here. Work through them in order at <code>http://localhost:8088</code> after <code>docker compose up -d --build</code>. Tick each expected result; anything different is a bug worth a note with the time (for the logs) and a screenshot.</p>
         <h3>A. Stack health (2 minutes)</h3>
         <ol class="checklist">
-            <li><code>docker compose ps</code>: gateway, workflow-runtime, runtime-db, agentic-designer, spend-tracker, spend-db all <em>Up</em>. &rarr; <em>All six running.</em></li>
+            <li><code>docker compose ps</code>: gateway, identity-service, design-service, flowable-wrapper, runtime-db, agentic-designer, spend-tracker, spend-db all <em>Up</em>. &rarr; <em>All eight running.</em></li>
             <li>Open <code>http://localhost:8088/api/agent/healthz</code>. &rarr; <em><code>{"status":"ok","provider":"gemini"}</code></em></li>
             <li>Run <code>cd services/agentic-designer &amp;&amp; uv run python scripts/check_gemini.py</code>. &rarr; <em>Both models <code>OK</code>.</em></li>
         </ol>
@@ -473,7 +494,9 @@ docker compose down                              # stop (volumes, i.e. data, are
         <div class="table-wrap"><table class="stack-table">
             <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
             <tbody>
-                <tr><td><code>Invalid token: Unable to find a signing key that matches: "&hellip;"</code> or <code>HS256 token, but SUPABASE_JWT_HS256_SECRET is not configured</code>; pages show HTTP 401</td><td>Supabase signs logins with the project&rsquo;s legacy HS256 key, whose key id isn&rsquo;t in the JWKS, and the service has no way to check them</td><td>Set <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> in the project <code>.env</code> and leave <code>SUPABASE_JWT_HS256_SECRET</code> blank (a wrong value there is used instead of Supabase Auth and rejects every login; <code>SUPABASE_JWT_SECRET</code> in <code>~/Developer/.env</code> belongs to another project). Then <code>docker compose up -d workflow-runtime agentic-designer spend-tracker</code></td></tr>
+                <tr><td>Every page shows HTTP 401 right after identity-service restarted</td><td>Without <code>CWP_JWT_PRIVATE_KEY</code>, identity-service makes a new signing key on each start, so earlier tokens no longer verify</td><td>Sign in again; for a stable key set <code>CWP_JWT_PRIVATE_KEY</code> (<code>openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048</code>)</td></tr>
+                <tr><td>Saves, approvals or task actions fail with 503 &ldquo;Could not check your membership&rdquo; or &ldquo;Could not record this change in the audit log&rdquo;</td><td>identity-service (or, for role and status changes, design-service) is down, or <code>CWP_INTERNAL_TOKEN</code> differs between services</td><td>Start the missing service; give every Java service the same <code>CWP_INTERNAL_TOKEN</code></td></tr>
+                <tr><td>A service fails to start or logs &ldquo;permission denied for table &hellip;&rdquo;</td><td><code>Database/roles.sql</code> has not been run on this database, or the service queries a table it doesn&rsquo;t own</td><td><code>psql -d cwp -f Database/roles.sql</code>, then <code>bash Database/check_roles.sh -d cwp</code></td></tr>
                 <tr><td><code>Supabase Auth rejected the token (HTTP 403)</code></td><td>The session was signed out or has expired, or the token is forged</td><td>Log in again</td></tr>
                 <tr><td>Gateway won&rsquo;t start: &ldquo;port is already allocated&rdquo;</td><td>Another container uses 8080</td><td>Set <code>GATEWAY_PORT</code> in <code>.env</code> (8088 here)</td></tr>
                 <tr><td>Gemini: <code>429 RESOURCE_EXHAUSTED</code> &ldquo;monthly spending cap&rdquo;</td><td>The project&rsquo;s spend cap in AI Studio is reached; credit alone doesn&rsquo;t lift it</td><td>Raise the cap at <a href="https://ai.studio/spend">ai.studio/spend</a>; confirm with <code>scripts/check_gemini.py</code></td></tr>
@@ -513,6 +536,7 @@ docker compose down                              # stop (volumes, i.e. data, are
         <div class="table-wrap"><table class="stack-table">
             <thead><tr><th>Decision</th><th>Why</th></tr></thead>
             <tbody>
+                <tr><td>Split workflow-runtime into identity-service, design-service and flowable-wrapper (November 18, 2026)</td><td>Login, design-time data and the engine change and scale for different reasons; one role per service enforces the boundaries, identity is the only token issuer (RS256 + JWKS), and role checks go to identity-service with a 30s cache</td></tr>
                 <tr><td>Standalone nginx gateway; the Java service renamed workflow-runtime</td><td>The &ldquo;Runtime Gateway&rdquo; was really a Flowable host; routing, CORS and rate limits belong at the edge</td></tr>
                 <tr><td>Keep Supabase for identity and design-time data</td><td>Working and RLS-proven; replacing it is a separate, deferred track</td></tr>
                 <tr><td>Docker Compose locally, database per service</td><td>Simple to run; services don&rsquo;t share schemas</td></tr>
@@ -531,7 +555,7 @@ docker compose down                              # stop (volumes, i.e. data, are
         <h2 id="s15">15. Known Limits &amp; What&rsquo;s Next</h2>
         <ul>
             <li><strong>Not yet tested with a real login:</strong> the browser flows in Section 11, including Publish through the gateway and grounding end to end. The first real login (September 27) showed the project signs logins with HS256; every earlier check used test tokens signed with the JWKS key, which is why it wasn&rsquo;t caught sooner.</li>
-            <li><strong>workflow-runtime has no automated tests</strong>, including none for tenant isolation (a known risk).</li>
+            <li><strong>The three Java services share one Postgres server.</strong> Roles keep them off each other&rsquo;s tables; separate servers would need the cross-service foreign keys dropped first.</li>
             <li><strong>Deploying AI-made CMMN or DMN</strong> models through Publish to Flowable is untested.</li>
             <li><strong>Alerts</strong> show in the app and log only; email or Slack needs a channel choice.</li>
             <li><strong>No platform-level role</strong> yet; <code>SPEND_ADMIN_USER_IDS</code> stands in.</li>
@@ -566,6 +590,7 @@ docker compose down                              # stop (volumes, i.e. data, are
         <div class="table-wrap"><table class="stack-table">
             <thead><tr><th>Commit</th><th>Change</th></tr></thead>
             <tbody>
+                <tr><td>249871c &hellip; 154f73c</td><td>November 18, 2026: workflow-runtime split into identity-service, design-service and flowable-wrapper; RS256 tokens with JWKS; one Postgres role per service; SPA moved to <code>/api/identity</code>, <code>/api/design</code>, <code>/api/flowable</code> and <code>/api/runtime</code> retired; audit log shows actor ids only</td></tr>
                 <tr><td>(this commit)</td><td>Accept HS256 login tokens in all three services, checked by Supabase Auth (or the legacy secret, if set), fixing 401s for real logins; the Agentic Designer&rsquo;s sidebar item and page removed (it lives in the Designer; the old link redirects); remaining &ldquo;Runtime Gateway&rdquo; wording in the app</td></tr>
                 <tr><td><code>2de3544</code></td><td>Developer Manifesto; Gemini as the provider; out-of-credit handling; OpenRouter prices; Gemini diagnostic; fix &ldquo;Unsaved changes&rdquo; on open</td></tr>
                 <tr><td><code>e30a034</code></td><td>Evaluation harness and tenant grounding (A5)</td></tr>

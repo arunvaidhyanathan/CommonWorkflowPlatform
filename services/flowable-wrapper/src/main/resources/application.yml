@@ -1,4 +1,4 @@
-# Workflow Runtime configuration. Every secret-shaped value is env-var driven
+# flowable-wrapper configuration. Every secret-shaped value is env-var driven
 # with a local-dev-only fallback -- nothing here is a real credential.
 # See README.md for what each of these needs to be set to for a real run.
 spring:

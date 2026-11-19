@@ -131,6 +131,10 @@
     <section>
         <h2 id="sec-0">0. Decision Summary</h2>
         <div class="callout">
+            <div class="callout-title">Current State, November 18, 2026</div>
+            <p>My Work, the task inbox and the Workflow Wrapper operator page read from <strong>flowable-wrapper</strong> (<code>/api/flowable</code>, formerly workflow-runtime at <code>/api/runtime</code>). Task candidate groups come from identity-service and may take up to 30 seconds to reflect a group change. See <a href="Services.html">Services.html</a>.</p>
+        </div>
+        <div class="callout">
             <div class="callout-title">Current State, September 27, 2026</div>
             <p><strong>Names changed on this date.</strong> The Java "Runtime Gateway" is now the <strong>workflow-runtime</strong> service (<code>services/workflow-runtime/</code>, formerly <code>WaaS/Workflow-Wrapper</code>). A standalone nginx <strong>edge gateway</strong> (<code>gateway/</code>) now fronts every CWP service: <code>/api/runtime/**</code> goes to workflow-runtime and <code>/api/agent/**</code> to the new agentic-designer. In the SPA, <code>lib/runtimeGatewayClient.ts</code> is now <code>lib/apiClient.ts</code>, and <code>VITE_RUNTIME_GATEWAY_URL</code> is now <code>VITE_API_BASE_URL</code> (the gateway's <code>/api</code> prefix). Older text below keeps the old names for historical accuracy. See <a href="Services.html">Services.html</a>.</p>
             <p>The Workflow Wrapper operator page (Section 7.1) now reads through the edge gateway; its behavior is unchanged.</p>

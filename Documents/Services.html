@@ -92,9 +92,9 @@
         <h1>Services &amp; Edge Gateway</h1>
         <div class="subtitle">How CWP is split into services, how requests reach them, and how to run the stack locally.</div>
         <div class="meta-grid">
-            <div class="meta-item"><strong>Status</strong>Built and running locally, September 27, 2026 (Docker Compose)</div>
+            <div class="meta-item"><strong>Status</strong>Five services behind the gateway, running locally, November 18, 2026</div>
             <div class="meta-item"><strong>Entry Point</strong>nginx edge gateway, <code>gateway/</code></div>
-            <div class="meta-item"><strong>Document Version</strong>1.0.0 (Initial service split)</div>
+            <div class="meta-item"><strong>Document Version</strong>2.0.0 (identity, design and flowable-wrapper split)</div>
             <div class="meta-item"><strong>Lead Engineer</strong>Arun Vaidhyanathan</div>
             <div class="meta-item"><strong>Developers &amp; Maintainers</strong>Omsai K, Brady Henderson</div>
         </div>
@@ -107,7 +107,7 @@
             <li><a href="#sec-1">1. Service Map</a></li>
             <li><a href="#sec-2">2. Edge Gateway (nginx)</a></li>
             <li><a href="#sec-3">3. Request Flow &amp; Auth</a></li>
-            <li><a href="#sec-4">4. Local Stack (Docker Compose)</a></li>
+            <li><a href="#sec-4">4. Running Locally</a></li>
             <li><a href="#sec-5">5. Deferred Services</a></li>
             <li><a href="#sec-6">6. Change Log</a></li>
         </ol>
@@ -115,15 +115,16 @@
 
     <section>
         <h2 id="sec-0">0. Decision Summary</h2>
-        <p>The Java service formerly called the <strong>Runtime Gateway</strong> was never really a gateway: its job is to host the Flowable engine. The platform now has a real, standalone edge gateway (nginx) outside Java, and the Java service is renamed <strong>workflow-runtime</strong> and sits behind it.</p>
+        <p>As of November 18, 2026 the platform runs as five services behind one nginx edge gateway. The Java service that used to do everything (<strong>workflow-runtime</strong>) was split three ways: <strong>identity-service</strong> (login and tenant membership), <strong>design-service</strong> (workflows, versions, approvals, audit) and <strong>flowable-wrapper</strong> (the Flowable engine and every runtime endpoint: deploy, start, claim, complete and the rest). <strong>agentic-designer</strong> and <strong>spend-tracker</strong> are unchanged.</p>
         <div class="decision">
             <div class="decision-title">What's Decided</div>
             <ul>
-                <li><strong>nginx is the only public entry point.</strong> It serves the SPA and routes <code>/api/*</code> to services. It owns CORS, rate limits, request ids and access logs.</li>
-                <li><strong>nginx does not validate JWTs.</strong> Open-source nginx can't verify JWKS-signed tokens (only nginx Plus has <code>auth_jwt</code>). Every service verifies the Supabase JWT itself. If central checking is wanted later, add <code>auth_request</code> to a small token-verify endpoint.</li>
-                <li><strong>Supabase stays</strong> as the identity and design-time data backend. Rebuilding it as custom services is the separate "Supabase-free" track (<code>Database/SUPABASE_FREE_STACK_PROMPT.md</code>), deliberately deferred.</li>
-                <li><strong>Split only as far as the product needs today.</strong> New services are extracted when a concrete trigger shows up (Section 5), not up front.</li>
-                <li><strong>Database per service.</strong> workflow-runtime has its own Postgres locally; it no longer needs the Supabase database password to run.</li>
+                <li><strong>nginx is the only public entry point.</strong> It serves the SPA and routes <code>/api/*</code> to services by path prefix. It owns CORS, rate limits, request ids and access logs. It never routes <code>/internal/**</code>.</li>
+                <li><strong>identity-service issues the login tokens</strong> (RS256) and publishes the public key at <code>/.well-known/jwks.json</code>. Every other service verifies tokens against it, so no service shares a signing secret. nginx does not validate tokens.</li>
+                <li><strong>Role and status come from identity-service, not the token.</strong> flowable-wrapper and design-service re-check the caller on every write through <code>/internal/identity/...</code> and cache each answer for up to 30 seconds (<code>IDENTITY_CACHE_TTL</code>). A demotion or deactivation takes effect within that time. If identity-service is unreachable, writes fail with 503 rather than trusting the token.</li>
+                <li><strong>One database role per service.</strong> All services share one Postgres for now, but each logs in as its own role (<code>Database/roles.sql</code>) and gets "permission denied" on the other services' tables. Moving to separate database servers later is a configuration change plus dropping the cross-service foreign keys.</li>
+                <li><strong>One audit log, owned by design-service.</strong> Design-time entries come from Postgres triggers; identity-service posts role and status changes to design-service's <code>/internal/design/audit</code> inside the change's transaction, so a change that can't be audited rolls back. Entries carry actor ids only.</li>
+                <li><strong>No further splitting of the engine.</strong> Every Flowable endpoint shares one engine and its <code>ACT_*</code> tables, so they stay in flowable-wrapper.</li>
             </ul>
         </div>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
@@ -132,15 +133,25 @@
     <section>
         <h2 id="sec-1">1. Service Map</h2>
         <table class="stack-table">
-            <thead><tr><th>Service</th><th>Tech</th><th>Owns</th><th>Location</th><th>Status</th></tr></thead>
+            <thead><tr><th>Service</th><th>Tech</th><th>Owns</th><th>Location / port</th><th>Status</th></tr></thead>
             <tbody>
-                <tr><td><strong>edge-gateway</strong></td><td>nginx 1.28</td><td>Routing, SPA hosting, CORS, rate limits, request ids, JSON access logs</td><td><code>gateway/</code></td><td><span class="badge badge-built">Built</span></td></tr>
-                <tr><td><strong>web-app</strong></td><td>React 19 + Vite SPA</td><td>All UI. Built into the gateway image</td><td><code>Designer/</code></td><td><span class="badge badge-built">Built</span></td></tr>
-                <tr><td><strong>identity &amp; tenancy</strong></td><td>Supabase Auth + Edge Functions <code>admin-set-role</code>, <code>invite-user</code></td><td>Users, JWTs, roles, invites</td><td>Hosted</td><td><span class="badge badge-built">Unchanged</span></td></tr>
-                <tr><td><strong>design-time data</strong></td><td>Supabase Postgres + PostgREST + RLS</td><td><code>workflows</code>, <code>workflow_versions</code>, <code>approval_requests</code>, <code>audit_logs</code>, ...</td><td>Hosted; schema in <code>Database/</code></td><td><span class="badge badge-built">Unchanged</span></td></tr>
-                <tr><td><strong>workflow-runtime</strong></td><td>Java 21, Spring Boot 4, Flowable 8</td><td>Deployments, case instances, task history; its own <code>runtime</code> schema and Flowable's <code>ACT_*</code> tables</td><td><code>services/workflow-runtime/</code></td><td><span class="badge badge-built">Built, first boot verified</span></td></tr>
-                <tr><td><strong>spend-tracker</strong></td><td>Python 3.13 + FastAPI, own Postgres</td><td>Usage events from services, spend summaries, API key health checks</td><td><code>services/spend-tracker/</code></td><td><span class="badge badge-built">S1 built; live-verified</span> &mdash; see <a href="SpendTracker.html">SpendTracker.html</a></td></tr>
-                <tr><td><strong>agentic-designer</strong></td><td>Python 3.12 + FastAPI</td><td>Natural language &rarr; workflow proposals, chat edits, review</td><td><code>services/agentic-designer/</code></td><td><span class="badge badge-built">A1 built; live-verified</span> &mdash; see <a href="AgenticDesigner.html">AgenticDesigner.html</a></td></tr>
+                <tr><td><strong>edge-gateway</strong></td><td>nginx 1.28</td><td>Routing, SPA hosting, CORS, rate limits, request ids, JSON access logs</td><td><code>gateway/</code>, 8080</td><td><span class="badge badge-built">Built</span></td></tr>
+                <tr><td><strong>web-app</strong></td><td>React 19 + Vite SPA</td><td>All UI. Built into the gateway image; <code>npm run dev</code> on 5173 locally</td><td><code>Designer/</code></td><td><span class="badge badge-built">Built</span></td></tr>
+                <tr><td><strong>identity-service</strong></td><td>Java 21, Spring Boot 4</td><td>Login, RS256 tokens + JWKS, tenants, profiles, task groups, invites, the caller's profile</td><td><code>services/identity-service/</code>, 8082</td><td><span class="badge badge-built">Built, live-verified</span></td></tr>
+                <tr><td><strong>design-service</strong></td><td>Java 21, Spring Boot 4</td><td><code>workflows</code>, <code>workflow_versions</code>, <code>approval_requests</code>, <code>audit_logs</code></td><td><code>services/design-service/</code>, 8083</td><td><span class="badge badge-built">Built, live-verified</span></td></tr>
+                <tr><td><strong>flowable-wrapper</strong></td><td>Java 21, Spring Boot 4, Flowable 8</td><td>Deployments, instances, tasks, jobs, history, decisions, forms, expressions, migrations; the <code>runtime</code> schema and Flowable's <code>ACT_*</code> tables</td><td><code>services/flowable-wrapper/</code>, 8081</td><td><span class="badge badge-built">Built, live-verified</span></td></tr>
+                <tr><td><strong>spend-tracker</strong></td><td>Python 3.13 + FastAPI, own Postgres</td><td>Usage events from services, spend summaries, API key health checks</td><td><code>services/spend-tracker/</code>, 8095</td><td><span class="badge badge-built">S1 built; live-verified</span> &mdash; see <a href="SpendTracker.html">SpendTracker.html</a></td></tr>
+                <tr><td><strong>agentic-designer</strong></td><td>Python 3.12 + FastAPI</td><td>Natural language &rarr; workflow proposals, chat edits, review</td><td><code>services/agentic-designer/</code>, 8091 local / 8090 compose</td><td><span class="badge badge-built">A1 built; live-verified</span> &mdash; see <a href="AgenticDesigner.html">AgenticDesigner.html</a></td></tr>
+            </tbody>
+        </table>
+        <p>Service-to-service calls (never through the gateway, always with the shared <code>X-Internal-Token</code>):</p>
+        <table class="stack-table">
+            <thead><tr><th>Caller</th><th>Calls</th><th>Why</th></tr></thead>
+            <tbody>
+                <tr><td>flowable-wrapper, design-service</td><td>identity-service <code>GET /internal/identity/tenants/{t}/members/{u}</code></td><td>Role, status and task groups of the caller (cached up to 30s)</td></tr>
+                <tr><td>identity-service</td><td>design-service <code>POST /internal/design/audit</code></td><td>Record role and status changes in the tenant's audit log</td></tr>
+                <tr><td>every service</td><td>identity-service <code>GET /.well-known/jwks.json</code></td><td>Public key to verify login tokens</td></tr>
+                <tr><td>agentic-designer</td><td>spend-tracker <code>POST /events</code> (<code>SPEND_INGEST_TOKEN</code>)</td><td>Usage events (SpendTracker.html)</td></tr>
             </tbody>
         </table>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
@@ -148,16 +159,18 @@
 
     <section>
         <h2 id="sec-2">2. Edge Gateway (nginx)</h2>
-        <p>Config lives in <code>gateway/templates/cwp.conf.template</code> (rendered by the nginx image's envsubst step at start) and <code>gateway/snippets/cwp-api.conf</code> (shared by every API route). The gateway image is built from the repo root: stage 1 runs <code>npm run build</code> in <code>Designer/</code> with <code>VITE_API_BASE_URL=/api</code>; stage 2 is nginx serving that build.</p>
+        <p>Config lives in <code>gateway/templates/cwp.conf.template</code> (rendered by the nginx image's envsubst step at start) and <code>gateway/snippets/cwp-api.conf</code> (shared by every API route). The gateway image is built from the repo root: stage 1 runs <code>npm run build</code> in <code>Designer/</code> with <code>VITE_API_BASE_URL=/api</code>; stage 2 is nginx serving that build. The Vite dev server's proxy (<code>Designer/vite.config.ts</code>) mirrors the same routes for local development.</p>
         <table class="stack-table">
             <thead><tr><th>Route</th><th>Goes to</th><th>Notes</th></tr></thead>
             <tbody>
                 <tr><td><code>/</code></td><td>SPA</td><td>Unknown paths fall back to <code>index.html</code> for client-side routing; <code>/assets/</code> is cached for a year (hashed filenames)</td></tr>
                 <tr><td><code>/healthz</code></td><td>nginx itself</td><td><code>{"status":"ok"}</code></td></tr>
-                <tr><td><code>/api/runtime/**</code></td><td>workflow-runtime <code>/runtime/**</code></td><td>Rate limit 20 req/s per IP, burst 40</td></tr>
+                <tr><td><code>/api/identity/**</code></td><td>identity-service <code>/identity/**</code></td><td>Rate limit 20 req/s per IP, burst 40</td></tr>
+                <tr><td><code>/api/design/**</code></td><td>design-service <code>/design/**</code></td><td>Rate limit 20 req/s per IP, burst 40</td></tr>
+                <tr><td><code>/api/flowable/**</code></td><td>flowable-wrapper <code>/runtime/**</code></td><td>Rate limit 20 req/s per IP, burst 40</td></tr>
                 <tr><td><code>/api/agent/**</code></td><td>agentic-designer <code>/**</code></td><td>Rate limit 2 req/s per IP, burst 5; response buffering off for server-sent events; 300s read timeout</td></tr>
                 <tr><td><code>/api/spend/**</code></td><td>spend-tracker <code>/**</code></td><td>Rate limit 20 req/s per IP, burst 40. <code>/api/spend/events</code> returns 404: usage ingest is internal only</td></tr>
-                <tr><td>any other <code>/api/*</code></td><td>nginx</td><td>JSON 404</td></tr>
+                <tr><td>any other <code>/api/*</code></td><td>nginx</td><td>JSON 404 (including the retired <code>/api/runtime/**</code>)</td></tr>
             </tbody>
         </table>
         <ul>
@@ -172,47 +185,66 @@
     <section>
         <h2 id="sec-3">3. Request Flow &amp; Auth</h2>
         <ol>
-            <li>The browser signs in with Supabase Auth directly and receives a JWT (unchanged).</li>
-            <li>Design-time reads and writes go straight to Supabase PostgREST, governed by RLS (unchanged).</li>
-            <li>Calls to CWP's own services go through <code>Designer/src/lib/apiClient.ts</code> (<code>apiFetch</code>), which prefixes <code>VITE_API_BASE_URL</code> and attaches the Supabase JWT as a Bearer token.</li>
+            <li>The browser signs in with <code>POST /api/identity/auth/login</code> (username and password, checked against <code>app_auth.users</code>). identity-service returns an RS256 JWT: <code>sub</code> is the user id, <code>app_metadata.tenant_id</code> and <code>app_metadata.role</code> the tenant and role.</li>
+            <li>Every call goes through <code>Designer/src/lib/apiClient.ts</code> (<code>apiFetch</code>), which prefixes <code>VITE_API_BASE_URL</code> and attaches the token as a Bearer token.</li>
             <li>nginx routes by path prefix and forwards the token untouched.</li>
-            <li>Each service verifies the JWT (keys in Supabase's JWKS; HS256 logins with the legacy secret <code>SUPABASE_JWT_HS256_SECRET</code> if set, otherwise by asking Supabase Auth) and reads <code>app_metadata.role</code> and the tenant id from its claims.</li>
+            <li>Each service verifies the token against identity-service's JWKS and scopes every query to the token's tenant.</li>
+            <li>For writes, flowable-wrapper and design-service ask identity-service for the caller's current role and status (cached up to 30s) instead of trusting the token's role. design-service then sets <code>request.jwt.claims</code> on the transaction so the audit and status triggers record who acted.</li>
         </ol>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
     </section>
 
     <section>
-        <h2 id="sec-4">4. Local Stack (Docker Compose)</h2>
-        <pre><code>cp .env.example .env        # set WORKFLOW_RUNTIME_DB_PASSWORD (any value)
+        <h2 id="sec-4">4. Running Locally</h2>
+        <h3>Native (the everyday setup)</h3>
+        <pre><code>createdb cwp &amp;&amp; createdb cwp_spend      # one time
+psql -d cwp -f Database/schema.sql -f Database/policies.sql -f Database/local.sql -f Database/roles.sql
+./run-local.sh                               # http://localhost:5173  (admin / designer / approver, password "password")</code></pre>
+        <p>An existing database from before the per-service roles needs only <code>psql -d cwp -f Database/roles.sql</code>. <code>bash Database/check_roles.sh -d cwp</code> proves each role reaches only its own tables. Logs go to <code>.local-logs/</code>.</p>
+        <h3>Database roles</h3>
+        <table class="stack-table">
+            <thead><tr><th>Role</th><th>Service</th><th>Tables it can use</th></tr></thead>
+            <tbody>
+                <tr><td><code>cwp_identity</code></td><td>identity-service</td><td><code>app_auth.users</code>, <code>tenants</code>, <code>profiles</code>, <code>group_members</code>, <code>invites</code></td></tr>
+                <tr><td><code>cwp_design</code></td><td>design-service</td><td><code>workflows</code>, <code>workflow_versions</code>, <code>approval_requests</code>, <code>audit_logs</code></td></tr>
+                <tr><td><code>cwp_runtime</code></td><td>flowable-wrapper</td><td>Owns the <code>runtime</code> schema (its own tables and Flowable's <code>ACT_*</code>)</td></tr>
+            </tbody>
+        </table>
+        <p>The roles have <code>BYPASSRLS</code>: services enforce tenant and role rules in code. <code>roles.sql</code> is for local Postgres and Compose only; the hosted Supabase project keeps <code>policies.sql</code> unchanged.</p>
+        <h3>Docker Compose</h3>
+        <pre><code>cp .env.example .env        # set every *_DB_PASSWORD and CWP_INTERNAL_TOKEN (any values)
 docker compose up -d --build
 open http://localhost:8080  # or GATEWAY_PORT from .env</code></pre>
         <table class="stack-table">
             <thead><tr><th>Compose service</th><th>Image</th><th>Notes</th></tr></thead>
             <tbody>
-                <tr><td><code>gateway</code></td><td>built from <code>gateway/Dockerfile</code></td><td>Only service published to the host (<code>GATEWAY_PORT</code>, default 8080). The SPA build reads Supabase settings from <code>Designer/.env.local</code>, which must exist before building</td></tr>
-                <tr><td><code>workflow-runtime</code></td><td>built from <code>services/workflow-runtime/Dockerfile</code></td><td>Multi-stage Maven build &rarr; JRE 21. Waits for <code>runtime-db</code> to be healthy</td></tr>
-                <tr><td><code>agentic-designer</code></td><td>built from <code>services/agentic-designer/Dockerfile</code></td><td>Python 3.13 + uv, FastAPI on port 8090. Starts without the chosen provider's key; <code>/generate</code> then returns 503</td></tr>
+                <tr><td><code>gateway</code></td><td>built from <code>gateway/Dockerfile</code></td><td>Only service published to the host (<code>GATEWAY_PORT</code>, default 8080)</td></tr>
+                <tr><td><code>identity-service</code></td><td>built from <code>services/identity-service/Dockerfile</code></td><td>Signs tokens with <code>CWP_JWT_PRIVATE_KEY</code>; without it, a throwaway key per start</td></tr>
+                <tr><td><code>design-service</code></td><td>built from <code>services/design-service/Dockerfile</code></td><td>Connects as <code>cwp_design</code></td></tr>
+                <tr><td><code>flowable-wrapper</code></td><td>built from <code>services/flowable-wrapper/Dockerfile</code></td><td>Connects as <code>cwp_runtime</code>. Waits for <code>runtime-db</code> to be healthy</td></tr>
+                <tr><td><code>agentic-designer</code></td><td>built from <code>services/agentic-designer/Dockerfile</code></td><td>FastAPI on port 8090. Starts without the chosen provider's key; <code>/generate</code> then returns 503</td></tr>
                 <tr><td><code>spend-tracker</code></td><td>built from <code>services/spend-tracker/Dockerfile</code></td><td>FastAPI on port 8095. Receives only the four API keys it checks</td></tr>
-                <tr><td><code>spend-db</code></td><td><code>postgres:16-alpine</code></td><td>Database <code>cwp_spend</code>, volume <code>spend-db-data</code>. Not exposed to the host</td></tr>
-                <tr><td><code>runtime-db</code></td><td><code>postgres:16-alpine</code></td><td>Volume <code>runtime-db-data</code>. Init script creates the <code>runtime</code> schema so Liquibase's tracking tables have somewhere to live</td></tr>
+                <tr><td><code>spend-db</code></td><td><code>postgres:16-alpine</code></td><td>Database <code>cwp_spend</code>, volume <code>spend-db-data</code></td></tr>
+                <tr><td><code>runtime-db</code></td><td><code>postgres:16-alpine</code></td><td>Shared CWP database. On first start (empty volume) <code>Database/docker-initdb/10-cwp.sh</code> runs schema, policies, seed users and roles</td></tr>
             </tbody>
         </table>
         <table class="stack-table">
             <thead><tr><th>Variable (<code>.env</code>)</th><th>Purpose</th></tr></thead>
             <tbody>
                 <tr><td><code>GATEWAY_PORT</code></td><td>Host port for the gateway</td></tr>
-                <tr><td><code>WORKFLOW_RUNTIME_DB_PASSWORD</code></td><td>Password for the local <code>runtime-db</code> (required)</td></tr>
-                <tr><td><code>SUPABASE_JWKS_URL</code></td><td>JWKS endpoint services verify JWTs against (required)</td></tr>
-                <tr><td><code>SUPABASE_JWT_HS256_SECRET</code></td><td>The project&rsquo;s legacy JWT secret, optional. When blank, HS256 logins are checked by Supabase Auth using <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> (now passed to all three services). This project no longer reveals the secret, so it stays blank</td></tr>
+                <tr><td><code>WORKFLOW_RUNTIME_DB_PASSWORD</code></td><td>Superuser password of <code>runtime-db</code> (required)</td></tr>
+                <tr><td><code>CWP_IDENTITY_DB_PASSWORD</code>, <code>CWP_DESIGN_DB_PASSWORD</code>, <code>CWP_RUNTIME_DB_PASSWORD</code></td><td>Passwords of the per-service roles (required; applied when the volume is created)</td></tr>
+                <tr><td><code>CWP_INTERNAL_TOKEN</code></td><td>Shared token for <code>/internal/**</code> calls between services (required)</td></tr>
+                <tr><td><code>CWP_JWT_PRIVATE_KEY</code></td><td>identity-service's PKCS#8 PEM signing key. Empty: a throwaway key per start</td></tr>
                 <tr><td><code>CORS_ALLOWED_ORIGINS</code></td><td>Regex of browser origins allowed to call <code>/api/*</code> cross-origin</td></tr>
-                <tr><td><code>AGENT_GROUNDING</code>, <code>SUPABASE_URL</code>, <code>SUPABASE_ANON_KEY</code>, <code>AGENT_EMBED_PROVIDER</code>, <code>AGENT_EMBED_MODEL</code></td><td>Agentic Designer grounding in the tenant&rsquo;s workflows (AgenticDesigner.html Section 4e). The key is the browser app&rsquo;s public key; the agent reads Supabase as the logged-in user</td></tr>
+                <tr><td><code>AGENT_GROUNDING</code>, <code>SUPABASE_URL</code>, <code>SUPABASE_ANON_KEY</code>, <code>AGENT_EMBED_PROVIDER</code>, <code>AGENT_EMBED_MODEL</code></td><td>Agentic Designer grounding in the tenant&rsquo;s workflows (AgenticDesigner.html Section 4e)</td></tr>
                 <tr><td><code>SPEND_DB_PASSWORD</code>, <code>SPEND_INGEST_TOKEN</code>, <code>SPEND_ADMIN_USER_IDS</code>, <code>SPEND_KEY_CHECK_INTERVAL_S</code>, <code>TYPESAFE_JEV_API_KEY</code></td><td>Spend tracker settings (SpendTracker.html Section 3b)</td></tr>
-                <tr><td><code>AGENT_PROVIDER</code>, <code>AGENT_MODEL</code>, <code>GEMINI_API_KEY</code>, <code>NVIDIA_API_KEY</code>, <code>OPENROUTER_API_KEY</code>, <code>AGENT_TENANT_RPM</code></td><td>Agentic Designer provider settings (AgenticDesigner.html Section 4a). A variable set in your shell overrides <code>.env</code> in Compose</td></tr>
+                <tr><td><code>AGENT_PROVIDER</code>, <code>AGENT_MODEL</code>, <code>GEMINI_API_KEY</code>, <code>NVIDIA_API_KEY</code>, <code>OPENROUTER_API_KEY</code>, <code>AGENT_TENANT_RPM</code></td><td>Agentic Designer provider settings (AgenticDesigner.html Section 4a)</td></tr>
             </tbody>
         </table>
         <div class="callout">
-            <div class="callout-title">Vite dev against the stack</div>
-            <p>Run <code>npm run dev</code> in <code>Designer/</code> with <code>VITE_API_BASE_URL=http://localhost:&lt;GATEWAY_PORT&gt;/api</code> in <code>Designer/.env.local</code>. Without it, Publish and the Workflow Wrapper screens show a "not configured" message rather than failing.</p>
+            <div class="callout-title">Tests</div>
+            <p><code>mvn test</code> in each Java service (boundary and table-ownership tests keep services off each other's tables). End to end: <code>services/design-service/e2e/design_api_test.sh</code> and <code>services/flowable-wrapper/e2e/runtime_work_test.py</code>, with design-service and flowable-wrapper started with <code>IDENTITY_CACHE_TTL=PT0S</code> (the suites expect role and group changes to apply at once).</p>
         </div>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
     </section>
@@ -224,9 +256,9 @@ open http://localhost:8080  # or GATEWAY_PORT from .env</code></pre>
             <thead><tr><th>Service</th><th>Extract when</th></tr></thead>
             <tbody>
                 <tr><td>notification-service</td><td>Email or in-app notifications need retries or queues</td></tr>
-                <tr><td>audit-service</td><td><code>audit_logs</code> needs writers other than Postgres triggers</td></tr>
+                <tr><td>audit-service</td><td>Audit needs its own retention, export or writers beyond identity and design</td></tr>
                 <tr><td>search-service</td><td>Workbench global search outgrows a SQL <code>ilike</code></td></tr>
-                <tr><td>identity / data services of our own</td><td>The Supabase-free track is picked up</td></tr>
+                <tr><td>separate database servers</td><td>A service needs independent scaling or backups (drop the cross-service foreign keys first)</td></tr>
             </tbody>
         </table>
         <a class="back-to-top" href="#top">&uarr; Back to top</a>
@@ -235,6 +267,7 @@ open http://localhost:8080  # or GATEWAY_PORT from .env</code></pre>
     <section>
         <h2 id="sec-6">6. Change Log</h2>
         <ul>
+            <li><strong>November 18, 2026:</strong> workflow-runtime split into <code>identity-service</code> (8082), <code>design-service</code> (8083) and <code>flowable-wrapper</code> (8081, package <code>com.waas.flowablewrapper</code>). identity-service issues RS256 tokens with a JWKS; the shared HS256 secret is gone. Gateway routes are now <code>/api/identity</code>, <code>/api/design</code>, <code>/api/flowable</code>; <code>/api/runtime</code> is retired. Each service logs into Postgres as its own role (<code>Database/roles.sql</code>). The audit log no longer shows actor emails. Verified: unit tests in all three Java services, both e2e suites through the new routes, role isolation (28 checks), nginx routing with the built SPA, and the full local stack via <code>run-local.sh</code>.</li>
             <li><strong>September 27, 2026 (S1):</strong> <code>spend-tracker</code> and <code>spend-db</code> added; gateway routes <code>/api/spend/**</code> and blocks <code>/api/spend/events</code>. agentic-designer posts usage events to the tracker over the internal network.</li>
             <li><strong>September 27, 2026 (restart):</strong> full stack restarted (<code>docker compose down</code> / <code>up --build</code>) plus the Vite dev server on 5173, now started with <code>VITE_API_BASE_URL=http://localhost:8088/api</code>. All services verified healthy through the gateway. agentic-designer now runs with <code>AGENT_PROVIDER=nvidia</code>.</li>
             <li><strong>September 27, 2026 (later):</strong> <code>agentic-designer</code> added to the stack behind <code>/api/agent/**</code>. Verified through the gateway: health, 401 without a token, CORS preflight.</li>
